@@ -4,8 +4,8 @@ const router = express.Router();
 
 const authenticate = require("../middleware/auth.middleware");
 
-const { createPayroll } = require("../controllers/payroll.controller");
+const { createProduction } = require("../controllers/production.controller");
 
-router.post("/generate", authenticate, createPayroll);
+router.post("/", authenticate, createProduction);
 
 module.exports = router;

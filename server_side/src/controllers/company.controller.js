@@ -1,6 +1,9 @@
 const {
     createCompany,
-    getCompanies
+    getCompanies,
+    getCompanyById,
+    updateCompany,
+    deleteCompany
 } = require("../services/company.service");
 
 const registerCompany = async (req, res) => {
@@ -9,7 +12,7 @@ const registerCompany = async (req, res) => {
 
         const company = await createCompany(req.body);
 
-        return res.status(201).json({
+        res.status(201).json({
             success: true,
             message: "Company created successfully.",
             data: company
@@ -17,7 +20,7 @@ const registerCompany = async (req, res) => {
 
     } catch (error) {
 
-        return res.status(400).json({
+        res.status(400).json({
             success: false,
             message: error.message
         });
@@ -32,14 +35,84 @@ const fetchCompanies = async (req, res) => {
 
         const companies = await getCompanies();
 
-        return res.status(200).json({
+        res.json({
             success: true,
             data: companies
         });
 
     } catch (error) {
 
-        return res.status(400).json({
+        res.status(400).json({
+            success: false,
+            message: error.message
+        });
+
+    }
+
+};
+
+const fetchCompany = async (req, res) => {
+
+    try {
+
+        const company = await getCompanyById(req.params.id);
+
+        res.json({
+            success: true,
+            data: company
+        });
+
+    } catch (error) {
+
+        res.status(400).json({
+            success: false,
+            message: error.message
+        });
+
+    }
+
+};
+
+const editCompany = async (req, res) => {
+
+    try {
+
+        const company = await updateCompany(
+            req.params.id,
+            req.body
+        );
+
+        res.json({
+            success: true,
+            message: "Company updated successfully.",
+            data: company
+        });
+
+    } catch (error) {
+
+        res.status(400).json({
+            success: false,
+            message: error.message
+        });
+
+    }
+
+};
+
+const removeCompany = async (req, res) => {
+
+    try {
+
+        const result = await deleteCompany(req.params.id);
+
+        res.json({
+            success: true,
+            message: result.message
+        });
+
+    } catch (error) {
+
+        res.status(400).json({
             success: false,
             message: error.message
         });
@@ -50,5 +123,8 @@ const fetchCompanies = async (req, res) => {
 
 module.exports = {
     registerCompany,
-    fetchCompanies
+    fetchCompanies,
+    fetchCompany,
+    editCompany,
+    removeCompany
 };

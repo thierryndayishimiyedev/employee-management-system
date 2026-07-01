@@ -7,23 +7,19 @@ const authenticate = (req, res, next) => {
         const authHeader = req.headers.authorization;
 
         if (!authHeader) {
-
             return res.status(401).json({
                 success: false,
                 message: "Access denied. No token provided."
             });
-
         }
 
         const token = authHeader.split(" ")[1];
 
         if (!token) {
-
             return res.status(401).json({
                 success: false,
                 message: "Invalid token."
             });
-
         }
 
         const decoded = jwt.verify(
@@ -31,7 +27,8 @@ const authenticate = (req, res, next) => {
             process.env.JWT_SECRET
         );
 
-        req.admin = decoded;
+        // Make authenticated user available everywhere
+        req.user = decoded;
 
         next();
 

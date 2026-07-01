@@ -1,11 +1,25 @@
-const express=require("express");
+const express = require("express");
 
-const router=express.Router();
+const router = express.Router();
 
-const authenticate=require("../middleware/auth.middleware");
+const authenticate = require("../middleware/auth.middleware");
 
-const {registerManager}=require("../controllers/manager.controller");
+const {
+    registerManager,
+    fetchManagers,
+    fetchManager,
+    editManager,
+    removeManager
+} = require("../controllers/manager.controller");
 
-router.post("/",authenticate,registerManager);
+router.post("/", authenticate, registerManager);
 
-module.exports=router;
+router.get("/", authenticate, fetchManagers);
+
+router.get("/:id", authenticate, fetchManager);
+
+router.put("/:id", authenticate, editManager);
+
+router.delete("/:id", authenticate, removeManager);
+
+module.exports = router;

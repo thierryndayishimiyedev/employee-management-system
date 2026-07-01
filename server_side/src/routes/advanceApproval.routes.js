@@ -4,8 +4,8 @@ const router = express.Router();
 
 const authenticate = require("../middleware/auth.middleware");
 
-const { createPayroll } = require("../controllers/payroll.controller");
+const { approve } = require("../controllers/advanceApproval.controller");
 
-router.post("/generate", authenticate, createPayroll);
+router.put("/:id/approve", authenticate, approve);
 
 module.exports = router;

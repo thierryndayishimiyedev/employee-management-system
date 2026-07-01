@@ -1,0 +1,5 @@
+POST    /api/companies
+GET     /api/companies
+GET     /api/companies/:id
+PUT     /api/companies/:id
+DELETE  /api/companies/:id
