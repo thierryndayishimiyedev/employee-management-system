@@ -19,6 +19,9 @@ const advanceRoutes=require("./routes/advance.routes");
 const advanceApprovalRoutes = require("./routes/advanceApproval.routes");
 const payrollApprovalRoutes = require("./routes/payrollApproval.routes");
 const paymentRoutes=require("./routes/payment.routes");
+const departmentRoutes = require("./routes/department.routes");
+const positionRoutes = require("./routes/position.routes");
+const roleRoutes = require("./routes/role.routes");
 
 const app = express();
 
@@ -50,6 +53,9 @@ app.use("/api/advances",advanceRoutes);
 app.use("/api/advance-approvals", advanceApprovalRoutes);
 app.use("/api/payroll-approvals", payrollApprovalRoutes);
 app.use("/api/payments",paymentRoutes);
+app.use("/api/departments", departmentRoutes);
+app.use("/api/positions", positionRoutes);
+app.use("/api/roles", roleRoutes);
 
 
 

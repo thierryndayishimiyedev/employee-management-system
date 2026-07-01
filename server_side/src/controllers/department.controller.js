@@ -1,21 +1,21 @@
 const {
-    createAdmin,
-    getAdmins,
-    getAdminById,
-    updateAdmin,
-    deleteAdmin
-} = require("../services/admin.service");
+    createDepartment,
+    getDepartments,
+    getDepartmentById,
+    updateDepartment,
+    deleteDepartment
+} = require("../services/department.service");
 
-const registerAdmin = async (req, res) => {
+const registerDepartment = async (req, res) => {
 
     try {
 
-        const admin = await createAdmin(req.body);
+        const department = await createDepartment(req.body);
 
         res.status(201).json({
             success: true,
-            message: "Super Admin created successfully.",
-            data: admin
+            message: "Department created successfully.",
+            data: department
         });
 
     } catch (error) {
@@ -29,15 +29,15 @@ const registerAdmin = async (req, res) => {
 
 };
 
-const fetchAdmins = async (req, res) => {
+const fetchDepartments = async (req, res) => {
 
     try {
 
-        const admins = await getAdmins();
+        const departments = await getDepartments();
 
         res.json({
             success: true,
-            data: admins
+            data: departments
         });
 
     } catch (error) {
@@ -51,15 +51,15 @@ const fetchAdmins = async (req, res) => {
 
 };
 
-const fetchAdmin = async (req, res) => {
+const fetchDepartment = async (req, res) => {
 
     try {
 
-        const admin = await getAdminById(req.params.id);
+        const department = await getDepartmentById(req.params.id);
 
         res.json({
             success: true,
-            data: admin
+            data: department
         });
 
     } catch (error) {
@@ -73,19 +73,19 @@ const fetchAdmin = async (req, res) => {
 
 };
 
-const editAdmin = async (req, res) => {
+const editDepartment = async (req, res) => {
 
     try {
 
-        const admin = await updateAdmin(
+        const department = await updateDepartment(
             req.params.id,
             req.body
         );
 
         res.json({
             success: true,
-            message: "Admin updated successfully.",
-            data: admin
+            message: "Department updated successfully.",
+            data: department
         });
 
     } catch (error) {
@@ -99,15 +99,15 @@ const editAdmin = async (req, res) => {
 
 };
 
-const removeAdmin = async (req, res) => {
+const removeDepartment = async (req, res) => {
 
     try {
 
-        await deleteAdmin(req.params.id);
+        await deleteDepartment(req.params.id);
 
         res.json({
             success: true,
-            message: "Admin deleted successfully."
+            message: "Department deleted successfully."
         });
 
     } catch (error) {
@@ -122,9 +122,9 @@ const removeAdmin = async (req, res) => {
 };
 
 module.exports = {
-    registerAdmin,
-    fetchAdmins,
-    fetchAdmin,
-    editAdmin,
-    removeAdmin
+    registerDepartment,
+    fetchDepartments,
+    fetchDepartment,
+    editDepartment,
+    removeDepartment
 };

@@ -28,10 +28,11 @@ const requestAdvance = async (data) => {
         .from("salary_advances")
         .select("amount")
         .eq("employee_id", employee_id)
-        .eq("status","APPROVED");
+        .eq("status", "APPROVED");
 
     const taken = advances.reduce(
-        (sum,a)=>sum+Number(a.amount),0
+        (sum, a) => sum + Number(a.amount),
+        0
     );
 
     const maxAdvance = payroll.net_salary / 2;
@@ -46,15 +47,97 @@ const requestAdvance = async (data) => {
             amount,
             reason,
             request_date: today,
-            status:"PENDING"
+            status: "PENDING"
         }])
         .select()
         .single();
 
-    if (advanceError) throw advanceError;
+    if (advanceError)
+        throw advanceError;
 
     return advance;
 
 };
 
-module.exports = { requestAdvance };
+const getAdvances = async () => {
+
+    const { data, error } = await supabase
+        .from("salary_advances")
+        .select(`
+            *,
+            employees(
+                employee_code,
+                first_name,
+                last_name
+            )
+        `)
+        .order("created_at", {
+            ascending: false
+        });
+
+    if (error)
+        throw error;
+
+    return data;
+
+};
+
+const getAdvanceById = async (id) => {
+
+    const { data, error } = await supabase
+        .from("salary_advances")
+        .select(`
+            *,
+            employees(
+                employee_code,
+                first_name,
+                last_name
+            )
+        `)
+        .eq("advance_id", id)
+        .single();
+
+    if (error)
+        throw error;
+
+    return data;
+
+};
+
+const updateAdvance = async (id, advanceData) => {
+
+    const { data, error } = await supabase
+        .from("salary_advances")
+        .update(advanceData)
+        .eq("advance_id", id)
+        .select()
+        .single();
+
+    if (error)
+        throw error;
+
+    return data;
+
+};
+
+const deleteAdvance = async (id) => {
+
+    const { error } = await supabase
+        .from("salary_advances")
+        .delete()
+        .eq("advance_id", id);
+
+    if (error)
+        throw error;
+
+    return true;
+
+};
+
+module.exports = {
+    requestAdvance,
+    getAdvances,
+    getAdvanceById,
+    updateAdvance,
+    deleteAdvance
+};

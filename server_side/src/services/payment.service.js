@@ -2,11 +2,10 @@ const supabase = require("../config/supabase");
 
 const verifyNames = (employee) => {
 
-    // Temporary simulation.
-    // Replace with MTN MoMo Name Verification API later.
-
     const fullName =
-        `${employee.first_name} ${employee.last_name}`.trim().toUpperCase();
+        `${employee.first_name} ${employee.last_name}`
+            .trim()
+            .toUpperCase();
 
     return {
         success: true,
@@ -25,7 +24,8 @@ const payAllApprovedPayrolls = async () => {
         `)
         .eq("payment_status", "APPROVED");
 
-    if (error) throw error;
+    if (error)
+        throw error;
 
     const results = [];
 
@@ -53,7 +53,7 @@ const payAllApprovedPayrolls = async () => {
                 }]);
 
             results.push({
-                employee: employee.first_name + " " + employee.last_name,
+                employee: `${employee.first_name} ${employee.last_name}`,
                 status: "FAILED"
             });
 
@@ -62,7 +62,7 @@ const payAllApprovedPayrolls = async () => {
         }
 
         const transactionReference =
-            "MOMO-" + Date.now() + "-" + Math.floor(Math.random()*1000);
+            "MOMO-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
 
         await supabase
             .from("payments")
@@ -87,28 +87,84 @@ const payAllApprovedPayrolls = async () => {
         totalPaid += Number(payroll.net_salary);
 
         results.push({
-            employee: employee.first_name + " " + employee.last_name,
+            employee: `${employee.first_name} ${employee.last_name}`,
             status: "PAID"
         });
 
     }
 
     return {
-
         total_workers: results.length,
-
-        paid: results.filter(r=>r.status==="PAID").length,
-
-        failed: results.filter(r=>r.status==="FAILED").length,
-
+        paid: results.filter(r => r.status === "PAID").length,
+        failed: results.filter(r => r.status === "FAILED").length,
         total_amount: totalPaid,
-
         results
-
     };
 
 };
 
+const getPayments = async () => {
+
+    const { data, error } = await supabase
+        .from("payments")
+        .select(`
+            *,
+            employees(
+                employee_code,
+                first_name,
+                last_name
+            )
+        `)
+        .order("payment_date", {
+            ascending: false
+        });
+
+    if (error)
+        throw error;
+
+    return data;
+
+};
+
+const getPaymentById = async (id) => {
+
+    const { data, error } = await supabase
+        .from("payments")
+        .select(`
+            *,
+            employees(
+                employee_code,
+                first_name,
+                last_name
+            )
+        `)
+        .eq("payment_id", id)
+        .single();
+
+    if (error)
+        throw error;
+
+    return data;
+
+};
+
+const deletePayment = async (id) => {
+
+    const { error } = await supabase
+        .from("payments")
+        .delete()
+        .eq("payment_id", id);
+
+    if (error)
+        throw error;
+
+    return true;
+
+};
+
 module.exports = {
-    payAllApprovedPayrolls
+    payAllApprovedPayrolls,
+    getPayments,
+    getPaymentById,
+    deletePayment
 };

@@ -1,11 +1,22 @@
-const express=require("express");
+const express = require("express");
 
-const router=express.Router();
+const router = express.Router();
 
-const authenticate=require("../middleware/auth.middleware");
+const authenticate = require("../middleware/auth.middleware");
 
-const { payAll } = require("../controllers/payment.controller");
+const {
+    payAll,
+    fetchPayments,
+    fetchPayment,
+    removePayment
+} = require("../controllers/payment.controller");
 
-router.post("/pay-all",authenticate,payAll);
+router.post("/pay-all", authenticate, payAll);
 
-module.exports=router;
+router.get("/", authenticate, fetchPayments);
+
+router.get("/:id", authenticate, fetchPayment);
+
+router.delete("/:id", authenticate, removePayment);
+
+module.exports = router;

@@ -21,9 +21,12 @@ const generatePayroll = async (employee_id, payroll_month, payroll_year) => {
         .gte("attendance_date", startDate)
         .lte("attendance_date", endDate);
 
-    if (attendanceError) throw attendanceError;
+    if (attendanceError)
+        throw attendanceError;
 
-    const daysWorked = attendance.filter(a => a.attendance_status === "PRESENT").length;
+    const daysWorked = attendance.filter(
+        a => a.attendance_status === "PRESENT"
+    ).length;
 
     const overtimeHours = attendance.reduce(
         (sum, a) => sum + Number(a.overtime_hours || 0),
@@ -40,7 +43,8 @@ const generatePayroll = async (employee_id, payroll_month, payroll_year) => {
         .eq("employee_id", employee_id)
         .eq("status", "APPROVED");
 
-    if (advanceError) throw advanceError;
+    if (advanceError)
+        throw advanceError;
 
     const advanceDeduction = advances.reduce(
         (sum, a) => sum + Number(a.amount),
@@ -88,7 +92,8 @@ const generatePayroll = async (employee_id, payroll_month, payroll_year) => {
             .select()
             .single();
 
-        if (error) throw error;
+        if (error)
+            throw error;
 
         return data;
 
@@ -100,12 +105,75 @@ const generatePayroll = async (employee_id, payroll_month, payroll_year) => {
         .select()
         .single();
 
-    if (error) throw error;
+    if (error)
+        throw error;
 
     return data;
 
 };
 
+const getPayrolls = async () => {
+
+    const { data, error } = await supabase
+        .from("payroll")
+        .select(`
+            *,
+            employees(
+                employee_code,
+                first_name,
+                last_name
+            )
+        `)
+        .order("generated_at", {
+            ascending: false
+        });
+
+    if (error)
+        throw error;
+
+    return data;
+
+};
+
+const getPayrollById = async (id) => {
+
+    const { data, error } = await supabase
+        .from("payroll")
+        .select(`
+            *,
+            employees(
+                employee_code,
+                first_name,
+                last_name
+            )
+        `)
+        .eq("payroll_id", id)
+        .single();
+
+    if (error)
+        throw error;
+
+    return data;
+
+};
+
+const deletePayroll = async (id) => {
+
+    const { error } = await supabase
+        .from("payroll")
+        .delete()
+        .eq("payroll_id", id);
+
+    if (error)
+        throw error;
+
+    return true;
+
+};
+
 module.exports = {
-    generatePayroll
+    generatePayroll,
+    getPayrolls,
+    getPayrollById,
+    deletePayroll
 };
