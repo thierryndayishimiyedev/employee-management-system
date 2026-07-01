@@ -1,0 +1,9 @@
+client_side/node_modules
+server_side/node_modules
+
+client_side/dist
+
+server_side/.env
+client_side/.env
+
+.DS_Store

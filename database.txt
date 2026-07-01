@@ -1,0 +1,215 @@
+CREATE DATABASE IF NOT EXISTS mining_management_system;
+USE mining_management_system;
+
+-- =====================================================
+-- TABLE: ADMINS
+-- =====================================================
+
+CREATE TABLE admins (
+    admin_id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    full_name VARCHAR(150) NOT NULL,
+    phone VARCHAR(20) NOT NULL UNIQUE,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    status ENUM('ACTIVE','INACTIVE') DEFAULT 'ACTIVE',
+    last_login DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =====================================================
+-- TABLE: COMPANIES
+-- =====================================================
+
+CREATE TABLE companies (
+    company_id INT AUTO_INCREMENT PRIMARY KEY,
+    company_name VARCHAR(150) NOT NULL,
+    mining_license_number VARCHAR(100) NOT NULL UNIQUE,
+    tin_number VARCHAR(100) NOT NULL UNIQUE,
+    phone VARCHAR(20) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    province VARCHAR(100) NOT NULL,
+    district VARCHAR(100) NOT NULL,
+    sector VARCHAR(100) NOT NULL,
+    village VARCHAR(100) NOT NULL,
+    address VARCHAR(255) NOT NULL,
+    registration_date DATE NOT NULL,
+    status ENUM('ACTIVE','INACTIVE') DEFAULT 'ACTIVE',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =====================================================
+-- TABLE: ROLES
+-- =====================================================
+
+CREATE TABLE roles (
+    role_id INT AUTO_INCREMENT PRIMARY KEY,
+    role_name VARCHAR(50) NOT NULL UNIQUE,
+    description TEXT
+);
+
+INSERT INTO roles(role_name,description) VALUES
+('OWNER','Company Owner'),
+('MANAGER','Company Manager'),
+('ACCOUNTANT','Company Accountant'),
+('WORKER','Company Worker');
+
+-- =====================================================
+-- TABLE: DEPARTMENTS
+-- =====================================================
+
+CREATE TABLE departments (
+    department_id INT AUTO_INCREMENT PRIMARY KEY,
+    department_name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO departments(department_name,description) VALUES
+('Administration','Administration Department'),
+('Mining','Mining Operations'),
+('Finance','Finance Department'),
+('Security','Security Department'),
+('Maintenance','Maintenance Department'),
+('Human Resource','Human Resource Department');
+
+
+
+-- =====================================================
+-- TABLE: POSITIONS
+-- =====================================================
+
+CREATE TABLE positions (
+    position_id INT AUTO_INCREMENT PRIMARY KEY,
+    department_id INT NOT NULL,
+    position_name VARCHAR(100) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_position_department
+        FOREIGN KEY (department_id)
+        REFERENCES departments(department_id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+);
+
+INSERT INTO positions(department_id,position_name,description) VALUES
+(1,'Owner','Company Owner'),
+(1,'Manager','Company Manager'),
+(2,'Supervisor','Mining Supervisor'),
+(2,'Excavator Operator','Operates Excavator'),
+(2,'Truck Driver','Drives Mining Trucks'),
+(2,'Miner','Mining Worker'),
+(2,'Machine Operator','Mining Machine Operator'),
+(3,'Accountant','Company Accountant'),
+(4,'Security Guard','Company Security'),
+(5,'Mechanic','Machine Maintenance'),
+(5,'Electrician','Electrical Maintenance');
+
+-- =====================================================
+-- TABLE: EMPLOYEES
+-- =====================================================
+
+CREATE TABLE employees (
+
+    employee_id INT AUTO_INCREMENT PRIMARY KEY,
+
+    company_id INT NOT NULL,
+
+    department_id INT NOT NULL,
+
+    position_id INT NOT NULL,
+
+    employee_code VARCHAR(30) NOT NULL UNIQUE,
+
+    first_name VARCHAR(100) NOT NULL,
+
+    last_name VARCHAR(100) NOT NULL,
+
+    gender ENUM('MALE','FEMALE') NOT NULL,
+
+    date_of_birth DATE NOT NULL,
+
+    national_id VARCHAR(16) NOT NULL UNIQUE,
+
+    phone VARCHAR(20) NOT NULL,
+
+    email VARCHAR(100),
+
+    address VARCHAR(255) NOT NULL,
+
+    hire_date DATE NOT NULL,
+
+    monthly_salary DECIMAL(12,2) DEFAULT 0,
+
+    daily_rate DECIMAL(12,2) DEFAULT 0,
+
+    profile_photo VARCHAR(255),
+
+    status ENUM(
+        'ACTIVE',
+        'INACTIVE',
+        'SUSPENDED',
+        'RESIGNED'
+    ) DEFAULT 'ACTIVE',
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_employee_company
+        FOREIGN KEY(company_id)
+        REFERENCES companies(company_id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_employee_department
+        FOREIGN KEY(department_id)
+        REFERENCES departments(department_id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_employee_position
+        FOREIGN KEY(position_id)
+        REFERENCES positions(position_id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+
+);
+
+
+-- =====================================================
+-- TABLE: USERS
+-- Login accounts for Employees
+-- =====================================================
+
+CREATE TABLE users (
+
+    user_id INT AUTO_INCREMENT PRIMARY KEY,
+
+    employee_id INT NOT NULL,
+
+    role_id INT NOT NULL,
+
+    username VARCHAR(100) NOT NULL UNIQUE,
+
+    password VARCHAR(255) NOT NULL,
+
+    is_active BOOLEAN DEFAULT TRUE,
+
+    last_login DATETIME NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_user_employee
+        FOREIGN KEY (employee_id)
+        REFERENCES employees(employee_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_user_role
+        FOREIGN KEY (role_id)
+        REFERENCES roles(role_id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+
+);
+
