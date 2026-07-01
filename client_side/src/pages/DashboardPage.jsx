@@ -2,59 +2,88 @@
 import { useAuth } from '../context/AuthContext'
 import {
   Users,
-  CalendarCheck,
-  Wallet,
   Building2,
   TrendingUp,
   AlertCircle,
   ArrowUpRight,
+  CalendarCheck,
 } from 'lucide-react'
 
-const clients = [
-  { id: 'c1', name: 'ABC Mining', owner: 'John Kabera', managers: 4, employees: 78 },
-  { id: 'c2', name: 'Kivu Mining', owner: 'Amina Niyonzima', managers: 3, employees: 64 },
-  { id: 'c3', name: 'East Mining', owner: 'Eric Mugisha', managers: 5, employees: 98 },
+const miningCompanies = [
+  {
+    id: 'c1',
+    name: 'ABC Mining',
+    province: 'South Province',
+    owner: 'John Kabera',
+    status: 'Active',
+    employees: 78,
+    createdAt: '2026-05-10',
+  },
+  {
+    id: 'c2',
+    name: 'Kivu Mining',
+    province: 'West Province',
+    owner: 'Amina Niyonzima',
+    status: 'Active',
+    employees: 64,
+    createdAt: '2026-04-28',
+  },
+  {
+    id: 'c3',
+    name: 'East Mining',
+    province: 'North Province',
+    owner: 'Eric Mugisha',
+    status: 'Inactive',
+    employees: 98,
+    createdAt: '2026-03-18',
+  },
+  {
+    id: 'c4',
+    name: 'Nyungwe Mining',
+    province: 'East Province',
+    owner: 'Claire Uwase',
+    status: 'Active',
+    employees: 52,
+    createdAt: '2026-06-03',
+  },
 ]
 
-const accessTrend = [
-  { label: '06-15', value: 48 },
-  { label: '06-16', value: 62 },
-  { label: '06-17', value: 55 },
-  { label: '06-18', value: 73 },
-  { label: '06-19', value: 64 },
-  { label: '06-20', value: 81 },
-  { label: '06-21', value: 92 },
+const companiesGrowth = [
+  { label: 'Jan', value: 2 },
+  { label: 'Feb', value: 4 },
+  { label: 'Mar', value: 6 },
+  { label: 'Apr', value: 7 },
+  { label: 'May', value: 8 },
+  { label: 'Jun', value: 9 },
 ]
 
-const billing = [
-  { clientId: 'c1', netAmount: 1240000 },
-  { clientId: 'c2', netAmount: 980000 },
-  { clientId: 'c3', netAmount: 1125000 },
+const recentActivities = [
+  { id: 'a1', event: 'Company Registered', company: 'Nyungwe Mining', date: 'Jun 3, 2026', user: 'Admin' },
+  { id: 'a2', event: 'Owner Created', company: 'East Mining', date: 'May 28, 2026', user: 'Admin' },
+  { id: 'a3', event: 'Company Updated', company: 'ABC Mining', date: 'May 10, 2026', user: 'Admin' },
+  { id: 'a4', event: 'Owner Password Reset', company: 'Kivu Mining', date: 'Apr 14, 2026', user: 'Admin' },
 ]
 
-const pendingInvites = [
-  { id: 'r1', type: 'Owner invite', clientId: 'c1' },
-  { id: 'r2', type: 'Manager access', clientId: 'c3' },
-]
-
-const supportTickets = [
-  { id: 't1', clientId: 'c1', status: 'open', description: 'Admin portal login issue' },
-  { id: 't2', clientId: 'c2', status: 'open', description: 'Data sync delay' },
+const systemHealth = [
+  { id: 's1', name: 'Backend', status: 'Online' },
+  { id: 's2', name: 'Database', status: 'Online' },
+  { id: 's3', name: 'API', status: 'Online' },
+  { id: 's4', name: 'Storage', status: 'Online' },
 ]
 
 const actions = [
-  { to: '/clients', label: 'Create client portal', icon: Building2 },
-  { to: '/owners', label: 'Invite owner', icon: Users },
-  { to: '/managers', label: 'Configure managers', icon: TrendingUp },
-  { to: '/employees', label: 'Manage employees', icon: CalendarCheck },
+  { to: '/companies', label: 'Register Company', icon: Building2 },
+  { to: '/owners', label: 'Create Owner', icon: Users },
+  { to: '/companies', label: 'View Companies', icon: TrendingUp },
+  { to: '/audit-logs', label: 'Audit Logs', icon: CalendarCheck },
 ]
 
-function formatRWF(value) {
-  return new Intl.NumberFormat('en-RW', {
-    style: 'currency',
-    currency: 'RWF',
-    maximumFractionDigits: 0,
-  }).format(value)
+function formatDate(date) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date)
 }
 
 function StatCard({ label, value, delta, icon: Icon, tone = 'default' }) {
@@ -72,19 +101,17 @@ function StatCard({ label, value, delta, icon: Icon, tone = 'default' }) {
 
 export default function DashboardPage() {
   const { admin } = useAuth()
-  const today = '2026-06-21'
+  const today = formatDate(new Date())
 
   if (!admin) {
     return null
   }
 
-  const ownerCount = clients.length
-  const managerCount = clients.reduce((sum, client) => sum + client.managers, 0)
-  const employeeCount = clients.reduce((sum, client) => sum + client.employees, 0)
-  const totalBilling = billing.reduce((sum, item) => sum + item.netAmount, 0)
-  const pendingCount = pendingInvites.length
-  const supportCount = supportTickets.length
-  const maxTrend = Math.max(...accessTrend.map((item) => item.value), 1)
+  const companiesCount = miningCompanies.length
+  const ownersCount = miningCompanies.length
+  const employeesCount = miningCompanies.reduce((sum, company) => sum + company.employees, 0)
+  const systemOnline = systemHealth.filter((item) => item.status === 'Online').length
+  const maxTrend = Math.max(...companiesGrowth.map((item) => item.value), 1)
 
   return (
     <div className="dashboard-page">
@@ -92,7 +119,7 @@ export default function DashboardPage() {
         <section className="dashboard-header">
           <div>
             <h1>Super Admin Portal</h1>
-            <p className="dashboard-subtitle">Developer control center for your client mining systems</p>
+            <p className="dashboard-subtitle">Developer control center for all mining companies</p>
           </div>
           <div className="dashboard-actions">
             <span className="pill">Updated: {today}</span>
@@ -101,42 +128,42 @@ export default function DashboardPage() {
 
         <section className="stats-grid">
           <StatCard
-            label="Client portals"
-            value={String(clients.length)}
-            delta={`${ownerCount} owner accounts`}
+            label="Mining Companies"
+            value={String(companiesCount)}
+            delta={`${ownersCount} owners registered`}
             icon={Building2}
             tone="amber"
           />
           <StatCard
-            label="Owner accounts"
-            value={String(ownerCount)}
-            delta={`${managerCount} managers overall`}
+            label="Owners"
+            value={String(ownersCount)}
+            delta={`${employeesCount} employees managed`}
             icon={Users}
             tone="success"
           />
           <StatCard
-            label="Manager accounts"
-            value={String(managerCount)}
-            delta={`${employeeCount} employees total`}
+            label="Employees"
+            value={String(employeesCount)}
+            delta={`${companiesCount} companies live`}
             icon={TrendingUp}
           />
           <StatCard
-            label="Billing run"
-            value={formatRWF(totalBilling)}
-            delta={`${supportCount} active tickets`}
-            icon={Wallet}
-            tone="warning"
+            label="System Online"
+            value={`${systemOnline}/4`}
+            delta="All services operational"
+            icon={AlertCircle}
+            tone="default"
           />
         </section>
 
         <section className="dashboard-grid">
           <div className="panel panel-lg chart-card">
             <div>
-              <p className="panel-title">Client access trend</p>
-              <p className="panel-description">Weekly portal activity across all clients</p>
+              <p className="panel-title">Companies Growth</p>
+              <p className="panel-description">Monthly mining company registrations.</p>
             </div>
             <div className="trend-chart">
-              {accessTrend.map((point) => (
+              {companiesGrowth.map((point) => (
                 <div
                   key={point.label}
                   className="trend-bar"
@@ -147,7 +174,7 @@ export default function DashboardPage() {
               ))}
             </div>
             <div className="trend-labels">
-              {accessTrend.map((point) => (
+              {companiesGrowth.map((point) => (
                 <span key={point.label}>{point.label}</span>
               ))}
             </div>
@@ -170,38 +197,78 @@ export default function DashboardPage() {
               })}
             </div>
 
-            <div className="alert-box">
-              <AlertCircle size={18} />
-              <div>
-                <strong>{pendingCount}</strong> pending access approvals
-              </div>
-            </div>
-
-            <div className="panel-description" style={{ margin: 0 }}>
-              Open support tickets
-              <div style={{ marginTop: '0.5rem', fontFamily: 'monospace', color: '#fff' }}>{supportCount}</div>
+            <div className="panel-description">
+              This portal manages companies, owner access, and system health for your mining ecosystem.
             </div>
           </div>
         </section>
 
-        <section className="panel">
-          <p className="panel-title">Client portal hierarchy</p>
-          <p className="panel-description">Your clients, owners, managers, and employee counts.</p>
-          <div className="mines-grid">
-            {clients.map((client) => (
-              <Link key={client.id} to="/clients" className="mine-card">
-                <div className="meta">
-                  <Building2 size={18} />
-                  <TrendingUp size={18} />
+        <section className="dashboard-grid">
+          <div className="panel panel-lg">
+            <p className="panel-title">Recent Companies</p>
+            <p className="panel-description">Latest companies registered through the developer portal.</p>
+            <div className="table-wrapper">
+              <table className="dashboard-table">
+                <thead>
+                  <tr>
+                    <th>Company</th>
+                    <th>Province</th>
+                    <th>Owner</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {miningCompanies.map((company) => (
+                    <tr key={company.id}>
+                      <td>{company.name}</td>
+                      <td>{company.province}</td>
+                      <td>{company.owner}</td>
+                      <td>
+                        <span className={`status-badge ${company.status.toLowerCase()}`}>
+                          {company.status}
+                        </span>
+                      </td>
+                      <td>{company.createdAt}</td>
+                      <td>
+                        <Link to="/companies" className="table-link">
+                          View
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="panel panel-sm">
+            <div>
+              <p className="panel-title">Recent Activity</p>
+              <p className="panel-description">Super Admin actions recorded by the portal.</p>
+            </div>
+            <ul className="activity-list">
+              {recentActivities.map((activity) => (
+                <li key={activity.id} className="activity-row">
+                  <div className="activity-title">{activity.event}</div>
+                  <div className="activity-meta">
+                    {activity.company} · {activity.user} · {activity.date}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className="system-health-grid">
+              {systemHealth.map((service) => (
+                <div key={service.id} className="health-card">
+                  <div className="health-info">
+                    <div className="health-name">{service.name}</div>
+                    <div className="health-status">{service.status}</div>
+                  </div>
+                  <span className={`health-indicator ${service.status.toLowerCase()}`} />
                 </div>
-                <div className="mine-title">{client.name}</div>
-                <div className="mine-location">Owner: {client.owner}</div>
-                <div className="mine-stats">
-                  <span><strong>{client.managers}</strong> managers</span>
-                  <span><strong>{client.employees}</strong> employees</span>
-                </div>
-              </Link>
-            ))}
+              ))}
+            </div>
           </div>
         </section>
       </div>
