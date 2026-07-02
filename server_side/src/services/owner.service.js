@@ -5,7 +5,6 @@ const createOwner = async (ownerData) => {
 
     const {
         company_id,
-        position_id,
         employee_code,
         first_name,
         last_name,
@@ -23,15 +22,6 @@ const createOwner = async (ownerData) => {
         password
     } = ownerData;
 
-    const { data: position, error: positionError } = await supabase
-        .from("positions")
-        .select("*")
-        .eq("position_id", position_id)
-        .single();
-
-    if (positionError || !position)
-        throw new Error("Position not found.");
-
     const { data: role, error: roleError } = await supabase
         .from("roles")
         .select("*")
@@ -45,8 +35,8 @@ const createOwner = async (ownerData) => {
         .from("employees")
         .insert([{
             company_id,
-            department_id: position.department_id,
-            position_id,
+            department_id: null,
+            position_id: null,
             employee_code,
             first_name,
             last_name,
@@ -102,7 +92,8 @@ const getOwners = async () => {
             employees(*)
         `);
 
-    if (error) throw error;
+    if (error)
+        throw error;
 
     return data.filter(user =>
         user.roles &&
@@ -123,7 +114,8 @@ const getOwnerById = async (id) => {
         .eq("user_id", id)
         .single();
 
-    if (error) throw error;
+    if (error)
+        throw error;
 
     return data;
 

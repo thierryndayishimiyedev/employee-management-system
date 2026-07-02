@@ -1,3 +1,187 @@
+// const supabase = require("../config/supabase");
+
+// const createWorker = async (data) => {
+
+//     const {
+//         company_id,
+//         position_id,
+//         employee_code,
+//         first_name,
+//         last_name,
+//         gender,
+//         date_of_birth,
+//         national_id,
+//         phone,
+//         email,
+//         address,
+//         hire_date,
+//         monthly_salary,
+//         daily_rate,
+//         profile_photo
+//     } = data;
+
+//     const { data: position, error: positionError } = await supabase
+//         .from("positions")
+//         .select("*")
+//         .eq("position_id", position_id)
+//         .single();
+
+//     if (positionError || !position)
+//         throw new Error("Position not found.");
+
+//     const { data: employee, error } = await supabase
+//         .from("employees")
+//         .insert([{
+//             company_id,
+//             department_id: position.department_id,
+//             position_id,
+//             employee_code,
+//             first_name,
+//             last_name,
+//             gender,
+//             date_of_birth,
+//             national_id,
+//             phone,
+//             email,
+//             address,
+//             hire_date,
+//             monthly_salary,
+//             daily_rate,
+//             profile_photo
+//         }])
+//         .select()
+//         .single();
+
+//     if (error)
+//         throw error;
+
+//     return employee;
+
+// };
+
+// const getWorkers = async () => {
+
+//     const { data, error } = await supabase
+//         .from("employees")
+//         .select(`
+//             *,
+//             positions(position_name),
+//             departments(department_name)
+//         `)
+//         .order("created_at", { ascending: false });
+
+//     if (error)
+//         throw error;
+
+//     return data;
+
+// };
+
+// const getWorkerById = async (id) => {
+
+//     const { data, error } = await supabase
+//         .from("employees")
+//         .select(`
+//             *,
+//             positions(position_name),
+//             departments(department_name)
+//         `)
+//         .eq("employee_id", id)
+//         .single();
+
+//     if (error)
+//         throw error;
+
+//     return data;
+
+// };
+
+// const updateWorker = async (id, workerData) => {
+
+//     const {
+//         first_name,
+//         last_name,
+//         gender,
+//         date_of_birth,
+//         national_id,
+//         phone,
+//         email,
+//         address,
+//         hire_date,
+//         monthly_salary,
+//         daily_rate,
+//         profile_photo,
+//         position_id
+//     } = workerData;
+
+//     let updateData = {
+//         first_name,
+//         last_name,
+//         gender,
+//         date_of_birth,
+//         national_id,
+//         phone,
+//         email,
+//         address,
+//         hire_date,
+//         monthly_salary,
+//         daily_rate,
+//         profile_photo
+//     };
+
+//     if (position_id) {
+
+//         const { data: position } = await supabase
+//             .from("positions")
+//             .select("department_id")
+//             .eq("position_id", position_id)
+//             .single();
+
+//         updateData.position_id = position_id;
+//         updateData.department_id = position.department_id;
+
+//     }
+
+//     const { error } = await supabase
+//         .from("employees")
+//         .update(updateData)
+//         .eq("employee_id", id);
+
+//     if (error)
+//         throw error;
+
+//     return await getWorkerById(id);
+
+// };
+
+// const deactivateWorker = async (id) => {
+
+//     const { data, error } = await supabase
+//         .from("employees")
+//         .update({
+//             status: "INACTIVE"
+//         })
+//         .eq("employee_id", id)
+//         .select()
+//         .single();
+
+//     if (error)
+//         throw error;
+
+//     return data;
+
+// };
+
+// module.exports = {
+//     createWorker,
+//     getWorkers,
+//     getWorkerById,
+//     updateWorker,
+//     deactivateWorker
+// };
+
+
+const bcrypt = require("bcrypt");
 const supabase = require("../config/supabase");
 
 const createWorker = async (data) => {
@@ -17,7 +201,10 @@ const createWorker = async (data) => {
         hire_date,
         monthly_salary,
         daily_rate,
-        profile_photo
+        profile_photo,
+        username,
+        password,
+        role_name
     } = data;
 
     const { data: position, error: positionError } = await supabase
@@ -29,7 +216,16 @@ const createWorker = async (data) => {
     if (positionError || !position)
         throw new Error("Position not found.");
 
-    const { data: employee, error } = await supabase
+    const { data: role, error: roleError } = await supabase
+        .from("roles")
+        .select("*")
+        .eq("role_name", role_name)
+        .single();
+
+    if (roleError || !role)
+        throw new Error("Role not found.");
+
+    const { data: employee, error: employeeError } = await supabase
         .from("employees")
         .insert([{
             company_id,
@@ -52,10 +248,31 @@ const createWorker = async (data) => {
         .select()
         .single();
 
-    if (error)
-        throw error;
+    if (employeeError)
+        throw employeeError;
 
-    return employee;
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const { data: user, error: userError } = await supabase
+        .from("users")
+        .insert([{
+            employee_id: employee.employee_id,
+            role_id: role.role_id,
+            username,
+            password: hashedPassword
+        }])
+        .select()
+        .single();
+
+    if (userError)
+        throw userError;
+
+    delete user.password;
+
+    return {
+        employee,
+        user
+    };
 
 };
 
@@ -68,7 +285,9 @@ const getWorkers = async () => {
             positions(position_name),
             departments(department_name)
         `)
-        .order("created_at", { ascending: false });
+        .order("created_at", {
+            ascending: false
+        });
 
     if (error)
         throw error;
@@ -131,11 +350,14 @@ const updateWorker = async (id, workerData) => {
 
     if (position_id) {
 
-        const { data: position } = await supabase
+        const { data: position, error: positionError } = await supabase
             .from("positions")
             .select("department_id")
             .eq("position_id", position_id)
             .single();
+
+        if (positionError || !position)
+            throw new Error("Position not found.");
 
         updateData.position_id = position_id;
         updateData.department_id = position.department_id;

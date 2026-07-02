@@ -12,14 +12,34 @@ const {
     removeAttendance
 } = require("../controllers/attendance.controller");
 
-router.post("/", authenticate, createAttendance);
+router.post(
+    "/",
+    authenticate,
+    createAttendance
+);
 
-router.get("/", authenticate, fetchAttendances);
+router.get(
+    "/",
+    authenticate,
+    fetchAttendances
+);
 
-router.get("/:id", authenticate, fetchAttendance);
+router.get(
+    "/:id",
+    authenticate,
+    fetchAttendance
+);
 
-router.put("/:id", authenticate, editAttendance);
+router.put(
+    "/:id",
+    authenticate,
+    editAttendance
+);
 
-router.delete("/:id", authenticate, removeAttendance);
+router.delete(
+    "/:id",
+    authenticate,
+    removeAttendance
+);
 
 module.exports = router;

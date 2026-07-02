@@ -10,9 +10,12 @@ const createAttendance = async (req, res) => {
 
     try {
 
-        const attendance = await recordAttendance(req.body, req.user);
+        const attendance = await recordAttendance(
+            req.body,
+            req.user
+        );
 
-        res.status(201).json({
+        return res.status(201).json({
             success: true,
             message: "Attendance recorded successfully.",
             data: attendance
@@ -20,7 +23,7 @@ const createAttendance = async (req, res) => {
 
     } catch (err) {
 
-        res.status(400).json({
+        return res.status(400).json({
             success: false,
             message: err.message
         });
@@ -35,14 +38,14 @@ const fetchAttendances = async (req, res) => {
 
         const attendances = await getAttendances();
 
-        res.json({
+        return res.status(200).json({
             success: true,
             data: attendances
         });
 
     } catch (err) {
 
-        res.status(400).json({
+        return res.status(400).json({
             success: false,
             message: err.message
         });
@@ -55,16 +58,18 @@ const fetchAttendance = async (req, res) => {
 
     try {
 
-        const attendance = await getAttendanceById(req.params.id);
+        const attendance = await getAttendanceById(
+            req.params.id
+        );
 
-        res.json({
+        return res.status(200).json({
             success: true,
             data: attendance
         });
 
     } catch (err) {
 
-        res.status(400).json({
+        return res.status(400).json({
             success: false,
             message: err.message
         });
@@ -82,7 +87,7 @@ const editAttendance = async (req, res) => {
             req.body
         );
 
-        res.json({
+        return res.status(200).json({
             success: true,
             message: "Attendance updated successfully.",
             data: attendance
@@ -90,7 +95,7 @@ const editAttendance = async (req, res) => {
 
     } catch (err) {
 
-        res.status(400).json({
+        return res.status(400).json({
             success: false,
             message: err.message
         });
@@ -105,14 +110,14 @@ const removeAttendance = async (req, res) => {
 
         await deleteAttendance(req.params.id);
 
-        res.json({
+        return res.status(200).json({
             success: true,
             message: "Attendance deleted successfully."
         });
 
     } catch (err) {
 
-        res.status(400).json({
+        return res.status(400).json({
             success: false,
             message: err.message
         });

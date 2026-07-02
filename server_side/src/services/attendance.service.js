@@ -22,6 +22,16 @@ const recordAttendance = async (attendanceData, user) => {
     if (employeeError || !employee)
         throw new Error("Employee not found.");
 
+    const { data: existing } = await supabase
+        .from("attendance")
+        .select("attendance_id")
+        .eq("employee_id", employee_id)
+        .eq("attendance_date", attendance_date)
+        .maybeSingle();
+
+    if (existing)
+        throw new Error("Attendance already recorded for this employee.");
+
     const { data: attendance, error: attendanceError } = await supabase
         .from("attendance")
         .insert([{
@@ -52,9 +62,15 @@ const getAttendances = async () => {
         .from("attendance")
         .select(`
             *,
-            employees(first_name,last_name,employee_code)
+            employees(
+                employee_code,
+                first_name,
+                last_name
+            )
         `)
-        .order("attendance_date", { ascending: false });
+        .order("attendance_date", {
+            ascending: false
+        });
 
     if (error)
         throw error;
@@ -69,7 +85,11 @@ const getAttendanceById = async (id) => {
         .from("attendance")
         .select(`
             *,
-            employees(first_name,last_name,employee_code)
+            employees(
+                employee_code,
+                first_name,
+                last_name
+            )
         `)
         .eq("attendance_id", id)
         .single();
@@ -107,7 +127,9 @@ const deleteAttendance = async (id) => {
     if (error)
         throw error;
 
-    return true;
+    return {
+        message: "Attendance deleted successfully."
+    };
 
 };
 
