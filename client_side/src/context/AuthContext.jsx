@@ -4,39 +4,53 @@ import api from '../api/api'
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [admin, setAdmin] = useState(() => {
-    const saved = localStorage.getItem('admin')
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('user')
     return saved ? JSON.parse(saved) : null
   })
 
-  const login = async (username, password) => {
-    const { data } = await api.post('/auth/login', { username, password })
+  const login = async (username, password, portal = 'admin') => {
+    const endpoint = portal === 'owner' ? '/owner-auth/login' : '/auth/login'
+    const { data } = await api.post(endpoint, { username, password })
 
     if (!data.success) {
       throw new Error(data.message || 'Login failed')
     }
 
-    localStorage.setItem('token', data.token)
-    localStorage.setItem('admin', JSON.stringify(data.admin))
-    setAdmin(data.admin)
+    const session =
+      portal === 'owner'
+        ? {
+            ...data.data.user,
+            role: data.data.user.roles?.role_name || 'OWNER',
+          }
+        : {
+            ...data.admin,
+            role: 'ADMIN',
+          }
+
+    localStorage.setItem('token', portal === 'owner' ? data.data.token : data.token)
+    localStorage.setItem('user', JSON.stringify(session))
+    setUser(session)
 
     return data
   }
 
   const logout = () => {
     localStorage.removeItem('token')
-    localStorage.removeItem('admin')
-    setAdmin(null)
+    localStorage.removeItem('user')
+    setUser(null)
   }
 
   const value = useMemo(
     () => ({
-      admin,
-      isAuthenticated: Boolean(admin),
+      user,
+      isAuthenticated: Boolean(user),
+      isAdmin: user?.role === 'ADMIN',
+      isOwner: user?.role === 'OWNER',
       login,
       logout,
     }),
-    [admin],
+    [user],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -6,7 +6,7 @@ const ownerLogin = async ({ username, password }) => {
 
     const { data: user, error } = await supabase
         .from("users")
-        .select(`
+        .select(` 
             *,
             roles(role_name),
             employees(*)
