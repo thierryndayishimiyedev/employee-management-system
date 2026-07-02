@@ -5,8 +5,6 @@ const createOwner = async (ownerData) => {
 
     const {
         company_id,
-        position_id,
-        employee_code,
         first_name,
         last_name,
         gender,
@@ -17,22 +15,21 @@ const createOwner = async (ownerData) => {
         address,
         hire_date,
         monthly_salary,
-        daily_rate,
         profile_photo,
         username,
         password
     } = ownerData;
 
-    // Find Position
+    // Find Owner Position
 
     const { data: position, error: positionError } = await supabase
         .from("positions")
         .select("*")
-        .eq("position_id", position_id)
+        .eq("position_name", "Owner")
         .single();
 
     if (positionError || !position) {
-        throw new Error("Position not found.");
+        throw new Error("Owner position not found.");
     }
 
     // Find OWNER Role
@@ -47,6 +44,14 @@ const createOwner = async (ownerData) => {
         throw new Error("OWNER role not found.");
     }
 
+    // Generate Employee Code
+
+    const employee_code = `OWN${Date.now().toString().slice(-5)}`;
+
+    // Calculate Daily Rate
+
+    const daily_rate = Math.round(Number(monthly_salary) / 30);
+
     // Create Employee
 
     const { data: employee, error: employeeError } = await supabase
@@ -55,7 +60,7 @@ const createOwner = async (ownerData) => {
             {
                 company_id,
                 department_id: position.department_id,
-                position_id,
+                position_id: position.position_id,
                 employee_code,
                 first_name,
                 last_name,
