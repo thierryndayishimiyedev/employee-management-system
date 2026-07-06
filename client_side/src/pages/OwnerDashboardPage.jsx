@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Building2, CalendarCheck, Users, Wallet, Mountain, TrendingUp, AlertCircle } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
@@ -23,7 +23,13 @@ const overviewCards = [
 ]
 
 export default function OwnerDashboardPage() {
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/owner/login')
+  }
 
   if (!user) {
     return null
@@ -41,10 +47,16 @@ export default function OwnerDashboardPage() {
               <h1 className="text-4xl font-bold tracking-tight text-white">Welcome back, {ownerName.split(' ')[0]}</h1>
               <p className="max-w-2xl text-slate-400">Your company performance and team operations are all in one owner portal. Use quick actions to manage departments, positions, attendance, and production.</p>
             </div>
-            <div className="rounded-3xl bg-slate-950/80 border border-slate-700/50 p-5">
+            <div className="flex flex-col gap-3 rounded-3xl bg-slate-950/80 border border-slate-700/50 p-5">
               <p className="text-sm text-slate-400">Company tier</p>
               <p className="mt-2 text-3xl font-semibold text-white">Gold</p>
               <p className="mt-1 text-sm text-slate-400">Powered by MineOps</p>
+              <button
+                onClick={handleLogout}
+                className="mt-2 inline-flex items-center justify-center rounded-full border border-slate-700/50 bg-slate-900/80 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-amber-400 hover:text-amber-300"
+              >
+                Logout
+              </button>
             </div>
           </div>
         </header>

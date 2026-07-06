@@ -3,6 +3,25 @@ import api from "../api/api";
 
 const AuthContext = createContext(null);
 
+const normalizeUser = (user) => {
+    if (!user) return null;
+
+    const roleName =
+        user.role_name ||
+        user.roles?.role_name ||
+        user.role ||
+        user.roles?.[0]?.role_name;
+
+    if (!roleName) {
+        return user;
+    }
+
+    return {
+        ...user,
+        role_name: roleName
+    };
+};
+
 export function AuthProvider({ children }) {
 
     const [user, setUser] = useState(() => {
@@ -15,14 +34,15 @@ export function AuthProvider({ children }) {
 
         try {
             const parsed = JSON.parse(saved);
+            const normalized = normalizeUser(parsed);
 
-            if (!parsed?.role_name) {
+            if (!normalized?.role_name) {
                 localStorage.removeItem("user");
                 localStorage.removeItem("token");
                 return null;
             }
 
-            return parsed;
+            return normalized;
         } catch {
             localStorage.removeItem("user");
             localStorage.removeItem("token");
@@ -48,7 +68,7 @@ export function AuthProvider({ children }) {
         }
 
         const token = response.data.data.token;
-        const loggedUser = response.data.data.user;
+        const loggedUser = normalizeUser(response.data.data.user);
 
         localStorage.setItem("token", token);
         localStorage.setItem(

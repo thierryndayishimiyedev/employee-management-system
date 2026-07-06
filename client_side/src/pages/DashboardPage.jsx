@@ -1,7 +1,6 @@
 ﻿import { Link, useNavigate } from 'react-router-dom'
-import { useEffect, useState } from "react";
-import api from "../api/api";
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import api from '../api/api'
 import { useAuth } from '../context/AuthContext'
 import RegisterCompanyModal from '../components/RegisterCompanyModal'
 import RegisterOwnerModal from '../components/registerOwnerModal'
@@ -112,7 +111,7 @@ function StatCard({ label, value, delta, icon: Icon, tone = 'default' }) {
 }
 
 export default function DashboardPage() {
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
 
   // All hooks live inside the component body — this is what fixes the
@@ -183,6 +182,11 @@ export default function DashboardPage() {
     }
   }
 
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100 p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -197,6 +201,12 @@ export default function DashboardPage() {
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/6 border border-slate-700/30 text-sm">
               Updated: {today}
             </span>
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center rounded-full border border-slate-700/50 bg-slate-900/80 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-amber-400 hover:text-amber-300"
+            >
+              Logout
+            </button>
           </div>
         </div>
 

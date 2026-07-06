@@ -33,7 +33,11 @@ export default function LoginPage() {
     try {
       const response = await login(name, password)
       toast.success('Welcome back')
-      const roleName = response?.data?.data?.user?.role_name || user?.role_name
+      const roleName =
+        response?.data?.data?.user?.role_name ||
+        response?.data?.data?.user?.roles?.role_name ||
+        response?.data?.data?.user?.role ||
+        user?.role_name
       const destination = roleName === 'OWNER' ? '/owner/dashboard' : '/dashboard'
       navigate(destination)
     } catch (error) {
