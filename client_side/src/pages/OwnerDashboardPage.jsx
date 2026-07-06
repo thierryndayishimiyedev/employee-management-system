@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Building2,
@@ -13,17 +14,8 @@ import {
   Gauge,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import api from '../api/api'
 import AppSidebar from './Appsidebar'
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
-
 // ---- Palette reference (Tailwind) ----
 // Primary   amber-500 / amber-600
 // Secondary slate-500 / slate-700
@@ -31,13 +23,6 @@ import {
 // Warning   orange-500
 // Danger    red-500
 // Info      cyan-500
-
-const stats = [
-  { label: 'Active employees', value: '56', icon: Users, tone: 'amber', detail: '4 new this month' },
-  { label: 'Attendance rate', value: '92%', icon: CalendarCheck, tone: 'emerald', detail: "Today's snapshot" },
-  { label: 'Production this month', value: '2,480 kg', icon: Mountain, tone: 'slate', detail: 'Compared to last month' },
-  { label: 'Payroll due', value: '18 staff', icon: Wallet, tone: 'orange', detail: 'Next payout cycle' },
-]
 
 const toneStyles = {
   amber: { bg: 'bg-amber-50', icon: 'text-amber-600', ring: 'ring-amber-100' },
@@ -52,12 +37,6 @@ const actions = [
   { to: '/positions', label: 'Create positions', icon: TrendingUp },
   { to: '/attendance', label: 'Record attendance', icon: CalendarCheck },
   { to: '/production', label: 'Log production', icon: Mountain },
-]
-
-const overviewCards = [
-  { title: 'Mine health', value: 'Good', details: 'All equipment active', tone: 'emerald' },
-  { title: 'Pending approvals', value: '3', details: 'Leave and advance requests', tone: 'amber' },
-  { title: 'Notifications', value: '12', details: 'Recent updates available', tone: 'cyan' },
 ]
 
 const productionTrend = [
@@ -79,12 +58,118 @@ const activity = [
 
 export default function OwnerDashboardPage() {
   const { user } = useAuth()
+  const [dashboard, setDashboard] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let mounted = true
+
+    const loadDashboard = async () => {
+      try {
+        const response = await api.get('/dashboard/owner')
+        if (mounted) {
+          setDashboard(response?.data?.data || response?.data || null)
+        }
+      } catch (error) {
+        console.error('Failed to load owner dashboard data:', error)
+      } finally {
+        if (mounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadDashboard()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   if (!user) {
     return null
   }
 
   const ownerName = user.employees ? `${user.employees.first_name} ${user.employees.last_name}` : user.username
+
+  const stats = useMemo(() => [
+    {
+      label: 'Active employees',
+      value: dashboard?.total_employees ?? 0,
+      icon: Users,
+      tone: 'amber',
+      detail: `${dashboard?.today_attendance ?? 0} checked in today`,
+    },
+    {
+      label: 'Attendance today',
+      value: `${dashboard?.today_attendance ?? 0}`,
+      icon: CalendarCheck,
+      tone: 'emerald',
+      detail: 'Records captured for the current day',
+    },
+    {
+      label: 'Production this month',
+      value: `${Number(dashboard?.total_production || 0).toLocaleString()} kg`,
+      icon: Mountain,
+      tone: 'slate',
+      detail: 'Based on production records in the system',
+    },
+    {
+      label: 'Payroll due',
+      value: `${Number(dashboard?.total_payroll || 0).toLocaleString()} RWF`,
+      icon: Wallet,
+      tone: 'orange',
+      detail: `${dashboard?.pending_advances ?? 0} advance requests pending`,
+    },
+  ], [dashboard])
+
+  const overviewCards = useMemo(() => [
+    {
+      title: 'Company health',
+      value: dashboard?.total_employees ? 'Healthy' : 'Needs setup',
+      details: `${dashboard?.total_employees ?? 0} employees tracked`,
+      tone: 'emerald',
+    },
+    {
+      title: 'Pending approvals',
+      value: dashboard?.pending_advances ?? 0,
+      details: 'Advance requests awaiting review',
+      tone: 'amber',
+    },
+    {
+      title: 'Attendance coverage',
+      value: `${dashboard?.today_attendance ?? 0}`,
+      details: 'Attendance records received today',
+      tone: 'cyan',
+    },
+  ], [dashboard])
+
+  const activity = useMemo(() => [
+    {
+      text: `${dashboard?.total_payroll ? 'Payroll value is currently' : 'Payroll data is being'} ${dashboard?.total_payroll ? `${Number(dashboard.total_payroll).toLocaleString()} RWF` : 'collected'}.`,
+      tone: 'emerald',
+    },
+    {
+      text: `${dashboard?.total_production ? `${Number(dashboard.total_production).toLocaleString()} kg` : 'No production'} recorded in the system.`,
+      tone: 'amber',
+    },
+    {
+      text: `${dashboard?.pending_advances ?? 0} advance request${(dashboard?.pending_advances ?? 0) === 1 ? '' : 's'} awaiting review.`,
+      tone: 'cyan',
+    },
+    {
+      text: `${dashboard?.today_attendance ?? 0} attendance records captured today.`,
+      tone: 'orange',
+    },
+  ], [dashboard])
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-700">
+        Loading dashboard...
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50">
@@ -153,25 +238,23 @@ export default function OwnerDashboardPage() {
                 </span>
               </div>
 
-              <div className="mt-6 h-64 -ml-2">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={productionTrend}>
-                    <defs>
-                      <linearGradient id="prodFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.02} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                    <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                    <Tooltip
-                      contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 12 }}
-                      labelStyle={{ color: '#334155', fontWeight: 600 }}
-                    />
-                    <Area type="monotone" dataKey="kg" stroke="#d97706" strokeWidth={2.5} fill="url(#prodFill)" />
-                  </AreaChart>
-                </ResponsiveContainer>
+              <div className="mt-6 h-64 -ml-2 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                <div className="flex h-full items-end gap-3">
+                  {productionTrend.map((point) => (
+                    <div key={point.day} className="flex flex-1 flex-col items-center gap-2">
+                      <div className="flex h-40 w-full items-end justify-center rounded-lg bg-gradient-to-t from-amber-500 to-amber-300/70 p-1">
+                        <div
+                          className="w-full rounded-md bg-amber-600"
+                          style={{ height: `${Math.max((point.kg / 450) * 100, 8)}%` }}
+                        />
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xs font-semibold text-slate-600">{point.day}</div>
+                        <div className="text-[11px] text-slate-400">{point.kg}kg</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="mt-6 grid gap-4 sm:grid-cols-3">
@@ -199,21 +282,21 @@ export default function OwnerDashboardPage() {
               </p>
               <div className="mt-6 space-y-3">
                 <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/60 p-4">
-                  <span className="text-sm text-slate-600">Pending staff approvals</span>
+                  <span className="text-sm text-slate-600">Employees tracked</span>
                   <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-100">
-                    7
+                    {dashboard?.total_employees ?? 0}
                   </span>
                 </div>
                 <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/60 p-4">
                   <span className="text-sm text-slate-600">Advance payouts</span>
                   <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700 ring-1 ring-cyan-100">
-                    2 requests
+                    {dashboard?.pending_advances ?? 0} requests
                   </span>
                 </div>
                 <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/60 p-4">
-                  <span className="text-sm text-slate-600">Active loans</span>
+                  <span className="text-sm text-slate-600">Production total</span>
                   <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600 ring-1 ring-red-100">
-                    3
+                    {Number(dashboard?.total_production || 0).toLocaleString()} kg
                   </span>
                 </div>
               </div>
