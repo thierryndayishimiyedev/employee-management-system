@@ -1,7 +1,6 @@
 ﻿import { Link, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from "react";
 import api from "../api/api";
-import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import RegisterCompanyModal from '../components/RegisterCompanyModal'
 import RegisterOwnerModal from '../components/registerOwnerModal'
@@ -13,9 +12,6 @@ import {
   ArrowUpRight,
   CalendarCheck,
 } from 'lucide-react'
-
-const [dashboard, setDashboard] = useState(null);
-const [loading, setLoading] = useState(true);
 
 const miningCompanies = [
   {
@@ -117,10 +113,44 @@ function StatCard({ label, value, delta, icon: Icon, tone = 'default' }) {
 export default function DashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
+
+  // All hooks live inside the component body — this is what fixes the
+  // "Invalid hook call" error. They were previously declared at module
+  // scope (outside any component), which React does not allow.
+  const [dashboard, setDashboard] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [showRegisterModal, setShowRegisterModal] = useState(false)
   const [showOwnerModal, setShowOwnerModal] = useState(false)
   const [selectedCompany, setSelectedCompany] = useState(null)
+
   const today = formatDate(new Date())
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function fetchDashboard() {
+      try {
+        setLoading(true)
+        // Adjust this endpoint to match your actual backend route.
+        const res = await api.get('/dashboard')
+        if (isMounted) {
+          setDashboard(res.data)
+        }
+      } catch (err) {
+        console.error('Failed to load dashboard data:', err)
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    fetchDashboard()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   if (!user) {
     return null
@@ -365,4 +395,4 @@ export default function DashboardPage() {
       </div>
     </div>
   )
-}
+}  

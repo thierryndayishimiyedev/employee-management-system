@@ -9,7 +9,25 @@ export function AuthProvider({ children }) {
 
         const saved = localStorage.getItem("user");
 
-        return saved ? JSON.parse(saved) : null;
+        if (!saved) {
+            return null;
+        }
+
+        try {
+            const parsed = JSON.parse(saved);
+
+            if (!parsed?.role_name) {
+                localStorage.removeItem("user");
+                localStorage.removeItem("token");
+                return null;
+            }
+
+            return parsed;
+        } catch {
+            localStorage.removeItem("user");
+            localStorage.removeItem("token");
+            return null;
+        }
 
     });
 

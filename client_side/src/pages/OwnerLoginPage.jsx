@@ -5,14 +5,19 @@ import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
 
 export default function OwnerLoginPage() {
-  const { login, isAuthenticated } = useAuth()
+  const { login, isAuthenticated, user } = useAuth()
   const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
   if (isAuthenticated) {
-    return <Navigate to="/owner/dashboard" replace />
+    return (
+      <Navigate
+        to={user?.role_name === 'OWNER' ? '/owner/dashboard' : '/dashboard'}
+        replace
+      />
+    )
   }
 
   const handleSubmit = async (event) => {
@@ -20,9 +25,11 @@ export default function OwnerLoginPage() {
     setLoading(true)
 
     try {
-      await login(username, password, 'owner')
+      const response = await login(username, password, 'owner')
       toast.success('Welcome back, Owner!')
-      navigate('/owner/dashboard')
+      const roleName = response?.data?.data?.user?.role_name || user?.role_name
+      const destination = roleName === 'OWNER' ? '/owner/dashboard' : '/dashboard'
+      navigate(destination)
     } catch (error) {
       const message = error.response?.data?.message || error.message || 'Login failed'
       toast.error(message)

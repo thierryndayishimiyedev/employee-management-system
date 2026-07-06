@@ -35,7 +35,7 @@ function App() {
                 path="/dashboard"
                 element={
                     <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN"]}
+                        allowedRoles={["SUPER_ADMIN", "MANAGER", "ACCOUNTANT"]}
                         redirectTo="/login"
                     >
                         <DashboardPage />
@@ -53,6 +53,11 @@ function App() {
                         <OwnerDashboardPage />
                     </ProtectedRoute>
                 }
+            />
+
+            <Route
+                path="*"
+                element={<Navigate to="/login" replace />}
             />
 
         </Routes>

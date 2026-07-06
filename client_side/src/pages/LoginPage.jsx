@@ -11,14 +11,19 @@ const demoAccounts = [
 ]
 
 export default function LoginPage() {
-  const { login, isAuthenticated } = useAuth()
+  const { login, isAuthenticated, user } = useAuth()
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />
+    return (
+      <Navigate
+        to={user?.role_name === 'OWNER' ? '/owner/dashboard' : '/dashboard'}
+        replace
+      />
+    )
   }
 
   const handleSubmit = async (event) => {
@@ -26,9 +31,11 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      await login(name, password)
+      const response = await login(name, password)
       toast.success('Welcome back')
-      navigate('/dashboard')
+      const roleName = response?.data?.data?.user?.role_name || user?.role_name
+      const destination = roleName === 'OWNER' ? '/owner/dashboard' : '/dashboard'
+      navigate(destination)
     } catch (error) {
       const message =
         error.response?.data?.message || error.message || 'Login failed'

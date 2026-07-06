@@ -18,7 +18,7 @@ export default function ProtectedRoute({
 
     if (
         allowedRoles.length &&
-        !allowedRoles.includes(user.role_name)
+        !allowedRoles.includes(user?.role_name)
     ) {
         return <Navigate to={redirectTo} replace />;
     }
