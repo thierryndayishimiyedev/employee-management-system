@@ -7,6 +7,7 @@ import OwnerLoginPage from "./pages/OwnerLoginPage";
 
 import DashboardPage from "./pages/DashboardPage";
 import OwnerDashboardPage from "./pages/OwnerDashboardPage";
+import MinesPage from "./pages/MinePage";
 
 import "./App.css";
 
@@ -59,8 +60,20 @@ function App() {
                 path="*"
                 element={<Navigate to="/login" replace />}
             />
+            <Route
+                path="/mines"
+                element={
+                    <ProtectedRoute
+                        allowedRoles={["OWNER"]}
+                        redirectTo="/owner/login"
+                    >       
+                <MinesPage />
+                    </ProtectedRoute>
+                }
+            />
 
         </Routes>
+
 
     );
 
