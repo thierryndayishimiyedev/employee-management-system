@@ -1,6 +1,7 @@
 ﻿import { Link, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from "react";
 import api from "../api/api";
+import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import RegisterCompanyModal from '../components/RegisterCompanyModal'
 import RegisterOwnerModal from '../components/registerOwnerModal'
