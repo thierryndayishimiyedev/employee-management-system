@@ -2,13 +2,20 @@ import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { ArrowRight, Pickaxe, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/authStore'
 
 const demoAccounts = [
   { role: 'Owner', name: 'owner@miningops.rw', password: 'owner123' },
   { role: 'Mine Manager', name: 'manager@miningops.rw', password: 'manager123' },
   { role: 'Accountant', name: 'accountant@miningops.rw', password: 'acct123' },
 ]
+
+const destinationForRole = (roleName) => {
+  if (roleName === 'OWNER') return '/owner/dashboard'
+  if (roleName === 'MANAGER') return '/manager/dashboard'
+  if (roleName === 'ACCOUNTANT') return '/accountant/dashboard'
+  return '/dashboard'
+}
 
 export default function LoginPage() {
   const { login, isAuthenticated, user } = useAuth()
@@ -20,7 +27,7 @@ export default function LoginPage() {
   if (isAuthenticated) {
     return (
       <Navigate
-        to={user?.role_name === 'OWNER' ? '/owner/dashboard' : '/dashboard'}
+        to={destinationForRole(user?.role_name)}
         replace
       />
     )
@@ -38,8 +45,7 @@ export default function LoginPage() {
         response?.data?.data?.user?.roles?.role_name ||
         response?.data?.data?.user?.role ||
         user?.role_name
-      const destination = roleName === 'OWNER' ? '/owner/dashboard' : '/dashboard'
-      navigate(destination)
+      navigate(destinationForRole(roleName))
     } catch (error) {
       const message =
         error.response?.data?.message || error.message || 'Login failed'

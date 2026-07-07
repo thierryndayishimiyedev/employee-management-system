@@ -1,7 +1,7 @@
 ﻿import { Link, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import api from '../api/api'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/authStore'
 import RegisterCompanyModal from '../components/RegisterCompanyModal'
 import RegisterOwnerModal from '../components/registerOwnerModal'
 import {
@@ -79,7 +79,7 @@ const actions = [
   { to: '/companies', label: 'Register Company', icon: Building2 },
   { to: '/owners', label: 'Create Owner', icon: Users },
   { to: '/companies', label: 'View Companies', icon: TrendingUp },
-  { to: '/audit-logs', label: 'Audit Logs', icon: CalendarCheck },
+  { to: '/roles', label: 'View Roles', icon: CalendarCheck },
 ]
 
 function formatDate(date) {
@@ -131,10 +131,9 @@ export default function DashboardPage() {
     async function fetchDashboard() {
       try {
         setLoading(true)
-        // Adjust this endpoint to match your actual backend route.
-        const res = await api.get('/dashboard')
+        const res = await api.get('/super-admin/dashboard')
         if (isMounted) {
-          setDashboard(res.data)
+          setDashboard(res.data?.data || res.data)
         }
       } catch (err) {
         console.error('Failed to load dashboard data:', err)
@@ -156,11 +155,30 @@ export default function DashboardPage() {
     return null
   }
 
-  const companiesCount = miningCompanies.length
-  const ownersCount = miningCompanies.length
-  const employeesCount = miningCompanies.reduce((sum, company) => sum + company.employees, 0)
-  const systemOnline = systemHealth.filter((item) => item.status === 'Online').length
-  const maxTrend = Math.max(...companiesGrowth.map((item) => item.value), 1)
+  const dashboardCompanies = dashboard?.recent_companies?.map((company) => ({
+    id: company.company_id,
+    name: company.company_name,
+    province: company.province,
+    owner: company.owner,
+    status: company.status,
+    employees: company.employees,
+    createdAt: company.created_at ? formatDate(new Date(company.created_at)) : 'Unknown',
+  })) || miningCompanies
+  const dashboardGrowth = dashboard?.companies_growth?.length ? dashboard.companies_growth : companiesGrowth
+  const dashboardActivities = dashboard?.recent_activities?.map((activity) => ({
+    id: activity.id,
+    event: activity.event,
+    company: activity.company,
+    date: activity.date ? formatDate(new Date(activity.date)) : 'Unknown',
+    user: activity.user,
+  })) || recentActivities
+  const dashboardHealth = dashboard?.system_health?.length ? dashboard.system_health : systemHealth
+
+  const companiesCount = dashboard?.total_companies ?? dashboardCompanies.length
+  const ownersCount = dashboard?.total_owners ?? dashboardCompanies.length
+  const employeesCount = dashboard?.total_employees ?? dashboardCompanies.reduce((sum, company) => sum + company.employees, 0)
+  const systemOnline = dashboardHealth.filter((item) => item.status === 'Online').length
+  const maxTrend = Math.max(...dashboardGrowth.map((item) => item.value), 1)
 
   const handleRegisterSuccess = (createdCompany) => {
     setShowRegisterModal(false)
@@ -175,7 +193,7 @@ export default function DashboardPage() {
   }
 
   const handleActionClick = (action) => {
-    if (action.label === 'Register Company' || action.label === 'Create Owner') {
+    if (action.label === 'Register Company') {
       setShowRegisterModal(true)
     } else {
       navigate(action.to)
@@ -199,7 +217,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/6 border border-slate-700/30 text-sm">
-              Updated: {today}
+              {loading ? 'Updating...' : `Updated: ${today}`}
             </span>
             <button
               onClick={handleLogout}
@@ -253,7 +271,7 @@ export default function DashboardPage() {
             
             {/* Trend Chart */}
             <div className="flex items-end gap-3 h-56 pb-3">
-              {companiesGrowth.map((point) => (
+              {dashboardGrowth.map((point) => (
                 <div
                   key={point.label}
                   className="flex-1 min-w-6 rounded-lg bg-gradient-to-t from-blue-500 to-cyan-400 relative group hover:opacity-80 transition"
@@ -268,7 +286,7 @@ export default function DashboardPage() {
             
             {/* Labels */}
             <div className="grid grid-cols-7 gap-3 mt-8">
-              {companiesGrowth.map((point) => (
+              {dashboardGrowth.map((point) => (
                 <span key={point.label} className="text-center text-xs text-slate-400">
                   {point.label}
                 </span>
@@ -327,7 +345,7 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700/20">
-                  {miningCompanies.map((company) => (
+                  {dashboardCompanies.map((company) => (
                     <tr key={company.id} className="hover:bg-slate-800/30 transition">
                       <td className="py-3 px-3 text-slate-100">{company.name}</td>
                       <td className="py-3 px-3 text-slate-300">{company.province}</td>
@@ -363,7 +381,7 @@ export default function DashboardPage() {
               <p className="text-slate-400 text-sm mb-4">Super Admin actions recorded by the portal.</p>
               
               <ul className="space-y-3">
-                {recentActivities.map((activity) => (
+                {dashboardActivities.map((activity) => (
                   <li key={activity.id} className="pb-3 border-b border-slate-700/20 last:border-b-0">
                     <div className="text-sm font-medium text-slate-100">{activity.event}</div>
                     <div className="text-xs text-slate-400 mt-1">
@@ -377,7 +395,7 @@ export default function DashboardPage() {
             {/* System Health */}
             <div className="border-t border-slate-700/30 pt-6">
               <div className="grid grid-cols-2 gap-3">
-                {systemHealth.map((service) => (
+                {dashboardHealth.map((service) => (
                   <div key={service.id} className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/20 flex items-center justify-between">
                     <div>
                       <div className="text-sm font-medium text-slate-100">{service.name}</div>

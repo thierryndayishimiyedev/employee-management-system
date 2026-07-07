@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { ArrowRight, Pickaxe, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/authStore'
 
 export default function OwnerLoginPage() {
   const { login, isAuthenticated, user } = useAuth()
@@ -14,7 +14,7 @@ export default function OwnerLoginPage() {
   if (isAuthenticated) {
     return (
       <Navigate
-        to={user?.role_name === 'OWNER' ? '/owner/dashboard' : '/dashboard'}
+        to={user?.role_name === 'OWNER' ? '/owner/dashboard' : '/login'}
         replace
       />
     )
@@ -32,7 +32,7 @@ export default function OwnerLoginPage() {
         response?.data?.data?.user?.roles?.role_name ||
         response?.data?.data?.user?.role ||
         user?.role_name
-      const destination = roleName === 'OWNER' ? '/owner/dashboard' : '/dashboard'
+      const destination = roleName === 'OWNER' ? '/owner/dashboard' : '/login'
       navigate(destination)
     } catch (error) {
       const message = error.response?.data?.message || error.message || 'Login failed'

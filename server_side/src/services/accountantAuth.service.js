@@ -30,7 +30,7 @@ const accountantLogin = async ({ username, password }) => {
             user_id: user.user_id,
             employee_id: user.employee_id,
             company_id: user.employees.company_id,
-            role: "ACCOUNTANT"
+            role_name: "ACCOUNTANT"
         },
         process.env.JWT_SECRET,
         { expiresIn: "1d" }
@@ -38,7 +38,13 @@ const accountantLogin = async ({ username, password }) => {
 
     delete user.password;
 
-    return { token, user };
+    return {
+        token,
+        user: {
+            ...user,
+            role_name: user.roles?.role_name || "ACCOUNTANT"
+        }
+    };
 };
 
 module.exports = { accountantLogin };

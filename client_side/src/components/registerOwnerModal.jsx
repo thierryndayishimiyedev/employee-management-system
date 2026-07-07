@@ -15,6 +15,8 @@ const initialFormState = {
   address: "",
   hire_date: "",
   monthly_salary: "",
+  department_name: "Administration",
+  position_name: "Owner",
   profile_photo: "",
   username: "",
   password: "",
@@ -83,6 +85,8 @@ export default function RegisterOwnerModal({ isOpen, onClose, company, onSuccess
         address: formData.address.trim(),
         hire_date: formData.hire_date,
         monthly_salary: Number(formData.monthly_salary),
+        department_name: formData.department_name.trim(),
+        position_name: formData.position_name.trim(),
         profile_photo: formData.profile_photo.trim() || null,
         username: formData.username.trim(),
         password: formData.password,
@@ -262,6 +266,28 @@ export default function RegisterOwnerModal({ isOpen, onClose, company, onSuccess
                   onChange={handleChange}
                   required
                   min="0"
+                  className="w-full rounded-3xl border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Department</label>
+                <input
+                  type="text"
+                  name="department_name"
+                  value={formData.department_name}
+                  onChange={handleChange}
+                  required
+                  className="w-full rounded-3xl border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Position</label>
+                <input
+                  type="text"
+                  name="position_name"
+                  value={formData.position_name}
+                  onChange={handleChange}
+                  required
                   className="w-full rounded-3xl border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
                 />
               </div>

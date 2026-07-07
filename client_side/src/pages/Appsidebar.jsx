@@ -3,25 +3,40 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   Building2,
+  Users,
   TrendingUp,
   CalendarCheck,
   Mountain,
   Wallet,
+  BadgeDollarSign,
+  CreditCard,
+  FileText,
+  UserCog,
+  Shield,
   Pickaxe,
   LogOut,
   ChevronsLeft,
   ChevronsRight,
 } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/authStore'
 
 const nav = [
-  { to: '/owner/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/mines', label: 'Mines', icon: Building2 },
-  { to: '/departments', label: 'Departments', icon: Building2 },
-  { to: '/positions', label: 'Positions', icon: TrendingUp },
-  { to: '/attendance', label: 'Attendance', icon: CalendarCheck },
-  { to: '/production', label: 'Production', icon: Mountain },
-  { to: '/payroll', label: 'Payroll', icon: Wallet },
+  { to: '/owner/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['OWNER'] },
+  { to: '/manager/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['MANAGER'] },
+  { to: '/accountant/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['ACCOUNTANT'] },
+  { to: '/mines', label: 'Mines', icon: Building2, roles: ['OWNER'] },
+  { to: '/departments', label: 'Departments', icon: Building2, roles: ['OWNER'] },
+  { to: '/positions', label: 'Positions', icon: TrendingUp, roles: ['OWNER'] },
+  { to: '/attendance', label: 'Attendance', icon: CalendarCheck, roles: ['OWNER', 'MANAGER'] },
+  { to: '/production', label: 'Production', icon: Mountain, roles: ['OWNER', 'MANAGER'] },
+  { to: '/workers', label: 'Workers', icon: Users, roles: ['OWNER', 'MANAGER'] },
+  { to: '/payroll', label: 'Payroll', icon: Wallet, roles: ['OWNER', 'ACCOUNTANT'] },
+  { to: '/advances', label: 'Advances', icon: BadgeDollarSign, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+  { to: '/payments', label: 'Payments', icon: CreditCard, roles: ['OWNER', 'ACCOUNTANT'] },
+  { to: '/reports', label: 'Reports', icon: FileText, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+  { to: '/managers', label: 'Managers', icon: UserCog, roles: ['OWNER'] },
+  { to: '/accountants', label: 'Accountants', icon: Users, roles: ['OWNER'] },
+  { to: '/roles', label: 'Roles', icon: Shield, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
 ]
 
 export default function AppSidebar() {
@@ -45,8 +60,10 @@ export default function AppSidebar() {
 
   const handleLogout = () => {
     logout()
-    navigate('/owner/login')
+    navigate(user.role_name === 'OWNER' ? '/owner/login' : '/login')
   }
+
+  const visibleNav = nav.filter((item) => item.roles.includes(user.role_name))
 
   return (
     <aside
@@ -75,7 +92,7 @@ export default function AppSidebar() {
           </p>
         )}
         <ul className="space-y-1">
-          {nav.map((item) => {
+          {visibleNav.map((item) => {
             const Icon = item.icon
             const active =
               location.pathname === item.to || location.pathname.startsWith(item.to + '/')
@@ -117,7 +134,9 @@ export default function AppSidebar() {
           {!collapsed && (
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium text-slate-800">{ownerName}</div>
-              <div className="truncate text-xs capitalize text-slate-400">Owner</div>
+              <div className="truncate text-xs capitalize text-slate-400">
+                {user.role_name?.toLowerCase().replace('_', ' ')}
+              </div>
             </div>
           )}
           {!collapsed && (

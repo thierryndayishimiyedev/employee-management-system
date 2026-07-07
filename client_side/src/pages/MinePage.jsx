@@ -1,341 +1,209 @@
-import { useState } from 'react'
-import { Navigate } from 'react-router-dom'
-import { Building2, MapPin, Users, Mountain, Wallet, Plus, X, UserCog } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
+import { useEffect, useMemo, useState } from 'react'
+import { Building2, Mountain, RefreshCw, Users, Wallet } from 'lucide-react'
+import api from '../api/api'
+import { useAuth } from '../context/authStore'
 import AppSidebar from './Appsidebar'
-
-// ---- Mock data (swap for a real API later) ----
-const initialMines = [
-  {
-    id: 'mine-1',
-    name: 'Kigali North Site',
-    location: 'Musanze, Rwanda',
-    established: '2018-04-12',
-    staffCount: 22,
-    productionKg: 980,
-    payroll: 4200000,
-    managerName: 'Eric Mugisha',
-    accountantName: 'Alice Uwase',
-  },
-  {
-    id: 'mine-2',
-    name: 'Rubavu Extraction Site',
-    location: 'Rubavu, Rwanda',
-    established: '2020-09-01',
-    staffCount: 18,
-    productionKg: 760,
-    payroll: 3350000,
-    managerName: null,
-    accountantName: 'Jean Bosco',
-  },
-  {
-    id: 'mine-3',
-    name: 'Huye Highland Site',
-    location: 'Huye, Rwanda',
-    established: '2021-02-20',
-    staffCount: 16,
-    productionKg: 740,
-    payroll: 3100000,
-    managerName: 'Diane Ingabire',
-    accountantName: null,
-  },
-]
 
 function formatRWF(amount) {
   return new Intl.NumberFormat('en-RW', {
     style: 'currency',
     currency: 'RWF',
     maximumFractionDigits: 0,
-  }).format(amount)
+  }).format(Number(amount || 0))
+}
+
+function employeeName(employee) {
+  return [employee?.first_name, employee?.last_name].filter(Boolean).join(' ') || 'Unknown employee'
 }
 
 export default function MinesPage() {
   const { user } = useAuth()
-  const [mines, setMines] = useState(initialMines)
-  const [showAddMine, setShowAddMine] = useState(false)
-  const [managerMineId, setManagerMineId] = useState(null)
+  const [dashboard, setDashboard] = useState(null)
+  const [employees, setEmployees] = useState([])
+  const [production, setProduction] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  // Optional role guard — only redirects if your auth user actually has a role field
-  if (user?.role && user.role !== 'director') {
-    return <Navigate to="/dashboard" />
+  const companyName = user?.employees?.companies?.company_name || user?.company_name || 'Current company'
+
+  const loadOperations = async () => {
+    setLoading(true)
+
+    try {
+      const [dashboardRes, employeesRes, productionRes] = await Promise.allSettled([
+        api.get('/dashboard/owner'),
+        api.get('/employees'),
+        api.get('/production'),
+      ])
+
+      setDashboard(dashboardRes.status === 'fulfilled' ? dashboardRes.value?.data?.data || null : null)
+      setEmployees(employeesRes.status === 'fulfilled' ? employeesRes.value?.data?.data || [] : [])
+      setProduction(productionRes.status === 'fulfilled' ? productionRes.value?.data?.data || [] : [])
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleAddMine = (mine) => {
-    setMines((prev) => [
-      ...prev,
-      {
-        id: `mine-${Date.now()}`,
-        staffCount: 0,
-        productionKg: 0,
-        payroll: 0,
-        managerName: null,
-        accountantName: null,
-        ...mine,
-      },
-    ])
-    setShowAddMine(false)
-  }
+  useEffect(() => {
+    loadOperations()
+  }, [])
 
-  const handleAssignManager = (mineId, managerName) => {
-    setMines((prev) =>
-      prev.map((m) => (m.id === mineId ? { ...m, managerName } : m))
-    )
-    setManagerMineId(null)
-  }
+  const productionByMineral = useMemo(() => {
+    const totals = new Map()
 
-  const managerMine = mines.find((m) => m.id === managerMineId) || null
+    production.forEach((record) => {
+      const mineral = record.mineral_type || 'Unspecified'
+      totals.set(mineral, (totals.get(mineral) || 0) + Number(record.quantity || 0))
+    })
+
+    return Array.from(totals.entries()).map(([mineral, quantity]) => ({
+      mineral,
+      quantity,
+    }))
+  }, [production])
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8 flex">
+    <div className="flex min-h-screen bg-slate-50">
       <AppSidebar />
-      <div className="mx-auto max-w-7xl space-y-6 flex-1">
-        {/* Header */}
-        <header className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-amber-600">Mine Sites</p>
-            <h1 className="mt-1 text-2xl font-bold text-slate-900">
-              {mines.length} active site{mines.length === 1 ? '' : 's'} across the company
-            </h1>
-          </div>
-          <button
-            onClick={() => setShowAddMine(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-700"
-          >
-            <Plus size={16} />
-            Add new mine
-          </button>
-        </header>
 
-        {/* Mine cards */}
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {mines.map((m) => (
-            <div
-              key={m.id}
-              className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-5 text-white">
-                <div className="flex items-center justify-between">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-amber-600">
-                    <Building2 className="h-5 w-5 text-white" />
-                  </div>
-                  <span className="text-xs uppercase tracking-widest text-white/60">
-                    Est. {m.established?.slice(0, 4)}
-                  </span>
-                </div>
-                <h3 className="mt-4 text-xl font-semibold">{m.name}</h3>
-                <div className="mt-1 flex items-center gap-1 text-sm text-white/70">
-                  <MapPin className="h-3.5 w-3.5" />
-                  {m.location}
-                </div>
+      <main className="flex-1 p-4 md:p-8">
+        <div className="mx-auto max-w-7xl space-y-6">
+          <header className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-50 text-amber-600 ring-1 ring-amber-100">
+                <Building2 size={24} />
               </div>
-
-              <div className="space-y-4 p-5">
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  <div>
-                    <Users className="mx-auto h-4 w-4 text-amber-600" />
-                    <div className="mt-1 font-semibold text-slate-800">{m.staffCount}</div>
-                    <div className="text-[10px] uppercase tracking-wider text-slate-400">Staff</div>
-                  </div>
-                  <div>
-                    <Mountain className="mx-auto h-4 w-4 text-amber-600" />
-                    <div className="mt-1 font-semibold text-slate-800">{m.productionKg}</div>
-                    <div className="text-[10px] uppercase tracking-wider text-slate-400">kg / 30d</div>
-                  </div>
-                  <div>
-                    <Wallet className="mx-auto h-4 w-4 text-amber-600" />
-                    <div className="mt-1 text-xs font-semibold text-slate-800">
-                      {formatRWF(m.payroll).replace('RWF', '')}
-                    </div>
-                    <div className="text-[10px] uppercase tracking-wider text-slate-400">Payroll</div>
-                  </div>
-                </div>
-
-                <div className="space-y-2 border-t border-slate-100 pt-4 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Mine Manager</span>
-                    <span className={`font-medium ${m.managerName ? 'text-slate-800' : 'text-slate-300'}`}>
-                      {m.managerName || 'Unassigned'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Accountant</span>
-                    <span className={`font-medium ${m.accountantName ? 'text-slate-800' : 'text-slate-300'}`}>
-                      {m.accountantName || 'Unassigned'}
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setManagerMineId(m.id)}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-amber-300 hover:bg-amber-50/40 hover:text-amber-700"
-                >
-                  <UserCog size={16} />
-                  {m.managerName ? 'Change manager' : 'Assign manager'}
-                </button>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-amber-600">Operations overview</p>
+                <h1 className="mt-1 text-2xl font-bold text-slate-900">{companyName}</h1>
+                <p className="mt-1 max-w-2xl text-sm text-slate-500">
+                  This page uses the existing backend company, employee, payroll, and production data. A separate mine-site
+                  CRUD screen will need a dedicated mines table and API.
+                </p>
               </div>
             </div>
-          ))}
+            <button
+              type="button"
+              onClick={loadOperations}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              <RefreshCw size={16} />
+              Refresh
+            </button>
+          </header>
+
+          {loading ? (
+            <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
+              Loading operations...
+            </div>
+          ) : (
+            <>
+              <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <StatCard
+                  label="Employees"
+                  value={dashboard?.total_employees ?? employees.length}
+                  detail="Workers available for attendance and production"
+                  icon={Users}
+                />
+                <StatCard
+                  label="Attendance Today"
+                  value={dashboard?.today_attendance ?? 0}
+                  detail="Records captured today"
+                  icon={Building2}
+                />
+                <StatCard
+                  label="Production"
+                  value={`${Number(dashboard?.total_production || 0).toLocaleString()} kg`}
+                  detail={`${production.length} production records`}
+                  icon={Mountain}
+                />
+                <StatCard
+                  label="Payroll Due"
+                  value={formatRWF(dashboard?.total_payroll)}
+                  detail={`${dashboard?.pending_advances ?? 0} pending advances`}
+                  icon={Wallet}
+                />
+              </section>
+
+              <section className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                  <div className="border-b border-slate-200 p-5">
+                    <h2 className="text-lg font-semibold text-slate-900">Recent Production</h2>
+                    <p className="text-sm text-slate-500">Latest records submitted by employees.</p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    {production.length === 0 ? (
+                      <p className="p-5 text-sm text-slate-500">No production records available.</p>
+                    ) : (
+                      <table className="w-full text-sm">
+                        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-400">
+                          <tr>
+                            <th className="px-4 py-3">Employee</th>
+                            <th className="px-4 py-3">Date</th>
+                            <th className="px-4 py-3">Mineral</th>
+                            <th className="px-4 py-3">Quantity</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {production.slice(0, 8).map((record, index) => (
+                            <tr key={`${record.production_id || 'production'}-${index}`}>
+                              <td className="px-4 py-3 text-slate-700">{employeeName(record.employees)}</td>
+                              <td className="px-4 py-3 text-slate-700">{record.production_date || '-'}</td>
+                              <td className="px-4 py-3 text-slate-700">{record.mineral_type || '-'}</td>
+                              <td className="px-4 py-3 font-semibold text-slate-900">
+                                {Number(record.quantity || 0).toLocaleString()} {record.unit || ''}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                  <div className="border-b border-slate-200 p-5">
+                    <h2 className="text-lg font-semibold text-slate-900">Production By Mineral</h2>
+                    <p className="text-sm text-slate-500">Totals grouped from production records.</p>
+                  </div>
+                  <div className="space-y-3 p-5">
+                    {productionByMineral.length === 0 ? (
+                      <p className="text-sm text-slate-500">No mineral totals available.</p>
+                    ) : (
+                      productionByMineral.map((item) => (
+                        <div key={item.mineral} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="font-medium text-slate-700">{item.mineral}</span>
+                            <span className="text-sm font-semibold text-amber-700">
+                              {item.quantity.toLocaleString()} kg
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </section>
+            </>
+          )}
         </div>
-      </div>
-
-      {showAddMine && (
-        <AddMineModal onClose={() => setShowAddMine(false)} onSubmit={handleAddMine} />
-      )}
-
-      {managerMine && (
-        <AssignManagerModal
-          mine={managerMine}
-          onClose={() => setManagerMineId(null)}
-          onSubmit={(name) => handleAssignManager(managerMine.id, name)}
-        />
-      )}
+      </main>
     </div>
   )
 }
 
-function ModalShell({ title, onClose, children }) {
+function StatCard({ label, value, detail, icon: Icon }) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-lg"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-          <button
-            onClick={onClose}
-            className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-            aria-label="Close"
-          >
-            <X size={18} />
-          </button>
+    <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+          <p className="mt-3 text-2xl font-bold text-slate-900">{value}</p>
         </div>
-        {children}
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+          <Icon size={20} />
+        </div>
       </div>
-    </div>
-  )
-}
-
-function AddMineModal({ onClose, onSubmit }) {
-  const [name, setName] = useState('')
-  const [location, setLocation] = useState('')
-  const [established, setEstablished] = useState('')
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (!name.trim() || !location.trim()) return
-    onSubmit({
-      name: name.trim(),
-      location: location.trim(),
-      established: established || new Date().toISOString().slice(0, 10),
-    })
-  }
-
-  return (
-    <ModalShell title="Add new mine" onClose={onClose}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Mine name
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Nyagatare Site"
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-            required
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Location
-          </label>
-          <input
-            type="text"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="e.g. Nyagatare, Rwanda"
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-            required
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Established date
-          </label>
-          <input
-            type="date"
-            value={established}
-            onChange={(e) => setEstablished(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-          />
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
-          >
-            Add mine
-          </button>
-        </div>
-      </form>
-    </ModalShell>
-  )
-}
-
-function AssignManagerModal({ mine, onClose, onSubmit }) {
-  const [managerName, setManagerName] = useState(mine.managerName || '')
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (!managerName.trim()) return
-    onSubmit(managerName.trim())
-  }
-
-  return (
-    <ModalShell title={`Assign manager — ${mine.name}`} onClose={onClose}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Manager name
-          </label>
-          <input
-            type="text"
-            value={managerName}
-            onChange={(e) => setManagerName(e.target.value)}
-            placeholder="e.g. Jean-Paul Nkurunziza"
-            autoFocus
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-            required
-          />
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
-          >
-            Save manager
-          </button>
-        </div>
-      </form>
-    </ModalShell>
+      <p className="mt-3 text-sm text-slate-500">{detail}</p>
+    </article>
   )
 }

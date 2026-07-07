@@ -15,7 +15,8 @@ import {
     getAttendances,
     getWeeklyAttendance,
     getTodayAttendance,
-    getMonthlySummary
+    getMonthlySummary,
+    deleteAttendance
 } from "../api/attendanceApi";
 
 import AttendanceTable from "../components/AttendanceTable";
@@ -607,7 +608,11 @@ export default function AttendancePage() {
 
                             ) {
 
-                                console.log(attendance);
+                                deleteAttendance(attendance.attendance_id)
+                                    .then(refreshDashboard)
+                                    .catch((error) => {
+                                        alert(error.response?.data?.message || "Failed to delete attendance");
+                                    });
 
                             }
 

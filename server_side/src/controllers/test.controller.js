@@ -4,9 +4,12 @@ const testDatabase = async (req, res) => {
 
     try {
 
-        const { data, error } = await supabase
+        const { count, error } = await supabase
             .from("admins")
-            .select("*");
+            .select("*", {
+                count: "exact",
+                head: true
+            });
 
         if (error) {
             return res.status(500).json({
@@ -17,7 +20,10 @@ const testDatabase = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            data
+            message: "Database connection is healthy.",
+            data: {
+                admins_count: count || 0
+            }
         });
 
     } catch (err) {

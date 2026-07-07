@@ -20,7 +20,7 @@ const initialForm = {
   daily_rate: '',
   username: '',
   password: '',
-  role_name: 'EMPLOYEE',
+  role_name: 'WORKER',
 }
 
 export default function CreateWorkerModal({ isOpen, onClose, onSuccess }) {

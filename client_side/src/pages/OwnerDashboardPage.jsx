@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Building2,
   CalendarCheck,
@@ -13,7 +13,7 @@ import {
   ClipboardList,
   Gauge,
 } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/authStore'
 import api from '../api/api'
 import AppSidebar from './Appsidebar'
 // ---- Palette reference (Tailwind) ----
@@ -49,17 +49,12 @@ const productionTrend = [
   { day: 'Sun', kg: 347 },
 ]
 
-const activity = [
-  { text: 'Payroll summary completed for June.', tone: 'emerald' },
-  { text: 'Production logged for Site A and Site B.', tone: 'amber' },
-  { text: 'New department approval pending.', tone: 'cyan' },
-  { text: 'Attendance review required for 4 employees.', tone: 'orange' },
-]
-
 export default function OwnerDashboardPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [dashboard, setDashboard] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [forbidden, setForbidden] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -72,6 +67,10 @@ export default function OwnerDashboardPage() {
         }
       } catch (error) {
         console.error('Failed to load owner dashboard data:', error)
+        if (error?.response?.status === 403) {
+          // Not an owner or lacks permissions
+          setForbidden(true)
+        }
       } finally {
         if (mounted) {
           setLoading(false)
@@ -86,11 +85,8 @@ export default function OwnerDashboardPage() {
     }
   }, [])
 
-  if (!user) {
-    return null
-  }
-
-  const ownerName = user.employees ? `${user.employees.first_name} ${user.employees.last_name}` : user.username
+  // compute owner name safely (hooks must be called before any early returns)
+  const ownerName = user?.employees ? `${user.employees.first_name} ${user.employees.last_name}` : (user?.username || '')
 
   const stats = useMemo(() => [
     {
@@ -163,6 +159,46 @@ export default function OwnerDashboardPage() {
     },
   ], [dashboard])
 
+  // If user not available, don't render the dashboard UI
+  if (!user) return null
+
+  if (forbidden) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-700">
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm text-center">
+          <h2 className="text-xl font-semibold text-slate-900">Access denied</h2>
+          <p className="mt-2 text-sm text-slate-500">You don't have permission to view the owner dashboard.</p>
+          <div className="mt-4 flex items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                // clear stored auth and redirect to login
+                localStorage.removeItem('token')
+                localStorage.removeItem('user')
+                navigate('/login')
+              }}
+              className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1 text-sm text-slate-700"
+            >
+              Go to login
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.removeItem('token')
+                localStorage.removeItem('user')
+                // reload app
+                window.location.href = '/'
+              }}
+              className="rounded-md bg-amber-600 px-3 py-1 text-sm font-semibold text-white"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-700">
@@ -231,7 +267,7 @@ export default function OwnerDashboardPage() {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Operational pulse</p>
-                  <h2 className="mt-2 text-xl font-semibold text-slate-900">Production trend — last 7 days</h2>
+                  <h2 className="mt-2 text-xl font-semibold text-slate-900">Production trend - last 7 days</h2>
                 </div>
                 <span className="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-100">
                   Updated today

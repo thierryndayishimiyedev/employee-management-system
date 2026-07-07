@@ -30,7 +30,7 @@ const managerLogin = async ({ username, password }) => {
             user_id: user.user_id,
             employee_id: user.employee_id,
             company_id: user.employees.company_id,
-            role: "MANAGER"
+            role_name: "MANAGER"
         },
         process.env.JWT_SECRET,
         { expiresIn: "1d" }
@@ -40,7 +40,10 @@ const managerLogin = async ({ username, password }) => {
 
     return {
         token,
-        user
+        user: {
+            ...user,
+            role_name: user.roles?.role_name || "MANAGER"
+        }
     };
 
 };

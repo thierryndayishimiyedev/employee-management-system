@@ -1,26 +1,7 @@
-import { createContext, useContext, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import api from "../api/api";
-
-const AuthContext = createContext(null);
-
-const normalizeUser = (user) => {
-    if (!user) return null;
-
-    const roleName =
-        user.role_name ||
-        user.roles?.role_name ||
-        user.role ||
-        user.roles?.[0]?.role_name;
-
-    if (!roleName) {
-        return user;
-    }
-
-    return {
-        ...user,
-        role_name: roleName
-    };
-};
+import { AuthContext } from "./authStore";
+import { normalizeUser } from "./authUtils";
 
 export function AuthProvider({ children }) {
 
@@ -113,18 +94,3 @@ export function AuthProvider({ children }) {
 
 }
 
-export function useAuth() {
-
-    const context = useContext(AuthContext);
-
-    if (!context) {
-
-        throw new Error(
-            "useAuth must be used inside AuthProvider."
-        );
-
-    }
-
-    return context;
-
-}

@@ -103,9 +103,7 @@ export default function AttendanceModal({
 
             setEmployees(Array.isArray(response?.data?.data) ? response.data.data : []);
 
-        } catch (error) {
-
-            console.log(error);
+        } catch {
 
             setEmployees([]);
 
