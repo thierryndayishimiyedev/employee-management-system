@@ -24,14 +24,14 @@ export default function AttendanceChart({ data = [] }) {
                             className="flex flex-col items-center flex-1"
                         >
 
-                            <span className="text-xs text-slate-300 mb-2">
+                            <span className="mb-2 text-xs font-semibold text-slate-500">
 
                                 {value}
 
                             </span>
 
                             <div
-                                className="w-full rounded-t-xl bg-gradient-to-t from-cyan-600 to-blue-400 hover:opacity-80 transition-all duration-300"
+                                className="w-full rounded-t-xl bg-gradient-to-t from-amber-600 to-amber-300/70 transition-all duration-300 hover:opacity-80"
                                 style={{
                                     height: `${Math.max(
                                         (value / maxValue) * 200,
@@ -40,7 +40,7 @@ export default function AttendanceChart({ data = [] }) {
                                 }}
                             />
 
-                            <span className="mt-3 text-sm text-slate-400">
+                            <span className="mt-3 text-sm text-slate-500">
 
                                 {label}
 

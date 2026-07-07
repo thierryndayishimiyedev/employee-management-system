@@ -26,13 +26,13 @@ export default function AttendanceTable({
 
             <div className="py-20 text-center">
 
-                <h3 className="text-xl font-semibold text-slate-300">
+                <h3 className="text-xl font-semibold text-slate-800">
 
                     No Attendance Records
 
                 </h3>
 
-                <p className="text-slate-500 mt-2">
+                <p className="mt-2 text-slate-500">
 
                     No employee attendance has been recorded yet.
 
@@ -52,51 +52,51 @@ export default function AttendanceTable({
 
                 <thead>
 
-                    <tr className="border-b border-slate-700 bg-slate-800">
+                    <tr className="bg-slate-50 text-xs uppercase tracking-wider text-slate-400">
 
-                        <th className="text-left py-4 px-5">
+                        <th className="px-5 py-4 text-left font-semibold">
 
                             Employee
 
                         </th>
 
-                        <th className="text-left py-4 px-5">
+                        <th className="px-5 py-4 text-left font-semibold">
 
                             Date
 
                         </th>
 
-                        <th className="text-left py-4 px-5">
+                        <th className="px-5 py-4 text-left font-semibold">
 
                             Check In
 
                         </th>
 
-                        <th className="text-left py-4 px-5">
+                        <th className="px-5 py-4 text-left font-semibold">
 
                             Check Out
 
                         </th>
 
-                        <th className="text-left py-4 px-5">
+                        <th className="px-5 py-4 text-left font-semibold">
 
                             Hours
 
                         </th>
 
-                        <th className="text-left py-4 px-5">
+                        <th className="px-5 py-4 text-left font-semibold">
 
                             Overtime
 
                         </th>
 
-                        <th className="text-left py-4 px-5">
+                        <th className="px-5 py-4 text-left font-semibold">
 
                             Status
 
                         </th>
 
-                        <th className="text-center py-4 px-5">
+                        <th className="px-5 py-4 text-center font-semibold">
 
                             Actions
 
@@ -114,7 +114,7 @@ export default function AttendanceTable({
 
                             key={attendance.attendance_id}
 
-                            className="border-b border-slate-800 hover:bg-slate-800/50 transition"
+                            className="border-b border-slate-100 transition hover:bg-slate-50/70"
 
                         >
 
@@ -122,7 +122,7 @@ export default function AttendanceTable({
 
                                 <div>
 
-                                    <div className="font-semibold">
+                                    <div className="font-semibold text-slate-800">
 
                                         {attendance.employees.first_name}{" "}
 
@@ -130,7 +130,7 @@ export default function AttendanceTable({
 
                                     </div>
 
-                                    <div className="text-xs text-slate-400 mt-1">
+                                    <div className="mt-1 text-xs text-slate-500">
 
                                         {
 
@@ -144,31 +144,31 @@ export default function AttendanceTable({
 
                             </td>
 
-                            <td className="py-4 px-5">
+                            <td className="px-5 py-4 text-slate-600">
 
                                 {attendance.attendance_date}
 
                             </td>
 
-                            <td className="py-4 px-5">
+                            <td className="px-5 py-4 text-slate-600">
 
                                 {attendance.check_in || "--"}
 
                             </td>
 
-                            <td className="py-4 px-5">
+                            <td className="px-5 py-4 text-slate-600">
 
                                 {attendance.check_out || "--"}
 
                             </td>
 
-                            <td className="py-4 px-5">
+                            <td className="px-5 py-4 text-slate-600">
 
                                 {attendance.hours_worked || 0} hrs
 
                             </td>
 
-                            <td className="py-4 px-5">
+                            <td className="px-5 py-4 text-slate-600">
 
                                 {attendance.overtime_hours || 0} hrs
 
@@ -177,26 +177,26 @@ export default function AttendanceTable({
                             <td className="py-4 px-5">
 
                                 <span
-                                    className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                    className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
                                         attendance.attendance_status ===
                                         "PRESENT"
-                                            ? "bg-green-500/20 text-green-400"
+                                            ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
                                             : attendance.attendance_status ===
                                               "ABSENT"
-                                            ? "bg-red-500/20 text-red-400"
+                                            ? "bg-red-50 text-red-700 ring-red-100"
                                             : attendance.attendance_status ===
                                               "LATE"
-                                            ? "bg-yellow-500/20 text-yellow-400"
+                                            ? "bg-amber-50 text-amber-700 ring-amber-100"
                                             : attendance.attendance_status ===
                                               "LEAVE"
-                                            ? "bg-blue-500/20 text-blue-400"
+                                            ? "bg-cyan-50 text-cyan-700 ring-cyan-100"
                                             : attendance.attendance_status ===
                                               "SICK"
-                                            ? "bg-purple-500/20 text-purple-400"
+                                            ? "bg-slate-100 text-slate-700 ring-slate-200"
                                             : attendance.attendance_status ===
                                               "HOLIDAY"
-                                            ? "bg-cyan-500/20 text-cyan-400"
-                                            : "bg-slate-600 text-white"
+                                            ? "bg-cyan-50 text-cyan-700 ring-cyan-100"
+                                            : "bg-slate-100 text-slate-700 ring-slate-200"
                                     }`}
                                 >
                                     {
@@ -218,7 +218,7 @@ export default function AttendanceTable({
                                             onView(attendance)
                                         }
 
-                                        className="p-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 transition"
+                                        className="rounded-md p-2 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-700"
 
                                     >
 
@@ -234,7 +234,7 @@ export default function AttendanceTable({
                                                     onEdit(attendance)
                                                 }
 
-                                                className="p-2 rounded-lg bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 transition"
+                                                className="rounded-md p-2 text-slate-400 transition hover:bg-amber-50 hover:text-amber-700"
 
                                             >
 
@@ -248,7 +248,7 @@ export default function AttendanceTable({
                                                     onDelete(attendance)
                                                 }
 
-                                                className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition"
+                                                className="rounded-md p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
 
                                             >
 

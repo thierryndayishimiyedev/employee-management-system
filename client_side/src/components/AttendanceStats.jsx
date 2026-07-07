@@ -12,33 +12,33 @@ function Card({
 
     const colors = {
 
-        blue: "bg-blue-500/20 text-blue-400",
+        blue: "bg-cyan-50 text-cyan-600 ring-cyan-100",
 
-        green: "bg-green-500/20 text-green-400",
+        green: "bg-emerald-50 text-emerald-600 ring-emerald-100",
 
-        red: "bg-red-500/20 text-red-400",
+        red: "bg-red-50 text-red-600 ring-red-100",
 
-        yellow: "bg-yellow-500/20 text-yellow-400",
+        yellow: "bg-amber-50 text-amber-600 ring-amber-100",
 
-        purple: "bg-purple-500/20 text-purple-400"
+        purple: "bg-slate-100 text-slate-600 ring-slate-200"
 
     };
 
     return (
 
-        <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-xl hover:border-slate-600 transition">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
 
             <div className="flex items-center justify-between">
 
                 <div>
 
-                    <p className="text-slate-400 text-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
 
                         {title}
 
                     </p>
 
-                    <h2 className="text-4xl font-bold mt-3">
+                    <h2 className="mt-3 text-3xl font-bold text-slate-900">
 
                         {value}
 
@@ -47,9 +47,9 @@ function Card({
                 </div>
 
                 <div
-                    className={`w-14 h-14 rounded-xl flex items-center justify-center ${colors[color]}`}
+                    className={`flex h-11 w-11 items-center justify-center rounded-xl ring-4 ${colors[color]}`}
                 >
-                    <Icon size={28} />
+                    <Icon size={20} />
                 </div>
 
             </div>
@@ -68,7 +68,7 @@ const AttendanceStats = ({
 
     return (
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
 
             {cards.map((card, index) => (
 

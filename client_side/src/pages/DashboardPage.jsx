@@ -1,28 +1,19 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  ArrowUpRight,
   Building2,
   CalendarCheck,
   CheckCircle2,
   Plus,
-  RefreshCw,
   ShieldCheck,
   UserCog,
   Users,
 } from 'lucide-react'
 import api from '../api/api'
 import { useAuth } from '../context/authStore'
-import AppSidebar from './Appsidebar'
+import { DashboardHeader, DashboardShell, QuickActionGrid, SectionCard, StatGrid } from '../components/DashboardKit'
 import RegisterCompanyModal from '../components/RegisterCompanyModal'
 import RegisterOwnerModal from '../components/registerOwnerModal'
-
-const toneStyles = {
-  amber: { bg: 'bg-amber-50', icon: 'text-amber-600', ring: 'ring-amber-100' },
-  emerald: { bg: 'bg-emerald-50', icon: 'text-emerald-600', ring: 'ring-emerald-100' },
-  cyan: { bg: 'bg-cyan-50', icon: 'text-cyan-600', ring: 'ring-cyan-100' },
-  slate: { bg: 'bg-slate-100', icon: 'text-slate-600', ring: 'ring-slate-200' },
-}
 
 const actions = [
   { label: 'Register company', icon: Building2, type: 'company' },
@@ -42,25 +33,6 @@ function formatDate(value) {
 
 function normalizeStatus(status) {
   return String(status || 'ACTIVE').toUpperCase()
-}
-
-function StatCard({ label, value, detail, icon: Icon, tone = 'amber' }) {
-  const toneClass = toneStyles[tone] || toneStyles.amber
-
-  return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</p>
-          <p className="mt-3 text-3xl font-bold text-slate-900">{value}</p>
-        </div>
-        <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${toneClass.bg} ${toneClass.icon} ring-4 ${toneClass.ring}`}>
-          <Icon size={20} />
-        </div>
-      </div>
-      <p className="mt-4 text-sm text-slate-500">{detail}</p>
-    </article>
-  )
 }
 
 export default function DashboardPage() {
@@ -171,44 +143,29 @@ export default function DashboardPage() {
 
   if (!user) return null
 
+  const quickActions = actions.map((action) => ({
+    ...action,
+    onClick: () => handleActionClick(action),
+  }))
+
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      <AppSidebar />
-      <main className="flex-1 p-4 md:p-8">
-        <div className="mx-auto max-w-7xl space-y-6">
-          <header className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-              <div className="space-y-3">
-                <p className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-amber-700 ring-1 ring-amber-100">
-                  Super Admin dashboard
-                </p>
-                <h1 className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
-                  System control center
-                </h1>
-                <p className="max-w-2xl text-slate-500">
-                  Manage mining companies and owner access. Attendance, production, reports, payroll, and payments stay with the company roles.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={loadDashboard}
-                  disabled={loading}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white disabled:opacity-60"
-                >
-                  <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-                  Refresh
-                </button>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="rounded-full bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
-                >
-                  Logout
-                </button>
-              </div>
-            </div>
-          </header>
+    <DashboardShell>
+      <DashboardHeader
+        eyebrow="Super Admin dashboard"
+        title="System control center"
+        description="Manage mining companies and owner access. Company operations stay with Owner, Manager, and Accountant roles."
+        loading={loading}
+        onRefresh={loadDashboard}
+        action={
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
+          >
+            Logout
+          </button>
+        }
+      />
 
           {error && (
             <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-medium text-red-700">
@@ -216,11 +173,7 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {stats.map((item) => (
-              <StatCard key={item.label} {...item} />
-            ))}
-          </section>
+      <StatGrid stats={stats} />
 
           <section className="grid gap-4 lg:grid-cols-3">
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
@@ -258,33 +211,9 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Quick actions</p>
-              <h2 className="mt-2 text-xl font-semibold text-slate-900">Super Admin workflows</h2>
-              <div className="mt-6 grid gap-3">
-                {actions.map((action) => {
-                  const Icon = action.icon
-                  return (
-                    <button
-                      key={action.label}
-                      type="button"
-                      onClick={() => handleActionClick(action)}
-                      className="group rounded-xl border border-slate-200 bg-slate-50/60 p-4 text-left transition hover:border-amber-300 hover:bg-amber-50/40"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="inline-flex items-center gap-3 text-sm font-semibold text-slate-700">
-                          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-amber-600 shadow-sm ring-1 ring-slate-200">
-                            <Icon size={18} />
-                          </span>
-                          {action.label}
-                        </span>
-                        <ArrowUpRight size={16} className="text-slate-300 transition group-hover:text-amber-600" />
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
+            <SectionCard eyebrow="Quick actions" title="Super Admin workflows">
+              <QuickActionGrid actions={quickActions} />
+            </SectionCard>
           </section>
 
           <section className="grid gap-4 lg:grid-cols-3">
@@ -371,7 +300,7 @@ export default function DashboardPage() {
                     <div key={activity.id} className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
                       <p className="text-sm font-semibold text-slate-800">{activity.event}</p>
                       <p className="mt-1 text-xs text-slate-500">
-                        {activity.company || '-'} · {activity.user || 'System'} · {formatDate(activity.date)}
+                        {activity.company || '-'} - {activity.user || 'System'} - {formatDate(activity.date)}
                       </p>
                     </div>
                   ))
@@ -379,8 +308,6 @@ export default function DashboardPage() {
               </div>
             </div>
           </section>
-        </div>
-      </main>
 
       <RegisterCompanyModal
         isOpen={showRegisterModal}
@@ -394,6 +321,6 @@ export default function DashboardPage() {
         company={selectedCompany}
         onSuccess={handleOwnerSuccess}
       />
-    </div>
+    </DashboardShell>
   )
 }

@@ -240,7 +240,7 @@ export default function AttendancePage() {
 
         return (
 
-            <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white text-lg">
+            <div className="flex min-h-screen items-center justify-center bg-slate-50 text-lg text-slate-600">
 
                 Loading Attendance...
 
@@ -275,23 +275,31 @@ export default function AttendancePage() {
 
             <main className="flex-1 p-4 md:p-8 text-slate-900">
 
-            <div className="max-w-7xl mx-auto space-y-8">
+            <div className="mx-auto max-w-7xl space-y-6">
 
                 {/* Header */}
 
-                <div className="flex justify-between items-center flex-wrap gap-4">
+                <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+
+                <div className="flex flex-wrap items-end justify-between gap-4">
 
                     <div>
 
-                        <h1 className="text-4xl font-bold">
+                        <p className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-amber-700 ring-1 ring-amber-100">
+
+                            Attendance
+
+                        </p>
+
+                        <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
 
                             Attendance Management
 
                         </h1>
 
-                        <p className="text-slate-400 mt-2">
+                        <p className="mt-2 max-w-2xl text-slate-500">
 
-                            Monitor and manage employee attendance.
+                            {canManageAttendance ? "Record daily attendance and review attendance history." : "View company attendance records and today's attendance status."}
 
                         </p>
 
@@ -303,7 +311,7 @@ export default function AttendancePage() {
 
                             onClick={refreshDashboard}
 
-                            className="px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center gap-2"
+                            className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white"
 
                         >
 
@@ -324,7 +332,7 @@ export default function AttendancePage() {
 
                             }}
 
-                            className="px-4 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 flex items-center gap-2"
+                            className="inline-flex items-center gap-2 rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
 
                         >
 
@@ -338,6 +346,8 @@ export default function AttendancePage() {
                     </div>
 
                 </div>
+
+                </header>
 
 
                           {/* Statistics */}
@@ -414,7 +424,7 @@ export default function AttendancePage() {
 
                 {/* Weekly Attendance Chart */}
 
-                <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-xl">
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
                     <div className="flex items-center justify-between mb-6">
 
@@ -426,7 +436,7 @@ export default function AttendancePage() {
 
                             </h2>
 
-                            <p className="text-slate-400 text-sm mt-1">
+                            <p className="mt-1 text-sm text-slate-500">
 
                                 Employee attendance for the last seven days.
 
@@ -436,7 +446,7 @@ export default function AttendancePage() {
 
                         <CalendarDays
                             size={26}
-                            className="text-cyan-400"
+                            className="text-amber-600"
                         />
 
                     </div>
@@ -453,7 +463,7 @@ export default function AttendancePage() {
 
                 {/* Search & Filters */}
 
-                <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 shadow-xl">
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
                     <div className="grid md:grid-cols-3 gap-4">
 
@@ -481,7 +491,7 @@ export default function AttendancePage() {
 
                                 }
 
-                                className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-800 border border-slate-700 focus:border-cyan-500 outline-none"
+                                className="w-full rounded-md border border-slate-200 px-4 py-3 pl-11 text-sm outline-none transition focus:border-amber-400"
 
                             />
 
@@ -497,7 +507,7 @@ export default function AttendancePage() {
 
                             }
 
-                            className="px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 focus:border-cyan-500 outline-none"
+                            className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-amber-400"
 
                         >
 
@@ -545,11 +555,11 @@ export default function AttendancePage() {
 
                         </select>
 
-                        <div className="flex items-center justify-end text-slate-400">
+                        <div className="flex items-center justify-end text-sm text-slate-500">
 
                             Showing
 
-                            <span className="text-white font-semibold mx-2">
+                            <span className="mx-2 font-semibold text-slate-900">
 
                                 {filteredAttendance.length}
 
@@ -566,9 +576,9 @@ export default function AttendancePage() {
 
                             {/* Attendance Table */}
 
-                <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-xl overflow-hidden">
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 
-                    <div className="flex items-center justify-between px-6 py-5 border-b border-slate-700">
+                    <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
 
                         <div>
 
@@ -578,7 +588,7 @@ export default function AttendancePage() {
 
                             </h2>
 
-                            <p className="text-slate-400 text-sm mt-1">
+                            <p className="mt-1 text-sm text-slate-500">
 
                                 View and manage employee attendance.
 
@@ -643,7 +653,7 @@ export default function AttendancePage() {
 
                 {/* Today's Attendance */}
 
-                <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-xl">
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
                     <div className="flex items-center justify-between mb-6">
 
@@ -655,7 +665,7 @@ export default function AttendancePage() {
 
                             </h2>
 
-                            <p className="text-slate-400 text-sm mt-1">
+                            <p className="mt-1 text-sm text-slate-500">
 
                                 Employees who have checked in today.
 
@@ -667,37 +677,37 @@ export default function AttendancePage() {
 
                     <div className="overflow-x-auto">
 
-                        <table className="w-full">
+                        <table className="w-full text-sm">
 
                             <thead>
 
-                                <tr className="border-b border-slate-700">
+                                <tr className="bg-slate-50 text-xs uppercase tracking-wider text-slate-400">
 
-                                    <th className="text-left py-3">
+                                    <th className="px-4 py-3 text-left font-semibold">
 
                                         Employee
 
                                     </th>
 
-                                    <th className="text-left py-3">
+                                    <th className="px-4 py-3 text-left font-semibold">
 
                                         Check In
 
                                     </th>
 
-                                    <th className="text-left py-3">
+                                    <th className="px-4 py-3 text-left font-semibold">
 
                                         Check Out
 
                                     </th>
 
-                                    <th className="text-left py-3">
+                                    <th className="px-4 py-3 text-left font-semibold">
 
                                         Hours
 
                                     </th>
 
-                                    <th className="text-left py-3">
+                                    <th className="px-4 py-3 text-left font-semibold">
 
                                         Status
 
@@ -715,15 +725,15 @@ export default function AttendancePage() {
 
                                         key={attendance.attendance_id}
 
-                                        className="border-b border-slate-800 hover:bg-slate-800 transition"
+                                        className="border-b border-slate-100 transition hover:bg-slate-50/70"
 
                                     >
 
-                                        <td className="py-4">
+                                        <td className="px-4 py-4">
 
                                             <div>
 
-                                                <div className="font-medium">
+                                                <div className="font-medium text-slate-800">
 
                                                     {attendance.employees.first_name}{" "}
 
@@ -731,7 +741,7 @@ export default function AttendancePage() {
 
                                                 </div>
 
-                                                <div className="text-sm text-slate-400">
+                                                <div className="text-sm text-slate-500">
 
                                                     {
 
@@ -747,38 +757,38 @@ export default function AttendancePage() {
 
                                         </td>
 
-                                        <td className="py-4">
+                                        <td className="px-4 py-4 text-slate-600">
 
                                             {attendance.check_in}
 
                                         </td>
 
-                                        <td className="py-4">
+                                        <td className="px-4 py-4 text-slate-600">
 
                                             {attendance.check_out || "--"}
 
                                         </td>
 
-                                        <td className="py-4">
+                                        <td className="px-4 py-4 text-slate-600">
 
                                             {attendance.hours_worked || 0}
 
                                         </td>
 
-                                        <td className="py-4">
+                                        <td className="px-4 py-4">
 
                                             <span
-                                                className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                                className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
                                                     attendance.attendance_status ===
-                                                    "Present"
-                                                        ? "bg-green-500/20 text-green-400"
+                                                    "PRESENT"
+                                                        ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
                                                         : attendance.attendance_status ===
-                                                          "Absent"
-                                                        ? "bg-red-500/20 text-red-400"
+                                                          "ABSENT"
+                                                        ? "bg-red-50 text-red-700 ring-red-100"
                                                         : attendance.attendance_status ===
-                                                          "Late"
-                                                        ? "bg-yellow-500/20 text-yellow-400"
-                                                        : "bg-blue-500/20 text-blue-400"
+                                                          "LATE"
+                                                        ? "bg-amber-50 text-amber-700 ring-amber-100"
+                                                        : "bg-cyan-50 text-cyan-700 ring-cyan-100"
                                                 }`}
                                             >
                                                 {
@@ -806,7 +816,7 @@ export default function AttendancePage() {
 
                 <div className="grid lg:grid-cols-2 gap-6">
 
-                    <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-xl">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
                         <h2 className="text-xl font-semibold mb-2">
 
@@ -814,7 +824,7 @@ export default function AttendancePage() {
 
                         </h2>
 
-                        <p className="text-slate-400 text-sm mb-6">
+                        <p className="mb-6 text-sm text-slate-500">
 
                             Overall attendance performance this month.
 
@@ -828,7 +838,7 @@ export default function AttendancePage() {
 
                     </div>
 
-                    <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-xl">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
                         <h2 className="text-xl font-semibold mb-4">
 
@@ -840,13 +850,13 @@ export default function AttendancePage() {
 
                             <div className="flex justify-between items-center">
 
-                                <span className="text-slate-400">
+                                <span className="text-slate-500">
 
                                     Total Employees
 
                                 </span>
 
-                                <span className="font-bold text-xl">
+                                <span className="text-xl font-bold text-slate-900">
 
                                     {dashboard.totalEmployees}
 
@@ -856,13 +866,13 @@ export default function AttendancePage() {
 
                             <div className="flex justify-between items-center">
 
-                                <span className="text-slate-400">
+                                <span className="text-slate-500">
 
                                     Present
 
                                 </span>
 
-                                <span className="text-green-400 font-semibold">
+                                <span className="font-semibold text-emerald-600">
 
                                     {dashboard.presentToday}
 
@@ -872,13 +882,13 @@ export default function AttendancePage() {
 
                             <div className="flex justify-between items-center">
 
-                                <span className="text-slate-400">
+                                <span className="text-slate-500">
 
                                     Absent
 
                                 </span>
 
-                                <span className="text-red-400 font-semibold">
+                                <span className="font-semibold text-red-600">
 
                                     {dashboard.absentToday}
 
@@ -888,13 +898,13 @@ export default function AttendancePage() {
 
                             <div className="flex justify-between items-center">
 
-                                <span className="text-slate-400">
+                                <span className="text-slate-500">
 
                                     Late
 
                                 </span>
 
-                                <span className="text-yellow-400 font-semibold">
+                                <span className="font-semibold text-amber-600">
 
                                     {dashboard.late ?? dashboard.lateToday}
 
@@ -904,13 +914,13 @@ export default function AttendancePage() {
 
                             <div className="flex justify-between items-center">
 
-                                <span className="text-slate-400">
+                                <span className="text-slate-500">
 
                                     Leave
 
                                 </span>
 
-                                <span className="text-purple-400 font-semibold">
+                                <span className="font-semibold text-slate-600">
 
                                     {dashboard.leave ?? 0}
 
@@ -918,7 +928,7 @@ export default function AttendancePage() {
 
                             </div>
 
-                            <div className="border-t border-slate-700 pt-4 flex justify-between items-center">
+                            <div className="flex items-center justify-between border-t border-slate-200 pt-4">
 
                                 <span className="font-semibold">
 
@@ -926,7 +936,7 @@ export default function AttendancePage() {
 
                                 </span>
 
-                                <span className="text-cyan-400 text-2xl font-bold">
+                                <span className="text-2xl font-bold text-amber-600">
 
                                     {
 

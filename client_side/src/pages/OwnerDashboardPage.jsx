@@ -225,7 +225,7 @@ export default function OwnerDashboardPage() {
                 </h1>
                 <p className="max-w-2xl text-slate-500">
                   Your company performance and team operations are all in one place. Use quick actions below to manage
-                  departments, positions, attendance, and production.
+                  departments, positions, attendance, and production oversight.
                 </p>
               </div>
               <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
