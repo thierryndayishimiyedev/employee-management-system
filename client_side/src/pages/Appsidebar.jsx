@@ -21,6 +21,10 @@ import {
 import { useAuth } from '../context/authStore'
 
 const nav = [
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['SUPER_ADMIN'] },
+  { to: '/companies', label: 'Companies', icon: Building2, roles: ['SUPER_ADMIN'] },
+  { to: '/owners', label: 'Owners', icon: UserCog, roles: ['SUPER_ADMIN'] },
+  { to: '/admins', label: 'Admins', icon: Shield, roles: ['SUPER_ADMIN'] },
   { to: '/owner/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['OWNER'] },
   { to: '/manager/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['MANAGER'] },
   { to: '/accountant/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['ACCOUNTANT'] },
@@ -28,10 +32,11 @@ const nav = [
   { to: '/departments', label: 'Departments', icon: Building2, roles: ['OWNER'] },
   { to: '/positions', label: 'Positions', icon: TrendingUp, roles: ['OWNER'] },
   { to: '/attendance', label: 'Attendance', icon: CalendarCheck, roles: ['OWNER', 'MANAGER'] },
-  { to: '/production', label: 'Production', icon: Mountain, roles: ['OWNER', 'MANAGER'] },
+  { to: '/attendance', label: 'Attendance', icon: CalendarCheck, roles: ['ACCOUNTANT'] },
+  { to: '/production', label: 'Production', icon: Mountain, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { to: '/workers', label: 'Workers', icon: Users, roles: ['OWNER', 'MANAGER'] },
   { to: '/payroll', label: 'Payroll', icon: Wallet, roles: ['OWNER', 'ACCOUNTANT'] },
-  { to: '/advances', label: 'Advances', icon: BadgeDollarSign, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+  { to: '/advances', label: 'Advances', icon: BadgeDollarSign, roles: ['OWNER', 'ACCOUNTANT'] },
   { to: '/payments', label: 'Payments', icon: CreditCard, roles: ['OWNER', 'ACCOUNTANT'] },
   { to: '/reports', label: 'Reports', icon: FileText, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { to: '/managers', label: 'Managers', icon: UserCog, roles: ['OWNER'] },

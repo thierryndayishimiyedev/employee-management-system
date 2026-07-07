@@ -38,6 +38,11 @@ const getSuperAdminDashboardData = async () => {
         .from("companies")
         .select("*", { count: "exact", head: true });
 
+    const { count: activeCompanies } = await supabase
+        .from("companies")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "ACTIVE");
+
     const { count: totalEmployees } = await supabase
         .from("employees")
         .select("*", { count: "exact", head: true });
@@ -83,9 +88,10 @@ const getSuperAdminDashboardData = async () => {
         let owner = "Not Assigned";
 
         if (employee && ownerRole) {
-            const emp = employee.find(
-                (e) => e.users && e.users.role_id === ownerRole.role_id
-            );
+            const emp = employee.find((e) => {
+                const users = Array.isArray(e.users) ? e.users : [e.users];
+                return users.some((user) => user && user.role_id === ownerRole.role_id);
+            });
             if (emp) owner = emp.first_name + " " + emp.last_name;
         }
 
@@ -100,7 +106,7 @@ const getSuperAdminDashboardData = async () => {
             province: company.province,
             owner,
             employees: count || 0,
-            status: "Active",
+            status: company.status || "ACTIVE",
             created_at: company.created_at,
         });
     }
@@ -147,6 +153,7 @@ const getSuperAdminDashboardData = async () => {
 
     return {
         total_companies: totalCompanies || 0,
+        active_companies: activeCompanies || 0,
         total_owners: totalOwners,
         total_users: totalUsers || 0,
         total_employees: totalEmployees || 0,

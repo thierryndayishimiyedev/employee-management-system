@@ -104,6 +104,7 @@ export default function OwnerResourcePage({ resource }) {
 
   const Icon = config.icon
   const companyId = user?.employees?.company_id || user?.company_id || ''
+  const canManageResource = resource !== 'production' || user?.role_name === 'ACCOUNTANT'
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -263,7 +264,8 @@ export default function OwnerResourcePage({ resource }) {
             </button>
           </header>
 
-          <section className="grid gap-4 lg:grid-cols-[360px_1fr]">
+          <section className={`grid gap-4 ${canManageResource ? 'lg:grid-cols-[360px_1fr]' : ''}`}>
+            {canManageResource && (
             <form onSubmit={saveItem} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-5 flex items-center justify-between gap-3">
                 <div>
@@ -392,6 +394,7 @@ export default function OwnerResourcePage({ resource }) {
                 {saving ? 'Saving...' : editing ? 'Save Changes' : config.createLabel}
               </button>
             </form>
+            )}
 
             <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
               <div className="flex flex-col gap-3 border-b border-slate-200 p-5 md:flex-row md:items-center md:justify-between">
@@ -434,22 +437,26 @@ export default function OwnerResourcePage({ resource }) {
                           ))}
                           <td className="px-4 py-3">
                             <div className="flex justify-end gap-2">
-                              <button
-                                type="button"
-                                onClick={() => beginEdit(item)}
-                                className="rounded-md p-2 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-700"
-                                aria-label="Edit"
-                              >
-                                <Pencil size={16} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => deleteItem(item)}
-                                className="rounded-md p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-                                aria-label="Delete"
-                              >
-                                <Trash2 size={16} />
-                              </button>
+                              {canManageResource && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => beginEdit(item)}
+                                    className="rounded-md p-2 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-700"
+                                    aria-label="Edit"
+                                  >
+                                    <Pencil size={16} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteItem(item)}
+                                    className="rounded-md p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                                    aria-label="Delete"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>

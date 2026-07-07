@@ -3,6 +3,7 @@ const express=require("express");
 const router=express.Router();
 
 const authenticate=require("../middleware/auth.middleware");
+const authorize=require("../middleware/authorize.middleware");
 
 const {
     registerOwner,
@@ -12,14 +13,16 @@ const {
     removeOwner
 }=require("../controllers/owner.controller");
 
-router.post("/",authenticate,registerOwner);
+router.use(authenticate, authorize("SUPER_ADMIN"));
 
-router.get("/",authenticate,fetchOwners);
+router.post("/",registerOwner);
 
-router.get("/:id",authenticate,fetchOwner);
+router.get("/",fetchOwners);
 
-router.put("/:id",authenticate,editOwner);
+router.get("/:id",fetchOwner);
 
-router.delete("/:id",authenticate,removeOwner);
+router.put("/:id",editOwner);
+
+router.delete("/:id",removeOwner);
 
 module.exports=router;

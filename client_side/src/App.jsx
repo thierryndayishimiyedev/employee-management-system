@@ -122,7 +122,7 @@ function App() {
                 path="/production"
                 element={
                     <ProtectedRoute
-                        allowedRoles={["OWNER", "MANAGER"]}
+                        allowedRoles={["OWNER", "MANAGER", "ACCOUNTANT"]}
                         redirectTo="/owner/login"
                     >
                         <OwnerResourcePage resource="production" />
@@ -133,7 +133,7 @@ function App() {
                 path="/attendance"
                 element={
                     <ProtectedRoute
-                        allowedRoles={["OWNER", "MANAGER"]}
+                        allowedRoles={["OWNER", "MANAGER", "ACCOUNTANT"]}
                         redirectTo="/owner/login"
                     >
                         <AttendancePage />
@@ -188,7 +188,7 @@ function App() {
                 path="/managers"
                 element={
                     <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "OWNER"]}
+                        allowedRoles={["OWNER"]}
                         redirectTo="/login"
                     >
                         <ManagementPage resource="managers" />
@@ -210,7 +210,7 @@ function App() {
                 path="/accountants"
                 element={
                     <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "OWNER"]}
+                        allowedRoles={["OWNER"]}
                         redirectTo="/login"
                     >
                         <ManagementPage resource="accountants" />
@@ -232,7 +232,7 @@ function App() {
                 path="/advances"
                 element={
                     <ProtectedRoute
-                        allowedRoles={["OWNER", "ACCOUNTANT", "MANAGER"]}
+                        allowedRoles={["OWNER", "ACCOUNTANT"]}
                         redirectTo="/owner/login"
                     >
                         <ManagementPage resource="advances" />
@@ -243,7 +243,7 @@ function App() {
                 path="/payments"
                 element={
                     <ProtectedRoute
-                        allowedRoles={["OWNER", "ACCOUNTANT"]}
+                        allowedRoles={["OWNER"]}
                         redirectTo="/owner/login"
                     >
                         <ManagementPage resource="payments" />

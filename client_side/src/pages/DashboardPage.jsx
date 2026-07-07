@@ -1,111 +1,64 @@
-﻿import { Link, useNavigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  ArrowUpRight,
+  Building2,
+  CalendarCheck,
+  CheckCircle2,
+  Plus,
+  RefreshCw,
+  ShieldCheck,
+  UserCog,
+  Users,
+} from 'lucide-react'
 import api from '../api/api'
 import { useAuth } from '../context/authStore'
+import AppSidebar from './Appsidebar'
 import RegisterCompanyModal from '../components/RegisterCompanyModal'
 import RegisterOwnerModal from '../components/registerOwnerModal'
-import {
-  Users,
-  Building2,
-  TrendingUp,
-  AlertCircle,
-  ArrowUpRight,
-  CalendarCheck,
-} from 'lucide-react'
 
-const miningCompanies = [
-  {
-    id: 'c1',
-    name: 'ABC Mining',
-    province: 'South Province',
-    owner: 'John Kabera',
-    status: 'Active',
-    employees: 78,
-    createdAt: '2026-05-10',
-  },
-  {
-    id: 'c2',
-    name: 'Kivu Mining',
-    province: 'West Province',
-    owner: 'Amina Niyonzima',
-    status: 'Active',
-    employees: 64,
-    createdAt: '2026-04-28',
-  },
-  {
-    id: 'c3',
-    name: 'East Mining',
-    province: 'North Province',
-    owner: 'Eric Mugisha',
-    status: 'Inactive',
-    employees: 98,
-    createdAt: '2026-03-18',
-  },
-  {
-    id: 'c4',
-    name: 'Nyungwe Mining',
-    province: 'East Province',
-    owner: 'Claire Uwase',
-    status: 'Active',
-    employees: 52,
-    createdAt: '2026-06-03',
-  },
-]
-
-const companiesGrowth = [
-  { label: 'Jan', value: 2 },
-  { label: 'Feb', value: 4 },
-  { label: 'Mar', value: 6 },
-  { label: 'Apr', value: 7 },
-  { label: 'May', value: 8 },
-  { label: 'Jun', value: 9 },
-]
-
-const recentActivities = [
-  { id: 'a1', event: 'Company Registered', company: 'Nyungwe Mining', date: 'Jun 3, 2026', user: 'Admin' },
-  { id: 'a2', event: 'Owner Created', company: 'East Mining', date: 'May 28, 2026', user: 'Admin' },
-  { id: 'a3', event: 'Company Updated', company: 'ABC Mining', date: 'May 10, 2026', user: 'Admin' },
-  { id: 'a4', event: 'Owner Password Reset', company: 'Kivu Mining', date: 'Apr 14, 2026', user: 'Admin' },
-]
-
-const systemHealth = [
-  { id: 's1', name: 'Backend', status: 'Online' },
-  { id: 's2', name: 'Database', status: 'Online' },
-  { id: 's3', name: 'API', status: 'Online' },
-  { id: 's4', name: 'Storage', status: 'Online' },
-]
+const toneStyles = {
+  amber: { bg: 'bg-amber-50', icon: 'text-amber-600', ring: 'ring-amber-100' },
+  emerald: { bg: 'bg-emerald-50', icon: 'text-emerald-600', ring: 'ring-emerald-100' },
+  cyan: { bg: 'bg-cyan-50', icon: 'text-cyan-600', ring: 'ring-cyan-100' },
+  slate: { bg: 'bg-slate-100', icon: 'text-slate-600', ring: 'ring-slate-200' },
+}
 
 const actions = [
-  { to: '/companies', label: 'Register Company', icon: Building2 },
-  { to: '/owners', label: 'Create Owner', icon: Users },
-  { to: '/companies', label: 'View Companies', icon: TrendingUp },
-  { to: '/roles', label: 'View Roles', icon: CalendarCheck },
+  { label: 'Register company', icon: Building2, type: 'company' },
+  { label: 'Create owner', icon: UserCog, to: '/owners' },
+  { label: 'View companies', icon: ShieldCheck, to: '/companies' },
+  { label: 'View owners', icon: Users, to: '/owners' },
 ]
 
-function formatDate(date) {
+function formatDate(value) {
+  if (!value) return '-'
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
-  }).format(date)
+  }).format(new Date(value))
 }
 
-function StatCard({ label, value, delta, icon: Icon, tone = 'default' }) {
-  const toneStyles = {
-    amber: 'bg-amber-500/20 text-amber-400',
-    success: 'bg-green-500/20 text-green-400',
-    warning: 'bg-orange-500/20 text-orange-400',
-    default: 'bg-blue-500/20 text-blue-400',
-  }
+function normalizeStatus(status) {
+  return String(status || 'ACTIVE').toUpperCase()
+}
+
+function StatCard({ label, value, detail, icon: Icon, tone = 'amber' }) {
+  const toneClass = toneStyles[tone] || toneStyles.amber
 
   return (
-    <article className="bg-slate-900/80 border border-slate-700/50 rounded-2xl p-6 flex flex-col gap-4 shadow-xl hover:border-slate-600/50 transition">
-      <div className={`w-11 h-11 rounded-lg ${toneStyles[tone] || toneStyles.default} flex items-center justify-center`}>
-        <Icon size={20} />
+    <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+          <p className="mt-3 text-3xl font-bold text-slate-900">{value}</p>
+        </div>
+        <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${toneClass.bg} ${toneClass.icon} ring-4 ${toneClass.ring}`}>
+          <Icon size={20} />
+        </div>
       </div>
-      <p className="text-slate-400 text-xs font-semibold tracking-wider uppercase">{label}</p>
-      <h3 className="text-3xl font-bold text-white">{value}</h3>
-      <p className="text-slate-300 text-sm">{delta}</p>
+      <p className="mt-4 text-sm text-slate-500">{detail}</p>
     </article>
   )
 }
@@ -113,91 +66,102 @@ function StatCard({ label, value, delta, icon: Icon, tone = 'default' }) {
 export default function DashboardPage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
-
-  // All hooks live inside the component body — this is what fixes the
-  // "Invalid hook call" error. They were previously declared at module
-  // scope (outside any component), which React does not allow.
   const [dashboard, setDashboard] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [showRegisterModal, setShowRegisterModal] = useState(false)
   const [showOwnerModal, setShowOwnerModal] = useState(false)
   const [selectedCompany, setSelectedCompany] = useState(null)
 
-  const today = formatDate(new Date())
-
-  useEffect(() => {
-    let isMounted = true
-
-    async function fetchDashboard() {
-      try {
-        setLoading(true)
-        const res = await api.get('/super-admin/dashboard')
-        if (isMounted) {
-          setDashboard(res.data?.data || res.data)
-        }
-      } catch (err) {
-        console.error('Failed to load dashboard data:', err)
-      } finally {
-        if (isMounted) {
-          setLoading(false)
-        }
-      }
-    }
-
-    fetchDashboard()
-
-    return () => {
-      isMounted = false
+  const loadDashboard = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError('')
+      const response = await api.get('/super-admin/dashboard')
+      setDashboard(response.data?.data || response.data || null)
+    } catch (err) {
+      console.error('Failed to load dashboard data:', err)
+      setError(err.response?.data?.message || 'Failed to load dashboard data.')
+    } finally {
+      setLoading(false)
     }
   }, [])
 
-  if (!user) {
-    return null
-  }
+  useEffect(() => {
+    loadDashboard()
+  }, [loadDashboard])
 
-  const dashboardCompanies = dashboard?.recent_companies?.map((company) => ({
-    id: company.company_id,
-    name: company.company_name,
-    province: company.province,
-    owner: company.owner,
-    status: company.status,
-    employees: company.employees,
-    createdAt: company.created_at ? formatDate(new Date(company.created_at)) : 'Unknown',
-  })) || miningCompanies
-  const dashboardGrowth = dashboard?.companies_growth?.length ? dashboard.companies_growth : companiesGrowth
-  const dashboardActivities = dashboard?.recent_activities?.map((activity) => ({
-    id: activity.id,
-    event: activity.event,
-    company: activity.company,
-    date: activity.date ? formatDate(new Date(activity.date)) : 'Unknown',
-    user: activity.user,
-  })) || recentActivities
-  const dashboardHealth = dashboard?.system_health?.length ? dashboard.system_health : systemHealth
+  const companies = useMemo(() => {
+    return (dashboard?.recent_companies || []).map((company) => ({
+      id: company.company_id,
+      name: company.company_name || '-',
+      province: company.province || '-',
+      owner: company.owner || 'Not Assigned',
+      status: normalizeStatus(company.status),
+      employees: company.employees ?? 0,
+      createdAt: formatDate(company.created_at),
+    }))
+  }, [dashboard])
 
-  const companiesCount = dashboard?.total_companies ?? dashboardCompanies.length
-  const ownersCount = dashboard?.total_owners ?? dashboardCompanies.length
-  const employeesCount = dashboard?.total_employees ?? dashboardCompanies.reduce((sum, company) => sum + company.employees, 0)
-  const systemOnline = dashboardHealth.filter((item) => item.status === 'Online').length
-  const maxTrend = Math.max(...dashboardGrowth.map((item) => item.value), 1)
+  const growth = dashboard?.companies_growth?.length ? dashboard.companies_growth : []
+  const activities = dashboard?.recent_activities?.length ? dashboard.recent_activities : []
+  const maxTrend = Math.max(...growth.map((item) => Number(item.value) || 0), 1)
+
+  const totalCompanies = dashboard?.total_companies ?? 0
+  const activeCompanies = dashboard?.active_companies ?? companies.filter((company) => company.status === 'ACTIVE').length
+  const totalOwners = dashboard?.total_owners ?? 0
+  const totalEmployees = dashboard?.total_employees ?? 0
+
+  const stats = [
+    {
+      label: 'Total companies',
+      value: totalCompanies,
+      detail: `${activeCompanies} active companies`,
+      icon: Building2,
+      tone: 'amber',
+    },
+    {
+      label: 'Active companies',
+      value: activeCompanies,
+      detail: 'Companies currently enabled in the system',
+      icon: CheckCircle2,
+      tone: 'emerald',
+    },
+    {
+      label: 'Total owners',
+      value: totalOwners,
+      detail: 'Owner accounts created by Super Admin',
+      icon: UserCog,
+      tone: 'cyan',
+    },
+    {
+      label: 'Total employees',
+      value: totalEmployees,
+      detail: 'Employees across all companies',
+      icon: Users,
+      tone: 'slate',
+    },
+  ]
 
   const handleRegisterSuccess = (createdCompany) => {
     setShowRegisterModal(false)
     setSelectedCompany(createdCompany)
-    setShowOwnerModal(true)
+    setShowOwnerModal(Boolean(createdCompany?.company_id))
+    loadDashboard()
   }
 
   const handleOwnerSuccess = () => {
     setShowOwnerModal(false)
     setSelectedCompany(null)
-    // Dashboard data should refresh here if real API data is available.
+    loadDashboard()
   }
 
   const handleActionClick = (action) => {
-    if (action.label === 'Register Company') {
+    if (action.type === 'company') {
       setShowRegisterModal(true)
-    } else {
-      navigate(action.to)
+      return
     }
+    navigate(action.to)
   }
 
   const handleLogout = () => {
@@ -205,223 +169,231 @@ export default function DashboardPage() {
     navigate('/login')
   }
 
+  if (!user) return null
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
-        
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 flex-wrap">
-          <div>
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white">Super Admin Portal</h1>
-            <p className="text-slate-400 text-base md:text-lg mt-2">Developer control center for all mining companies</p>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/6 border border-slate-700/30 text-sm">
-              {loading ? 'Updating...' : `Updated: ${today}`}
-            </span>
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center rounded-full border border-slate-700/50 bg-slate-900/80 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-amber-400 hover:text-amber-300"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            label="Mining Companies"
-            value={String(companiesCount)}
-            delta={`${ownersCount} owners registered`}
-            icon={Building2}
-            tone="amber"
-          />
-          <StatCard
-            label="Owners"
-            value={String(ownersCount)}
-            delta={`${employeesCount} employees managed`}
-            icon={Users}
-            tone="success"
-          />
-          <StatCard
-            label="Employees"
-            value={String(employeesCount)}
-            delta={`${companiesCount} companies live`}
-            icon={TrendingUp}
-          />
-          <StatCard
-            label="System Online"
-            value={`${systemOnline}/4`}
-            delta="All services operational"
-            icon={AlertCircle}
-            tone="default"
-          />
-        </div>
-
-        {/* Main Grid - Chart and Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          
-          {/* Chart Card */}
-          <div className="lg:col-span-2 bg-slate-900/80 border border-slate-700/50 rounded-2xl p-6 shadow-xl">
-            <div className="mb-6">
-              <p className="text-lg font-semibold text-white">Companies Growth</p>
-              <p className="text-slate-400 text-sm mt-1">Monthly mining company registrations.</p>
-            </div>
-            
-            {/* Trend Chart */}
-            <div className="flex items-end gap-3 h-56 pb-3">
-              {dashboardGrowth.map((point) => (
-                <div
-                  key={point.label}
-                  className="flex-1 min-w-6 rounded-lg bg-gradient-to-t from-blue-500 to-cyan-400 relative group hover:opacity-80 transition"
-                  style={{ height: `${Math.max((point.value / maxTrend) * 100, 8)}%` }}
+    <div className="flex min-h-screen bg-slate-50">
+      <AppSidebar />
+      <main className="flex-1 p-4 md:p-8">
+        <div className="mx-auto max-w-7xl space-y-6">
+          <header className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div className="space-y-3">
+                <p className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-amber-700 ring-1 ring-amber-100">
+                  Super Admin dashboard
+                </p>
+                <h1 className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
+                  System control center
+                </h1>
+                <p className="max-w-2xl text-slate-500">
+                  Manage mining companies and owner access. Attendance, production, reports, payroll, and payments stay with the company roles.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={loadDashboard}
+                  disabled={loading}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white disabled:opacity-60"
                 >
-                  <span className="absolute -top-7 left-1/2 transform -translate-x-1/2 text-xs text-slate-300 font-medium group-hover:text-white transition">
-                    {point.value}
-                  </span>
-                </div>
-              ))}
+                  <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                  Refresh
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="rounded-full bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
+                >
+                  Logout
+                </button>
+              </div>
             </div>
-            
-            {/* Labels */}
-            <div className="grid grid-cols-7 gap-3 mt-8">
-              {dashboardGrowth.map((point) => (
-                <span key={point.label} className="text-center text-xs text-slate-400">
-                  {point.label}
-                </span>
-              ))}
-            </div>
-          </div>
+          </header>
 
-          {/* Quick Actions Panel */}
-          <div className="bg-slate-900/80 border border-slate-700/50 rounded-2xl p-6 shadow-xl flex flex-col gap-4">
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
-              <div className="space-y-2">
+          {error && (
+            <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-medium text-red-700">
+              {error}
+            </div>
+          )}
+
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {stats.map((item) => (
+              <StatCard key={item.label} {...item} />
+            ))}
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Company growth</p>
+                  <h2 className="mt-2 text-xl font-semibold text-slate-900">Monthly registrations</h2>
+                </div>
+                <span className="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-100">
+                  Real API data
+                </span>
+              </div>
+
+              <div className="mt-6 h-64 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                {growth.length === 0 ? (
+                  <div className="flex h-full items-center justify-center text-sm text-slate-500">No growth data available.</div>
+                ) : (
+                  <div className="flex h-full items-end gap-3">
+                    {growth.map((point) => (
+                      <div key={point.label} className="flex flex-1 flex-col items-center gap-2">
+                        <div className="flex h-40 w-full items-end justify-center rounded-lg bg-gradient-to-t from-amber-500 to-amber-300/70 p-1">
+                          <div
+                            className="w-full rounded-md bg-amber-600"
+                            style={{ height: `${Math.max((Number(point.value) / maxTrend) * 100, 8)}%` }}
+                          />
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs font-semibold text-slate-600">{point.label}</div>
+                          <div className="text-[11px] text-slate-400">{point.value}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Quick actions</p>
+              <h2 className="mt-2 text-xl font-semibold text-slate-900">Super Admin workflows</h2>
+              <div className="mt-6 grid gap-3">
                 {actions.map((action) => {
                   const Icon = action.icon
                   return (
                     <button
                       key={action.label}
+                      type="button"
                       onClick={() => handleActionClick(action)}
-                      className="w-full flex justify-between items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-slate-700/30 text-slate-100 hover:bg-cyan-500/10 hover:border-cyan-500/50 transition group"
+                      className="group rounded-xl border border-slate-200 bg-slate-50/60 p-4 text-left transition hover:border-amber-300 hover:bg-amber-50/40"
                     >
-                      <span className="flex items-center gap-3 text-sm font-medium">
-                        <Icon size={16} className="group-hover:text-cyan-400 transition" />
-                        {action.label}
-                      </span>
-                      <ArrowUpRight size={16} className="group-hover:text-cyan-400 transition" />
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="inline-flex items-center gap-3 text-sm font-semibold text-slate-700">
+                          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-amber-600 shadow-sm ring-1 ring-slate-200">
+                            <Icon size={18} />
+                          </span>
+                          {action.label}
+                        </span>
+                        <ArrowUpRight size={16} className="text-slate-300 transition group-hover:text-amber-600" />
+                      </div>
                     </button>
                   )
                 })}
               </div>
             </div>
-            
-            <p className="text-slate-400 text-sm border-t border-slate-700/30 pt-4 mt-auto">
-              This portal manages companies, owner access, and system health for your mining ecosystem.
-            </p>
-          </div>
-        </div>
+          </section>
 
-        {/* Main Grid - Table and Activities */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          
-          {/* Recent Companies Table */}
-          <div className="lg:col-span-2 bg-slate-900/80 border border-slate-700/50 rounded-2xl p-6 shadow-xl">
-            <p className="text-lg font-semibold text-white mb-2">Recent Companies</p>
-            <p className="text-slate-400 text-sm mb-6">Latest companies registered through the developer portal.</p>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-700/30">
-                    <th className="text-left py-3 px-3 font-semibold text-slate-300">Company</th>
-                    <th className="text-left py-3 px-3 font-semibold text-slate-300">Province</th>
-                    <th className="text-left py-3 px-3 font-semibold text-slate-300">Owner</th>
-                    <th className="text-left py-3 px-3 font-semibold text-slate-300">Status</th>
-                    <th className="text-left py-3 px-3 font-semibold text-slate-300">Created</th>
-                    <th className="text-left py-3 px-3 font-semibold text-slate-300">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-700/20">
-                  {dashboardCompanies.map((company) => (
-                    <tr key={company.id} className="hover:bg-slate-800/30 transition">
-                      <td className="py-3 px-3 text-slate-100">{company.name}</td>
-                      <td className="py-3 px-3 text-slate-300">{company.province}</td>
-                      <td className="py-3 px-3 text-slate-300">{company.owner}</td>
-                      <td className="py-3 px-3">
-                        <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
-                          company.status.toLowerCase() === 'active'
-                            ? 'bg-green-500/20 text-green-300'
-                            : 'bg-slate-700/40 text-slate-300'
-                        }`}>
-                          {company.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 text-slate-400">{company.createdAt}</td>
-                      <td className="py-3 px-3">
-                        <Link to="/companies" className="text-cyan-400 hover:text-cyan-300 font-medium text-xs transition">
-                          View
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <section className="grid gap-4 lg:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
+              <div className="flex flex-col gap-3 border-b border-slate-200 p-6 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Recently registered</p>
+                  <h2 className="mt-2 text-xl font-semibold text-slate-900">Companies</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowRegisterModal(true)}
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
+                >
+                  <Plus size={16} />
+                  Register company
+                </button>
+              </div>
 
-          {/* Activities & System Health */}
-          <div className="bg-slate-900/80 border border-slate-700/50 rounded-2xl p-6 shadow-xl flex flex-col gap-6">
-            
-            {/* Recent Activity */}
-            <div>
-              <p className="text-lg font-semibold text-white mb-2">Recent Activity</p>
-              <p className="text-slate-400 text-sm mb-4">Super Admin actions recorded by the portal.</p>
-              
-              <ul className="space-y-3">
-                {dashboardActivities.map((activity) => (
-                  <li key={activity.id} className="pb-3 border-b border-slate-700/20 last:border-b-0">
-                    <div className="text-sm font-medium text-slate-100">{activity.event}</div>
-                    <div className="text-xs text-slate-400 mt-1">
-                      {activity.company} · {activity.user} · {activity.date}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* System Health */}
-            <div className="border-t border-slate-700/30 pt-6">
-              <div className="grid grid-cols-2 gap-3">
-                {dashboardHealth.map((service) => (
-                  <div key={service.id} className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/20 flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-medium text-slate-100">{service.name}</div>
-                      <div className="text-xs text-slate-400 mt-1">{service.status}</div>
-                    </div>
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                {loading ? (
+                  <p className="p-6 text-sm text-slate-500">Loading dashboard data...</p>
+                ) : companies.length === 0 ? (
+                  <p className="p-6 text-sm text-slate-500">No companies registered yet.</p>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-400">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold">Company</th>
+                        <th className="px-4 py-3 font-semibold">Province</th>
+                        <th className="px-4 py-3 font-semibold">Owner</th>
+                        <th className="px-4 py-3 font-semibold">Employees</th>
+                        <th className="px-4 py-3 font-semibold">Status</th>
+                        <th className="px-4 py-3 font-semibold">Created</th>
+                        <th className="px-4 py-3 text-right font-semibold">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {companies.map((company) => (
+                        <tr key={company.id} className="transition hover:bg-slate-50/70">
+                          <td className="px-4 py-3 font-medium text-slate-800">{company.name}</td>
+                          <td className="px-4 py-3 text-slate-600">{company.province}</td>
+                          <td className="px-4 py-3 text-slate-600">{company.owner}</td>
+                          <td className="px-4 py-3 text-slate-600">{company.employees}</td>
+                          <td className="px-4 py-3">
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${
+                              company.status === 'ACTIVE'
+                                ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+                                : 'bg-slate-100 text-slate-600 ring-slate-200'
+                            }`}>
+                              {company.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-slate-500">{company.createdAt}</td>
+                          <td className="px-4 py-3 text-right">
+                            <Link to="/companies" className="font-semibold text-cyan-700 transition hover:text-cyan-600">
+                              View
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
-          </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Activity</p>
+                  <h2 className="mt-2 text-xl font-semibold text-slate-900">Recent updates</h2>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600 ring-4 ring-amber-100">
+                  <CalendarCheck size={18} />
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {activities.length === 0 ? (
+                  <p className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 text-sm text-slate-500">No recent activity yet.</p>
+                ) : (
+                  activities.map((activity) => (
+                    <div key={activity.id} className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                      <p className="text-sm font-semibold text-slate-800">{activity.event}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {activity.company || '-'} · {activity.user || 'System'} · {formatDate(activity.date)}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </section>
         </div>
+      </main>
 
-        <RegisterCompanyModal
-          isOpen={showRegisterModal}
-          onClose={() => setShowRegisterModal(false)}
-          onSuccess={handleRegisterSuccess}
-        />
+      <RegisterCompanyModal
+        isOpen={showRegisterModal}
+        onClose={() => setShowRegisterModal(false)}
+        onSuccess={handleRegisterSuccess}
+      />
 
-        <RegisterOwnerModal
-          isOpen={showOwnerModal}
-          onClose={() => setShowOwnerModal(false)}
-          company={selectedCompany}
-          onSuccess={handleOwnerSuccess}
-        />
-      </div>
+      <RegisterOwnerModal
+        isOpen={showOwnerModal}
+        onClose={() => setShowOwnerModal(false)}
+        company={selectedCompany}
+        onSuccess={handleOwnerSuccess}
+      />
     </div>
   )
-}  
+}

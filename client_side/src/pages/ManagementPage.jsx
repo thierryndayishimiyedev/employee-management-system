@@ -226,6 +226,7 @@ const resourceConfig = {
     endpoint: '/advances',
     idKey: 'advance_id',
     createLabel: 'Request Advance',
+    createRoles: ['ACCOUNTANT'],
     related: ['employees'],
     empty: {
       employee_id: '',
@@ -248,6 +249,7 @@ const resourceConfig = {
       {
         label: 'Approve',
         icon: CheckCircle2,
+        roles: ['OWNER'],
         show: (item) => item.status !== 'APPROVED',
         run: (item) => api.put(`/advance-approvals/${item.advance_id}/approve`),
       },
@@ -263,6 +265,7 @@ const resourceConfig = {
     topActions: [
       {
         label: 'Pay Approved Payrolls',
+        roles: ['OWNER'],
         run: () => api.post('/payments/pay-all'),
       },
     ],
@@ -282,6 +285,7 @@ const resourceConfig = {
     endpoint: '/reports',
     idKey: 'report_id',
     createLabel: 'Create Report',
+    createRoles: ['ACCOUNTANT'],
     empty: {
       company_id: '',
       report_date: today,
@@ -307,18 +311,21 @@ const resourceConfig = {
       {
         label: 'Read',
         icon: CheckCircle2,
+        roles: ['OWNER', 'MANAGER'],
         show: (item) => !item.is_read,
         run: (item) => api.put(`/reports/${item.report_id}/read`),
       },
       {
         label: 'Send',
         icon: FileText,
+        roles: ['ACCOUNTANT'],
         show: (item) => !item.is_submitted,
         run: (item) => api.put(`/reports/${item.report_id}/send`),
       },
       {
         label: 'Approve Edit',
         icon: Shield,
+        roles: ['OWNER'],
         show: (item) => item.is_submitted && !item.owner_edit_approved,
         run: (item) => api.put(`/reports/${item.report_id}/approve-edit`),
       },
@@ -331,6 +338,7 @@ const resourceConfig = {
     endpoint: '/payroll',
     idKey: 'payroll_id',
     createLabel: 'Generate Payroll',
+    createRoles: ['ACCOUNTANT'],
     related: ['employees'],
     empty: {
       employee_id: '',
@@ -355,6 +363,7 @@ const resourceConfig = {
       {
         label: 'Approve',
         icon: CheckCircle2,
+        roles: ['OWNER'],
         show: (item) => item.payment_status !== 'APPROVED' && item.payment_status !== 'PAID',
         run: (item) => api.put(`/payroll-approvals/${item.payroll_id}/approve`),
       },
@@ -467,8 +476,9 @@ export default function ManagementPage({ resource }) {
     return items.filter((item) => JSON.stringify(item).toLowerCase().includes(term))
   }, [items, search])
 
-  const layoutWithSidebar = ['OWNER', 'MANAGER', 'ACCOUNTANT'].includes(user?.role_name)
+  const layoutWithSidebar = ['SUPER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTANT'].includes(user?.role_name)
   const Icon = config.icon
+  const canCreateResource = !config.readonly && (!config.createRoles || config.createRoles.includes(user?.role_name))
 
   const setField = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }))
@@ -554,7 +564,9 @@ export default function ManagementPage({ resource }) {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {(config.topActions || []).map((action) => (
+            {(config.topActions || [])
+              .filter((action) => !action.roles || action.roles.includes(user?.role_name))
+              .map((action) => (
               <button
                 type="button"
                 key={action.label}
@@ -576,8 +588,8 @@ export default function ManagementPage({ resource }) {
           </div>
         </header>
 
-        <section className={`grid gap-4 ${config.readonly ? '' : 'lg:grid-cols-[420px_1fr]'}`}>
-          {!config.readonly && (
+        <section className={`grid gap-4 ${canCreateResource ? 'lg:grid-cols-[420px_1fr]' : ''}`}>
+          {canCreateResource && (
             <form onSubmit={saveItem} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-5 flex items-center justify-between gap-3">
                 <div>
@@ -658,7 +670,10 @@ export default function ManagementPage({ resource }) {
                         ))}
                         <td className="px-4 py-3">
                           <div className="flex justify-end gap-2">
-                            {(config.actions || []).filter((action) => !action.show || action.show(item)).map((action) => {
+                            {(config.actions || [])
+                              .filter((action) => !action.roles || action.roles.includes(user?.role_name))
+                              .filter((action) => !action.show || action.show(item))
+                              .map((action) => {
                               const ActionIcon = action.icon
                               return (
                                 <button
@@ -672,7 +687,7 @@ export default function ManagementPage({ resource }) {
                                 </button>
                               )
                             })}
-                            {!config.readonly && !config.noEdit && (
+                            {canCreateResource && !config.noEdit && (
                               <button
                                 type="button"
                                 onClick={() => beginEdit(item)}
@@ -682,7 +697,7 @@ export default function ManagementPage({ resource }) {
                                 <Pencil size={16} />
                               </button>
                             )}
-                            {!config.readonly && (
+                            {canCreateResource && (
                               <button
                                 type="button"
                                 onClick={() => deleteItem(item)}

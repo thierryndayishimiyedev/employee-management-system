@@ -24,6 +24,8 @@ import AttendanceStats from "../components/AttendanceStats";
 import AttendanceChart from "../components/AttendanceChart";
 import AttendanceSummary from "../components/AttendanceSummary";
 import AttendanceModal from "../components/AttendanceModal";
+import { useAuth } from "../context/authStore";
+import AppSidebar from "./Appsidebar";
 
 const buildWeeklyChartData = (records = []) => {
     const today = new Date();
@@ -93,6 +95,10 @@ const buildMonthlySummaryData = (records = []) => {
 };
 
 export default function AttendancePage() {
+
+    const { user } = useAuth();
+
+    const canManageAttendance = user?.role_name === "ACCOUNTANT";
 
     const [dashboard, setDashboard] = useState(null);
 
@@ -263,7 +269,11 @@ export default function AttendancePage() {
 
     return (
 
-        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white p-6">
+        <div className="flex min-h-screen bg-slate-50">
+
+            <AppSidebar />
+
+            <main className="flex-1 p-4 md:p-8 text-slate-900">
 
             <div className="max-w-7xl mx-auto space-y-8">
 
@@ -303,6 +313,7 @@ export default function AttendancePage() {
 
                         </button>
 
+                        {canManageAttendance && (
                         <button
 
                             onClick={() => {
@@ -322,6 +333,7 @@ export default function AttendancePage() {
                             Record Attendance
 
                         </button>
+                        )}
 
                     </div>
 
@@ -579,6 +591,7 @@ export default function AttendancePage() {
                     <AttendanceTable
 
                         attendances={filteredAttendance}
+                        canManage={canManageAttendance}
 
                         onView={(attendance) => {
 
@@ -590,6 +603,8 @@ export default function AttendancePage() {
 
                         onEdit={(attendance) => {
 
+                            if (!canManageAttendance) return;
+
                             setSelectedAttendance(attendance);
 
                             setShowModal(true);
@@ -597,6 +612,8 @@ export default function AttendancePage() {
                         }}
 
                         onDelete={(attendance) => {
+
+                            if (!canManageAttendance) return;
 
                             if (
 
@@ -943,6 +960,7 @@ export default function AttendancePage() {
 
                 {/* Record / Edit Attendance */}
 
+                {canManageAttendance && (
                 <AttendanceModal
 
                     open={showModal}
@@ -968,8 +986,11 @@ export default function AttendancePage() {
                     }}
 
                 />
+                )}
 
             </div>
+
+            </main>
 
         </div>
 

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowUpRight,
-  BadgeDollarSign,
   CalendarCheck,
   ClipboardList,
   Mountain,
@@ -22,10 +21,10 @@ const toneStyles = {
 }
 
 const quickActions = [
-  { to: '/attendance', label: 'Record attendance', icon: CalendarCheck },
-  { to: '/production', label: 'Log production', icon: Mountain },
-  { to: '/workers', label: 'Manage workers', icon: Users },
-  { to: '/advances', label: 'Review advances', icon: BadgeDollarSign },
+  { to: '/reports', label: 'Review reports', icon: ClipboardList },
+  { to: '/attendance', label: 'View attendance', icon: CalendarCheck },
+  { to: '/production', label: 'View production', icon: Mountain },
+  { to: '/workers', label: 'View workers', icon: Users },
 ]
 
 export default function ManagerDashboardPage() {
@@ -97,7 +96,7 @@ export default function ManagerDashboardPage() {
       value: '4',
       icon: ClipboardList,
       tone: 'slate',
-      detail: 'Attendance, production, workers, and advances',
+      detail: 'Reports, attendance, production, and workers',
     },
   ]
 

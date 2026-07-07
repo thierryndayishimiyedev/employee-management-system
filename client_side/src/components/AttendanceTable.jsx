@@ -12,7 +12,9 @@ export default function AttendanceTable({
 
     onEdit,
 
-    onDelete
+    onDelete,
+
+    canManage = true
 
 }) {
 
@@ -224,33 +226,37 @@ export default function AttendanceTable({
 
                                     </button>
 
-                                    <button
+                                    {canManage && (
+                                        <>
+                                            <button
 
-                                        onClick={() =>
-                                            onEdit(attendance)
-                                        }
+                                                onClick={() =>
+                                                    onEdit(attendance)
+                                                }
 
-                                        className="p-2 rounded-lg bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 transition"
+                                                className="p-2 rounded-lg bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 transition"
 
-                                    >
+                                            >
 
-                                        <Pencil size={18} />
+                                                <Pencil size={18} />
 
-                                    </button>
+                                            </button>
 
-                                    <button
+                                            <button
 
-                                        onClick={() =>
-                                            onDelete(attendance)
-                                        }
+                                                onClick={() =>
+                                                    onDelete(attendance)
+                                                }
 
-                                        className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition"
+                                                className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition"
 
-                                    >
+                                            >
 
-                                        <Trash2 size={18} />
+                                                <Trash2 size={18} />
 
-                                    </button>
+                                            </button>
+                                        </>
+                                    )}
 
                                 </div>
 

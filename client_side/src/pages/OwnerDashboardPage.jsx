@@ -35,8 +35,8 @@ const toneStyles = {
 const actions = [
   { to: '/departments', label: 'Manage departments', icon: Building2 },
   { to: '/positions', label: 'Create positions', icon: TrendingUp },
-  { to: '/attendance', label: 'Record attendance', icon: CalendarCheck },
-  { to: '/production', label: 'Log production', icon: Mountain },
+  { to: '/attendance', label: 'View attendance', icon: CalendarCheck },
+  { to: '/production', label: 'View production', icon: Mountain },
 ]
 
 const productionTrend = [

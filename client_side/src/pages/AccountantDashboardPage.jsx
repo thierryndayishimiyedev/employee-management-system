@@ -3,10 +3,12 @@ import { Link } from 'react-router-dom'
 import {
   ArrowUpRight,
   BadgeDollarSign,
+  CalendarCheck,
   CheckCircle2,
-  CreditCard,
   FileText,
+  Mountain,
   RefreshCw,
+  Users,
   Wallet,
 } from 'lucide-react'
 import api from '../api/api'
@@ -21,17 +23,19 @@ const toneStyles = {
 }
 
 const quickActions = [
+  { to: '/attendance', label: 'Record attendance', icon: CalendarCheck },
+  { to: '/production', label: 'Record production', icon: Mountain },
+  { to: '/reports', label: 'Create daily report', icon: FileText },
   { to: '/payroll', label: 'Generate payroll', icon: Wallet },
-  { to: '/payments', label: 'Pay salaries', icon: CreditCard },
-  { to: '/advances', label: 'Salary advances', icon: BadgeDollarSign },
-  { to: '/reports', label: 'Prepare reports', icon: FileText },
 ]
 
 export default function AccountantDashboardPage() {
   const { user } = useAuth()
   const [dashboard, setDashboard] = useState(null)
   const [payrolls, setPayrolls] = useState([])
-  const [payments, setPayments] = useState([])
+  const [attendanceToday, setAttendanceToday] = useState([])
+  const [production, setProduction] = useState([])
+  const [employees, setEmployees] = useState([])
   const [advances, setAdvances] = useState([])
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
@@ -39,10 +43,12 @@ export default function AccountantDashboardPage() {
   const loadDashboard = async () => {
     setLoading(true)
     try {
-      const [dashboardResult, payrollResult, paymentsResult, advancesResult, reportsResult] = await Promise.allSettled([
+      const [dashboardResult, payrollResult, attendanceResult, productionResult, employeesResult, advancesResult, reportsResult] = await Promise.allSettled([
         api.get('/dashboard/accountant'),
         api.get('/payroll'),
-        api.get('/payments'),
+        api.get('/attendance/today'),
+        api.get('/production'),
+        api.get('/employees'),
         api.get('/advances'),
         api.get('/reports'),
       ])
@@ -51,7 +57,9 @@ export default function AccountantDashboardPage() {
         setDashboard(dashboardResult.value?.data?.data || dashboardResult.value?.data || null)
       }
       if (payrollResult.status === 'fulfilled') setPayrolls(asArray(payrollResult.value))
-      if (paymentsResult.status === 'fulfilled') setPayments(asArray(paymentsResult.value))
+      if (attendanceResult.status === 'fulfilled') setAttendanceToday(asArray(attendanceResult.value))
+      if (productionResult.status === 'fulfilled') setProduction(asArray(productionResult.value))
+      if (employeesResult.status === 'fulfilled') setEmployees(asArray(employeesResult.value))
       if (advancesResult.status === 'fulfilled') setAdvances(asArray(advancesResult.value))
       if (reportsResult.status === 'fulfilled') setReports(asArray(reportsResult.value))
     } finally {
@@ -71,16 +79,30 @@ export default function AccountantDashboardPage() {
     () => payrolls.filter((item) => !['APPROVED', 'PAID'].includes(item.payment_status)).length,
     [payrolls]
   )
-  const paidAmount = useMemo(
-    () => payments.reduce((sum, item) => sum + Number(item.amount || 0), 0),
-    [payments]
-  )
   const pendingAdvances = useMemo(
     () => advances.filter((item) => item.status !== 'APPROVED').length,
     [advances]
   )
+  const submittedReports = useMemo(
+    () => reports.filter((item) => item.is_submitted).length,
+    [reports]
+  )
 
   const stats = [
+    {
+      label: "Today's attendance",
+      value: attendanceToday.length,
+      icon: CalendarCheck,
+      tone: 'emerald',
+      detail: 'Attendance records captured today',
+    },
+    {
+      label: "Today's production",
+      value: production.length,
+      icon: Mountain,
+      tone: 'cyan',
+      detail: 'Production records available today',
+    },
     {
       label: 'Pending payrolls',
       value: dashboard?.pending_payrolls ?? pendingPayrolls,
@@ -96,18 +118,18 @@ export default function AccountantDashboardPage() {
       detail: 'Advance requests still open',
     },
     {
-      label: 'Payments recorded',
-      value: payments.length,
-      icon: CreditCard,
-      tone: 'emerald',
-      detail: `${Number(paidAmount || 0).toLocaleString()} RWF paid`,
-    },
-    {
-      label: 'Reports',
-      value: reports.length,
+      label: 'Submitted reports',
+      value: submittedReports,
       icon: FileText,
       tone: 'slate',
-      detail: 'Financial and operating reports in the system',
+      detail: `${reports.length - submittedReports} draft reports`,
+    },
+    {
+      label: 'Workers summary',
+      value: employees.length,
+      icon: Users,
+      tone: 'slate',
+      detail: 'Workers available for daily records',
     },
   ]
 
@@ -154,8 +176,8 @@ export default function AccountantDashboardPage() {
 
               <section className="grid gap-4 lg:grid-cols-3">
                 <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Finance workflows</p>
-                  <h2 className="mt-2 text-xl font-semibold text-slate-900">Payroll and payment center</h2>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Daily workflows</p>
+                  <h2 className="mt-2 text-xl font-semibold text-slate-900">Attendance, production, and reports</h2>
                   <div className="mt-6 grid gap-3 sm:grid-cols-2">
                     {quickActions.map((action) => {
                       const Icon = action.icon
@@ -183,10 +205,11 @@ export default function AccountantDashboardPage() {
                     <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                     <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Finance status</p>
                   </div>
-                  <h3 className="mt-3 text-xl font-semibold text-slate-900">Ready for payroll cycle</h3>
+                  <h3 className="mt-3 text-xl font-semibold text-slate-900">Ready for daily close</h3>
                   <div className="mt-6 space-y-3">
+                    <Metric label="Attendance today" value={attendanceToday.length} />
+                    <Metric label="Production records" value={production.length} />
                     <Metric label="Payroll records" value={payrolls.length} />
-                    <Metric label="Payment proofs" value={payments.length} />
                     <Metric label="Reports prepared" value={reports.length} />
                   </div>
                 </div>

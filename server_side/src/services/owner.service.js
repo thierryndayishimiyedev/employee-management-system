@@ -189,6 +189,36 @@ const createOwner = async (ownerData) => {
         password
     } = ownerData;
 
+    if (!company_id)
+        throw new Error("Company is required to create an owner.");
+
+    if (!username || !password)
+        throw new Error("Owner username and password are required.");
+
+    if (!monthly_salary || Number(monthly_salary) <= 0)
+        throw new Error("Monthly salary must be a positive number.");
+
+    const { data: company, error: companyError } = await supabase
+        .from("companies")
+        .select("company_id")
+        .eq("company_id", company_id)
+        .single();
+
+    if (companyError || !company)
+        throw new Error("Selected company was not found.");
+
+    const { data: existingUsers, error: existingUserError } = await supabase
+        .from("users")
+        .select("user_id")
+        .eq("username", username)
+        .limit(1);
+
+    if (existingUserError)
+        throw existingUserError;
+
+    if (existingUsers && existingUsers.length > 0)
+        throw new Error("Username is already in use.");
+
     const position = await ensureOwnerPosition({
         company_id,
         department_id,
@@ -257,6 +287,11 @@ const createOwner = async (ownerData) => {
         .single();
 
     if (userError) {
+        await supabase
+            .from("employees")
+            .delete()
+            .eq("employee_id", employee.employee_id);
+
         throw userError;
     }
 
