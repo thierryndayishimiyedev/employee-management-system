@@ -1,12 +1,49 @@
 const supabase = require("../config/supabase");
+const { isSuperAdmin, requireCompanyId } = require("../utils/companyScope");
 
-const generatePayroll = async (employee_id, payroll_month, payroll_year) => {
+const isPayrollStatusConstraintError = (error) => {
 
-    const { data: employee, error: employeeError } = await supabase
+    return (
+        error?.code === "23514" &&
+        String(error?.message || "").includes("payroll_payment_status_check")
+    );
+
+};
+
+const persistPayroll = async (builder, payrollData) => {
+
+    const { data, error } = await builder(payrollData);
+
+    if (!isPayrollStatusConstraintError(error)) {
+        if (error) throw error;
+        return data;
+    }
+
+    const legacyPayrollData = {
+        ...payrollData,
+        payment_status: "PENDING"
+    };
+
+    const fallback = await builder(legacyPayrollData);
+
+    if (fallback.error) throw fallback.error;
+
+    return fallback.data;
+
+};
+
+const generatePayroll = async (employee_id, payroll_month, payroll_year, user) => {
+
+    let employeeQuery = supabase
         .from("employees")
         .select("*")
-        .eq("employee_id", employee_id)
-        .single();
+        .eq("employee_id", employee_id);
+
+    if (!isSuperAdmin(user)) {
+        employeeQuery = employeeQuery.eq("company_id", requireCompanyId(user));
+    }
+
+    const { data: employee, error: employeeError } = await employeeQuery.single();
 
     if (employeeError || !employee)
         throw new Error("Employee not found.");
@@ -72,7 +109,8 @@ const generatePayroll = async (employee_id, payroll_month, payroll_year) => {
         allowances,
         deductions,
         advance_deduction: advanceDeduction,
-        net_salary: netSalary
+        net_salary: netSalary,
+        payment_status: "GENERATED"
     };
 
     const { data: existing } = await supabase
@@ -85,49 +123,46 @@ const generatePayroll = async (employee_id, payroll_month, payroll_year) => {
 
     if (existing) {
 
-        const { data, error } = await supabase
+        return persistPayroll((data) => supabase
             .from("payroll")
-            .update(payrollData)
+            .update(data)
             .eq("payroll_id", existing.payroll_id)
             .select()
-            .single();
-
-        if (error)
-            throw error;
-
-        return data;
+            .single(), payrollData);
 
     }
 
-    const { data, error } = await supabase
+    return persistPayroll((data) => supabase
         .from("payroll")
-        .insert([payrollData])
+        .insert([data])
         .select()
-        .single();
-
-    if (error)
-        throw error;
-
-    return data;
+        .single(), payrollData);
 
 };
 
-const getPayrolls = async () => {
+const getPayrolls = async (user) => {
 
-    const { data, error } = await supabase
+    let query = supabase
         .from("payroll")
         .select(`
             *,
-            employees(
+            employees!inner(
                 employee_code,
                 first_name,
-                last_name
+                last_name,
+                company_id
             )
         `)
         .order("generated_at", {
             ascending: false
         });
 
+    if (!isSuperAdmin(user)) {
+        query = query.eq("employees.company_id", requireCompanyId(user));
+    }
+
+    const { data, error } = await query;
+
     if (error)
         throw error;
 
@@ -135,20 +170,58 @@ const getPayrolls = async () => {
 
 };
 
-const getPayrollById = async (id) => {
+const getPayrollSummary = async (user) => {
 
-    const { data, error } = await supabase
+    const payrolls = await getPayrolls(user);
+    const groups = new Map();
+
+    payrolls.forEach((payroll) => {
+        const key = `${payroll.payroll_year}-${String(payroll.payroll_month).padStart(2, "0")}`;
+        const group = groups.get(key) || {
+            payroll_month: payroll.payroll_month,
+            payroll_year: payroll.payroll_year,
+            employees: 0,
+            total_salary: 0,
+            status: payroll.payment_status || "GENERATED"
+        };
+
+        group.employees += 1;
+        group.total_salary += Number(payroll.net_salary || 0);
+
+        if (group.status !== (payroll.payment_status || "GENERATED")) {
+            group.status = "MIXED";
+        }
+
+        groups.set(key, group);
+    });
+
+    return Array.from(groups.values()).sort((a, b) => {
+        if (a.payroll_year !== b.payroll_year) return b.payroll_year - a.payroll_year;
+        return b.payroll_month - a.payroll_month;
+    });
+
+};
+
+const getPayrollById = async (id, user) => {
+
+    let query = supabase
         .from("payroll")
         .select(`
             *,
-            employees(
+            employees!inner(
                 employee_code,
                 first_name,
-                last_name
+                last_name,
+                company_id
             )
         `)
-        .eq("payroll_id", id)
-        .single();
+        .eq("payroll_id", id);
+
+    if (!isSuperAdmin(user)) {
+        query = query.eq("employees.company_id", requireCompanyId(user));
+    }
+
+    const { data, error } = await query.single();
 
     if (error)
         throw error;
@@ -157,7 +230,9 @@ const getPayrollById = async (id) => {
 
 };
 
-const deletePayroll = async (id) => {
+const deletePayroll = async (id, user) => {
+
+    await getPayrollById(id, user);
 
     const { error } = await supabase
         .from("payroll")
@@ -174,6 +249,7 @@ const deletePayroll = async (id) => {
 module.exports = {
     generatePayroll,
     getPayrolls,
+    getPayrollSummary,
     getPayrollById,
     deletePayroll
 };

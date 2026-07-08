@@ -5,8 +5,15 @@ const router = express.Router();
 const authenticate = require("../middleware/auth.middleware");
 const authorize = require("../middleware/authorize.middleware");
 
-const { approve } = require("../controllers/advanceApproval.controller");
+const {
+    downloadReportPdf
+} = require("../controllers/download.controller");
 
-router.put("/:id/approve", authenticate, authorize("OWNER", "SUPER_ADMIN"), approve);
+router.get(
+    "/:type/pdf",
+    authenticate,
+    authorize("SUPER_ADMIN", "OWNER", "MANAGER", "ACCOUNTANT"),
+    downloadReportPdf
+);
 
 module.exports = router;

@@ -5,6 +5,7 @@ import {
   Building2,
   CheckCircle2,
   CreditCard,
+  Download,
   FileText,
   Pencil,
   Plus,
@@ -15,6 +16,7 @@ import {
   UserCog,
   Users,
   X,
+  XCircle,
 } from 'lucide-react'
 import api from '../api/api'
 import { useAuth } from '../context/authStore'
@@ -257,25 +259,33 @@ const resourceConfig = {
   },
   payments: {
     title: 'Payments',
-    subtitle: 'Run approved payroll payments and review payment results.',
+    subtitle: 'Review payment queue, payment history, and payroll payment reports.',
     icon: CreditCard,
     endpoint: '/payments',
     idKey: 'payment_id',
     readonly: true,
     topActions: [
       {
-        label: 'Pay Approved Payrolls',
+        label: 'Pay All Employees',
         roles: ['OWNER'],
+        confirm: 'Validate and pay every approved payroll employee?',
         run: () => api.post('/payments/pay-all'),
+      },
+      {
+        label: 'Download Report',
+        icon: Download,
+        roles: ['OWNER'],
+        run: downloadPaymentReport,
       },
     ],
     columns: [
       ['Employee', (item) => employeeName(item)],
       ['Amount', (item) => `${Number(item.amount || 0).toLocaleString()} RWF`],
-      ['Phone', (item) => item.phone || '-'],
+      ['Phone', (item) => item.receiver_phone || item.phone || '-'],
       ['Method', (item) => item.payment_method || '-'],
-      ['Status', (item) => item.payment_status || '-'],
-      ['Reference', (item) => item.transaction_reference || '-'],
+      ['Status', (item) => statusBadge(item.payment_status || '-')],
+      ['Reference', (item) => item.reference_id || item.transaction_reference || '-'],
+      ['Failure', (item) => item.failure_reason || '-'],
     ],
   },
   reports: {
@@ -357,15 +367,31 @@ const resourceConfig = {
       ['Period', (item) => `${item.payroll_month}/${item.payroll_year}`],
       ['Days', (item) => item.days_worked ?? 0],
       ['Net Salary', (item) => `${Number(item.net_salary || 0).toLocaleString()} RWF`],
-      ['Status', (item) => item.payment_status || 'PENDING'],
+      ['Status', (item) => statusBadge(item.payment_status || 'GENERATED')],
     ],
     actions: [
       {
         label: 'Approve',
         icon: CheckCircle2,
         roles: ['OWNER'],
-        show: (item) => item.payment_status !== 'APPROVED' && item.payment_status !== 'PAID',
+        show: (item) => ['GENERATED', 'PENDING'].includes(item.payment_status),
         run: (item) => api.put(`/payroll-approvals/${item.payroll_id}/approve`),
+      },
+      {
+        label: 'Reject',
+        icon: XCircle,
+        roles: ['OWNER'],
+        show: (item) => ['GENERATED', 'PENDING'].includes(item.payment_status),
+        confirm: 'Reject this generated payroll?',
+        run: (item) => api.put(`/payroll-approvals/${item.payroll_id}/reject`),
+      },
+      {
+        label: 'Pay',
+        icon: CreditCard,
+        roles: ['OWNER'],
+        show: (item) => item.payment_status === 'APPROVED',
+        confirm: 'Validate and pay this employee payroll?',
+        run: (item) => api.post('/payments/pay-all', { payroll_id: item.payroll_id }),
       },
     ],
   },
@@ -438,6 +464,8 @@ export default function ManagementPage({ resource }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const pageSize = 10
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -475,6 +503,20 @@ export default function ManagementPage({ resource }) {
     const term = search.toLowerCase()
     return items.filter((item) => JSON.stringify(item).toLowerCase().includes(term))
   }, [items, search])
+
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize))
+  const pagedItems = useMemo(() => {
+    const start = (page - 1) * pageSize
+    return filteredItems.slice(start, start + pageSize)
+  }, [filteredItems, page])
+
+  useEffect(() => {
+    setPage(1)
+  }, [search, resource])
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
 
   const layoutWithSidebar = ['SUPER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTANT'].includes(user?.role_name)
   const Icon = config.icon
@@ -541,6 +583,7 @@ export default function ManagementPage({ resource }) {
   }
 
   const runAction = async (action, item) => {
+    if (action.confirm && !window.confirm(action.confirm)) return
     try {
       const result = await action.run(item)
       toast.success(result?.data?.message || `${action.label} complete`)
@@ -567,15 +610,20 @@ export default function ManagementPage({ resource }) {
             {(config.topActions || [])
               .filter((action) => !action.roles || action.roles.includes(user?.role_name))
               .map((action) => (
+              (() => {
+                const TopActionIcon = action.icon || CheckCircle2
+                return (
               <button
                 type="button"
                 key={action.label}
                 onClick={() => runAction(action)}
                 className="inline-flex items-center justify-center gap-2 rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
               >
-                <CheckCircle2 size={16} />
+                <TopActionIcon size={16} />
                 {action.label}
               </button>
+                )
+              })()
             ))}
             <button
               type="button"
@@ -663,7 +711,7 @@ export default function ManagementPage({ resource }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredItems.map((item, itemIndex) => (
+                    {pagedItems.map((item, itemIndex) => (
                       <tr key={rowKey(item, config.idKey, itemIndex)} className="transition hover:bg-slate-50/70">
                         {config.columns.map(([label, render]) => (
                           <td key={label} className="px-4 py-3 text-slate-700">{render(item)}</td>
@@ -715,6 +763,32 @@ export default function ManagementPage({ resource }) {
                 </table>
               )}
             </div>
+
+            {!loading && filteredItems.length > pageSize && (
+              <div className="flex flex-col gap-3 border-t border-slate-200 p-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  Page {page} of {totalPages}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={page === 1}
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                    className="rounded-md border border-slate-200 px-3 py-1.5 font-semibold disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    disabled={page === totalPages}
+                    onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                    className="rounded-md border border-slate-200 px-3 py-1.5 font-semibold disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </section>
       </div>
@@ -822,6 +896,39 @@ function formatDate(value) {
 
 function yesNo(value) {
   return value ? 'Yes' : 'No'
+}
+
+async function downloadPaymentReport() {
+  const response = await api.get('/payments/report/download', {
+    responseType: 'blob',
+  })
+  const url = window.URL.createObjectURL(new Blob([response.data]))
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', 'payment-report.csv')
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+}
+
+function statusBadge(value) {
+  const status = String(value || '-')
+  const tone = status.includes('PAID')
+    ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+    : status.includes('FAILED')
+      ? 'bg-red-50 text-red-700 ring-red-100'
+      : status.includes('APPROVED') || status.includes('READY')
+        ? 'bg-cyan-50 text-cyan-700 ring-cyan-100'
+        : status.includes('PROCESSING')
+          ? 'bg-amber-50 text-amber-700 ring-amber-100'
+          : 'bg-slate-100 text-slate-700 ring-slate-200'
+
+  return (
+    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${tone}`}>
+      {status.replaceAll('_', ' ')}
+    </span>
+  )
 }
 
 function singular(value) {

@@ -1,7 +1,8 @@
 const bcrypt = require("bcrypt");
 const supabase = require("../config/supabase");
+const { isSuperAdmin, requireCompanyId } = require("../utils/companyScope");
 
-const createAccountant = async (data) => {
+const createAccountant = async (data, userScope) => {
 
     const {
         company_id,
@@ -22,6 +23,7 @@ const createAccountant = async (data) => {
         username,
         password
     } = data;
+    const scopedCompanyId = requireCompanyId(userScope) || company_id;
 
     const { data: position, error: positionError } = await supabase
         .from("positions")
@@ -44,7 +46,7 @@ const createAccountant = async (data) => {
     const { data: employee, error: empError } = await supabase
         .from("employees")
         .insert([{
-            company_id,
+            company_id: scopedCompanyId,
             department_id: position.department_id,
             position_id,
             employee_code,
@@ -92,15 +94,21 @@ const createAccountant = async (data) => {
 
 };
 
-const getAccountants = async () => {
+const getAccountants = async (userScope) => {
 
-    const { data, error } = await supabase
+    let query = supabase
         .from("users")
         .select(`
             *,
             roles(role_name),
-            employees(*)
+            employees!inner(*)
         `);
+
+    if (!isSuperAdmin(userScope)) {
+        query = query.eq("employees.company_id", requireCompanyId(userScope));
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
 
@@ -111,17 +119,22 @@ const getAccountants = async () => {
 
 };
 
-const getAccountantById = async (id) => {
+const getAccountantById = async (id, userScope) => {
 
-    const { data, error } = await supabase
+    let query = supabase
         .from("users")
         .select(`
             *,
             roles(role_name),
-            employees(*)
+            employees!inner(*)
         `)
-        .eq("user_id", id)
-        .single();
+        .eq("user_id", id);
+
+    if (!isSuperAdmin(userScope)) {
+        query = query.eq("employees.company_id", requireCompanyId(userScope));
+    }
+
+    const { data, error } = await query.single();
 
     if (error)
         throw error;
@@ -130,7 +143,7 @@ const getAccountantById = async (id) => {
 
 };
 
-const updateAccountant = async (id, accountantData) => {
+const updateAccountant = async (id, accountantData, userScope) => {
 
     const {
         first_name,
@@ -147,6 +160,8 @@ const updateAccountant = async (id, accountantData) => {
         profile_photo,
         username
     } = accountantData;
+
+    await getAccountantById(id, userScope);
 
     const { data: user, error } = await supabase
         .from("users")
@@ -192,11 +207,13 @@ const updateAccountant = async (id, accountantData) => {
 
     }
 
-    return await getAccountantById(id);
+    return await getAccountantById(id, userScope);
 
 };
 
-const deactivateAccountant = async (id) => {
+const deactivateAccountant = async (id, userScope) => {
+
+    await getAccountantById(id, userScope);
 
     const { data, error } = await supabase
         .from("users")

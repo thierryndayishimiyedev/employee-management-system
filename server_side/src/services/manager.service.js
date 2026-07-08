@@ -1,7 +1,8 @@
 const bcrypt = require("bcrypt");
 const supabase = require("../config/supabase");
+const { isSuperAdmin, requireCompanyId } = require("../utils/companyScope");
 
-const createManager = async (data) => {
+const createManager = async (data, userScope) => {
 
     const {
         company_id,
@@ -22,6 +23,7 @@ const createManager = async (data) => {
         username,
         password
     } = data;
+    const scopedCompanyId = requireCompanyId(userScope) || company_id;
 
     const { data: position, error: positionError } = await supabase
         .from("positions")
@@ -44,7 +46,7 @@ const createManager = async (data) => {
     const { data: employee, error: empError } = await supabase
         .from("employees")
         .insert([{
-            company_id,
+            company_id: scopedCompanyId,
             department_id: position.department_id,
             position_id,
             employee_code,
@@ -92,15 +94,21 @@ const createManager = async (data) => {
 
 };
 
-const getManagers = async () => {
+const getManagers = async (userScope) => {
 
-    const { data, error } = await supabase
+    let query = supabase
         .from("users")
         .select(`
             *,
             roles(role_name),
-            employees(*)
+            employees!inner(*)
         `);
+
+    if (!isSuperAdmin(userScope)) {
+        query = query.eq("employees.company_id", requireCompanyId(userScope));
+    }
+
+    const { data, error } = await query;
 
     if (error)
         throw error;
@@ -112,17 +120,22 @@ const getManagers = async () => {
 
 };
 
-const getManagerById = async (id) => {
+const getManagerById = async (id, userScope) => {
 
-    const { data, error } = await supabase
+    let query = supabase
         .from("users")
         .select(`
             *,
             roles(role_name),
-            employees(*)
+            employees!inner(*)
         `)
-        .eq("user_id", id)
-        .single();
+        .eq("user_id", id);
+
+    if (!isSuperAdmin(userScope)) {
+        query = query.eq("employees.company_id", requireCompanyId(userScope));
+    }
+
+    const { data, error } = await query.single();
 
     if (error)
         throw error;
@@ -131,7 +144,7 @@ const getManagerById = async (id) => {
 
 };
 
-const updateManager = async (id, managerData) => {
+const updateManager = async (id, managerData, userScope) => {
 
     const {
         first_name,
@@ -148,6 +161,8 @@ const updateManager = async (id, managerData) => {
         profile_photo,
         username
     } = managerData;
+
+    await getManagerById(id, userScope);
 
     const { data: user, error } = await supabase
         .from("users")
@@ -193,11 +208,13 @@ const updateManager = async (id, managerData) => {
 
     }
 
-    return await getManagerById(id);
+    return await getManagerById(id, userScope);
 
 };
 
-const deactivateManager = async (id) => {
+const deactivateManager = async (id, userScope) => {
+
+    await getManagerById(id, userScope);
 
     const { data, error } = await supabase
         .from("users")

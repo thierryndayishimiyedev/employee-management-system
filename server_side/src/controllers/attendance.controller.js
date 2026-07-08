@@ -177,7 +177,7 @@ const fetchAttendances = async (req, res) => {
 
     try {
 
-        const attendances = await getAttendances();
+        const attendances = await getAttendances(req.user);
 
         return res.status(200).json({
             success: true,
@@ -200,7 +200,8 @@ const fetchAttendance = async (req, res) => {
     try {
 
         const attendance = await getAttendanceById(
-            req.params.id
+            req.params.id,
+            req.user
         );
 
         return res.status(200).json({
@@ -225,7 +226,8 @@ const editAttendance = async (req, res) => {
 
         const attendance = await updateAttendance(
             req.params.id,
-            req.body
+            req.body,
+            req.user
         );
 
         return res.status(200).json({
@@ -249,7 +251,7 @@ const removeAttendance = async (req, res) => {
 
     try {
 
-        await deleteAttendance(req.params.id);
+        await deleteAttendance(req.params.id, req.user);
 
         return res.status(200).json({
             success: true,
@@ -271,7 +273,7 @@ const fetchAttendanceDashboard = async (req, res) => {
 
     try {
 
-        const dashboard = await getAttendanceDashboard();
+        const dashboard = await getAttendanceDashboard(req.user);
 
         return res.status(200).json({
             success: true,
@@ -293,7 +295,7 @@ const fetchWeeklyAttendance = async (req, res) => {
 
     try {
 
-        const weeklyAttendance = await getWeeklyAttendance();
+        const weeklyAttendance = await getWeeklyAttendance(req.user);
 
         return res.status(200).json({
             success: true,
@@ -315,7 +317,7 @@ const fetchTodayAttendance = async (req, res) => {
 
     try {
 
-        const attendance = await getTodayAttendance();
+        const attendance = await getTodayAttendance(req.user);
 
         return res.status(200).json({
             success: true,
@@ -338,7 +340,8 @@ const fetchEmployeeAttendance = async (req, res) => {
     try {
 
         const attendance = await getEmployeeAttendance(
-            req.params.employeeId
+            req.params.employeeId,
+            req.user
         );
 
         return res.status(200).json({
@@ -361,7 +364,7 @@ const fetchMonthlyAttendanceSummary = async (req, res) => {
 
     try {
 
-        const summary = await getMonthlyAttendanceSummary();
+        const summary = await getMonthlyAttendanceSummary(req.user);
 
         return res.status(200).json({
             success: true,

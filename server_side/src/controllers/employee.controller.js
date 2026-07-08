@@ -2,7 +2,7 @@ const { getEmployeesForAttendance } = require("../services/employee.service");
 
 const fetchEmployeesForAttendance = async (req, res) => {
     try {
-        const employees = await getEmployeesForAttendance();
+        const employees = await getEmployeesForAttendance(req.user);
 
         return res.status(200).json({
             success: true,

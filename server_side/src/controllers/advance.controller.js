@@ -10,7 +10,7 @@ const createAdvance = async (req, res) => {
 
     try {
 
-        const advance = await requestAdvance(req.body);
+        const advance = await requestAdvance(req.body, req.user);
 
         res.status(201).json({
             success: true,
@@ -33,7 +33,7 @@ const fetchAdvances = async (req, res) => {
 
     try {
 
-        const advances = await getAdvances();
+        const advances = await getAdvances(req.user);
 
         res.json({
             success: true,
@@ -55,7 +55,7 @@ const fetchAdvance = async (req, res) => {
 
     try {
 
-        const advance = await getAdvanceById(req.params.id);
+        const advance = await getAdvanceById(req.params.id, req.user);
 
         res.json({
             success: true,
@@ -79,7 +79,8 @@ const editAdvance = async (req, res) => {
 
         const advance = await updateAdvance(
             req.params.id,
-            req.body
+            req.body,
+            req.user
         );
 
         res.json({
@@ -103,7 +104,7 @@ const removeAdvance = async (req, res) => {
 
     try {
 
-        await deleteAdvance(req.params.id);
+        await deleteAdvance(req.params.id, req.user);
 
         res.json({
             success: true,

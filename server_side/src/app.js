@@ -26,6 +26,7 @@ const reportRoutes = require("./routes/report.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
 const superAdminDashboardRoutes = require("./routes/superAdminDashboard.routes");
 const employeeRoutes = require("./routes/employee.routes");
+const downloadRoutes = require("./routes/download.routes");
 
 const app = express();
 
@@ -64,6 +65,7 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/super-admin/dashboard", superAdminDashboardRoutes);
 app.use("/api/employees", employeeRoutes);
+app.use("/api/downloads", downloadRoutes);
 
 
 

@@ -1,6 +1,7 @@
 const supabase = require("../config/supabase");
+const { isSuperAdmin, requireCompanyId } = require("../utils/companyScope");
 
-const recordProduction = async (productionData) => {
+const recordProduction = async (productionData, user) => {
 
     const {
         employee_id,
@@ -11,11 +12,16 @@ const recordProduction = async (productionData) => {
         remarks
     } = productionData;
 
-    const { data: employee, error: employeeError } = await supabase
+    let employeeQuery = supabase
         .from("employees")
-        .select("employee_id")
-        .eq("employee_id", employee_id)
-        .single();
+        .select("employee_id, company_id")
+        .eq("employee_id", employee_id);
+
+    if (!isSuperAdmin(user)) {
+        employeeQuery = employeeQuery.eq("company_id", requireCompanyId(user));
+    }
+
+    const { data: employee, error: employeeError } = await employeeQuery.single();
 
     if (employeeError || !employee)
         throw new Error("Employee not found.");
@@ -40,22 +46,29 @@ const recordProduction = async (productionData) => {
 
 };
 
-const getProductions = async () => {
+const getProductions = async (user) => {
 
-    const { data, error } = await supabase
+    let query = supabase
         .from("production_records")
         .select(`
             *,
-            employees(
+            employees!inner(
                 employee_code,
                 first_name,
-                last_name
+                last_name,
+                company_id
             )
         `)
         .order("production_date", {
             ascending: false
         });
 
+    if (!isSuperAdmin(user)) {
+        query = query.eq("employees.company_id", requireCompanyId(user));
+    }
+
+    const { data, error } = await query;
+
     if (error)
         throw error;
 
@@ -63,20 +76,26 @@ const getProductions = async () => {
 
 };
 
-const getProductionById = async (id) => {
+const getProductionById = async (id, user) => {
 
-    const { data, error } = await supabase
+    let query = supabase
         .from("production_records")
         .select(`
             *,
-            employees(
+            employees!inner(
                 employee_code,
                 first_name,
-                last_name
+                last_name,
+                company_id
             )
         `)
-        .eq("production_id", id)
-        .single();
+        .eq("production_id", id);
+
+    if (!isSuperAdmin(user)) {
+        query = query.eq("employees.company_id", requireCompanyId(user));
+    }
+
+    const { data, error } = await query.single();
 
     if (error)
         throw error;
@@ -85,7 +104,9 @@ const getProductionById = async (id) => {
 
 };
 
-const updateProduction = async (id, productionData) => {
+const updateProduction = async (id, productionData, user) => {
+
+    await getProductionById(id, user);
 
     const { data, error } = await supabase
         .from("production_records")
@@ -101,7 +122,9 @@ const updateProduction = async (id, productionData) => {
 
 };
 
-const deleteProduction = async (id) => {
+const deleteProduction = async (id, user) => {
+
+    await getProductionById(id, user);
 
     const { error } = await supabase
         .from("production_records")

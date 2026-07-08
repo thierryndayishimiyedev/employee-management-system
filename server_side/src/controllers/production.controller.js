@@ -10,7 +10,7 @@ const createProduction = async (req, res) => {
 
     try {
 
-        const production = await recordProduction(req.body);
+        const production = await recordProduction(req.body, req.user);
 
         res.status(201).json({
             success: true,
@@ -33,7 +33,7 @@ const fetchProductions = async (req, res) => {
 
     try {
 
-        const productions = await getProductions();
+        const productions = await getProductions(req.user);
 
         res.json({
             success: true,
@@ -55,7 +55,7 @@ const fetchProduction = async (req, res) => {
 
     try {
 
-        const production = await getProductionById(req.params.id);
+        const production = await getProductionById(req.params.id, req.user);
 
         res.json({
             success: true,
@@ -79,7 +79,8 @@ const editProduction = async (req, res) => {
 
         const production = await updateProduction(
             req.params.id,
-            req.body
+            req.body,
+            req.user
         );
 
         res.json({
@@ -103,7 +104,7 @@ const removeProduction = async (req, res) => {
 
     try {
 
-        await deleteProduction(req.params.id);
+        await deleteProduction(req.params.id, req.user);
 
         res.json({
             success: true,

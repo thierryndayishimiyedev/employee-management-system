@@ -1,6 +1,7 @@
 const {
     generatePayroll,
     getPayrolls,
+    getPayrollSummary,
     getPayrollById,
     deletePayroll
 } = require("../services/payroll.service");
@@ -18,7 +19,8 @@ const createPayroll = async (req, res) => {
         const payroll = await generatePayroll(
             employee_id,
             payroll_month,
-            payroll_year
+            payroll_year,
+            req.user
         );
 
         res.status(201).json({
@@ -42,7 +44,7 @@ const fetchPayrolls = async (req, res) => {
 
     try {
 
-        const payrolls = await getPayrolls();
+        const payrolls = await getPayrolls(req.user);
 
         res.json({
             success: true,
@@ -60,11 +62,33 @@ const fetchPayrolls = async (req, res) => {
 
 };
 
+const fetchPayrollSummary = async (req, res) => {
+
+    try {
+
+        const summary = await getPayrollSummary(req.user);
+
+        res.json({
+            success: true,
+            data: summary
+        });
+
+    } catch (err) {
+
+        res.status(400).json({
+            success: false,
+            message: err.message
+        });
+
+    }
+
+};
+
 const fetchPayroll = async (req, res) => {
 
     try {
 
-        const payroll = await getPayrollById(req.params.id);
+        const payroll = await getPayrollById(req.params.id, req.user);
 
         res.json({
             success: true,
@@ -86,7 +110,7 @@ const removePayroll = async (req, res) => {
 
     try {
 
-        await deletePayroll(req.params.id);
+        await deletePayroll(req.params.id, req.user);
 
         res.json({
             success: true,
@@ -107,6 +131,7 @@ const removePayroll = async (req, res) => {
 module.exports = {
     createPayroll,
     fetchPayrolls,
+    fetchPayrollSummary,
     fetchPayroll,
     removePayroll
 };

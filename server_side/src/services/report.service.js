@@ -1,18 +1,19 @@
 const supabase = require("../config/supabase");
+const { isSuperAdmin, requireCompanyId } = require("../utils/companyScope");
 
 const createReport = async (reportData, user) => {
 
     const {
-        company_id,
         report_date,
         title,
         report_content
     } = reportData;
+    const scopedCompanyId = requireCompanyId(user) || company_id;
 
     const { data, error } = await supabase
         .from("reports")
         .insert([{
-            company_id,
+            company_id: scopedCompanyId,
             accountant_id: user.employee_id,
             report_date,
             title,
@@ -28,9 +29,8 @@ const createReport = async (reportData, user) => {
 
 };
 
-const getReports = async () => {
-
-    const { data, error } = await supabase
+const scopedReportQuery = (user) => {
+    let query = supabase
         .from("reports")
         .select(`
             *,
@@ -38,7 +38,22 @@ const getReports = async () => {
                 first_name,
                 last_name
             )
-        `)
+        `);
+
+    if (!isSuperAdmin(user)) {
+        query = query.eq("company_id", requireCompanyId(user));
+    }
+
+    if (user?.role_name === "ACCOUNTANT") {
+        query = query.eq("accountant_id", user.employee_id);
+    }
+
+    return query;
+};
+
+const getReports = async (user) => {
+
+    const { data, error } = await scopedReportQuery(user)
         .order("created_at", {
             ascending: false
         });
@@ -50,17 +65,9 @@ const getReports = async () => {
 
 };
 
-const getReportById = async (id) => {
+const getReportById = async (id, user) => {
 
-    const { data, error } = await supabase
-        .from("reports")
-        .select(`
-            *,
-            employees(
-                first_name,
-                last_name
-            )
-        `)
+    const { data, error } = await scopedReportQuery(user)
         .eq("report_id", id)
         .single();
 
@@ -71,7 +78,9 @@ const getReportById = async (id) => {
 
 };
 
-const markReportAsRead = async (id) => {
+const markReportAsRead = async (id, user) => {
+
+    await getReportById(id, user);
 
     const { data, error } = await supabase
         .from("reports")
@@ -89,26 +98,18 @@ const markReportAsRead = async (id) => {
 
 };
 
-const submitReport = async (id) => {
+const submitReport = async (id, user) => {
 
-    const { data: report } = await supabase
-        .from("reports")
-        .select("*")
-        .eq("report_id", id)
-        .single();
+    const report = await getReportById(id, user);
 
-    if (!report.is_read) {
-
-        throw new Error(
-            "Read the report before submitting."
-        );
-
-    }
+    if (user?.role_name === "ACCOUNTANT" && report.accountant_id !== user.employee_id)
+        throw new Error("Forbidden: report belongs to another accountant.");
 
     const { data, error } = await supabase
         .from("reports")
         .update({
-            is_submitted: true
+            is_submitted: true,
+            is_read: true
         })
         .eq("report_id", id)
         .select()
@@ -121,7 +122,9 @@ const submitReport = async (id) => {
 
 };
 
-const approveReportEdit = async (id) => {
+const approveReportEdit = async (id, user) => {
+
+    await getReportById(id, user);
 
     const { data, error } = await supabase
         .from("reports")
@@ -139,18 +142,14 @@ const approveReportEdit = async (id) => {
 
 };
 
-const updateReport = async (id, reportData) => {
+const updateReport = async (id, reportData, user) => {
 
     const {
         title,
         report_content
     } = reportData;
 
-    const { data: existing } = await supabase
-        .from("reports")
-        .select("*")
-        .eq("report_id", id)
-        .single();
+    const existing = await getReportById(id, user);
 
     if (
         existing.is_submitted &&

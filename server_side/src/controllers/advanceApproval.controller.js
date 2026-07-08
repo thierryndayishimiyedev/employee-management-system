@@ -4,7 +4,7 @@ const approve = async (req, res) => {
 
     try {
 
-        const advance = await approveAdvance(req.params.id);
+        const advance = await approveAdvance(req.params.id, req.user);
 
         res.json({
             success: true,
