@@ -10,7 +10,7 @@ const registerDepartment = async (req, res) => {
 
     try {
 
-        const department = await createDepartment(req.body);
+        const department = await createDepartment(req.body, req.user);
 
         res.status(201).json({
             success: true,
@@ -33,7 +33,7 @@ const fetchDepartments = async (req, res) => {
 
     try {
 
-        const departments = await getDepartments();
+        const departments = await getDepartments(req.user);
 
         res.json({
             success: true,
@@ -55,7 +55,7 @@ const fetchDepartment = async (req, res) => {
 
     try {
 
-        const department = await getDepartmentById(req.params.id);
+        const department = await getDepartmentById(req.params.id, req.user);
 
         res.json({
             success: true,
@@ -79,7 +79,8 @@ const editDepartment = async (req, res) => {
 
         const department = await updateDepartment(
             req.params.id,
-            req.body
+            req.body,
+            req.user
         );
 
         res.json({
@@ -103,7 +104,7 @@ const removeDepartment = async (req, res) => {
 
     try {
 
-        await deleteDepartment(req.params.id);
+        await deleteDepartment(req.params.id, req.user);
 
         res.json({
             success: true,

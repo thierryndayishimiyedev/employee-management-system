@@ -10,7 +10,7 @@ const registerPosition = async (req, res) => {
 
     try {
 
-        const position = await createPosition(req.body);
+        const position = await createPosition(req.body, req.user);
 
         res.status(201).json({
             success: true,
@@ -33,7 +33,7 @@ const fetchPositions = async (req, res) => {
 
     try {
 
-        const positions = await getPositions();
+        const positions = await getPositions(req.user);
 
         res.json({
             success: true,
@@ -55,7 +55,7 @@ const fetchPosition = async (req, res) => {
 
     try {
 
-        const position = await getPositionById(req.params.id);
+        const position = await getPositionById(req.params.id, req.user);
 
         res.json({
             success: true,
@@ -79,7 +79,8 @@ const editPosition = async (req, res) => {
 
         const position = await updatePosition(
             req.params.id,
-            req.body
+            req.body,
+            req.user
         );
 
         res.json({
@@ -103,7 +104,7 @@ const removePosition = async (req, res) => {
 
     try {
 
-        await deletePosition(req.params.id);
+        await deletePosition(req.params.id, req.user);
 
         res.json({
             success: true,

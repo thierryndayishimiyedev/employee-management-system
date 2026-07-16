@@ -38,7 +38,7 @@ const fetchReports = async (req, res) => {
 
     try {
 
-        const reports = await getReports();
+        const reports = await getReports(req.user);
 
         res.json({
             success: true,
@@ -61,7 +61,8 @@ const fetchReport = async (req, res) => {
     try {
 
         const report = await getReportById(
-            req.params.id
+            req.params.id,
+            req.user
         );
 
         res.json({
@@ -85,7 +86,8 @@ const readReport = async (req, res) => {
     try {
 
         const report = await markReportAsRead(
-            req.params.id
+            req.params.id,
+            req.user
         );
 
         res.json({
@@ -110,7 +112,8 @@ const sendReport = async (req, res) => {
     try {
 
         const report = await submitReport(
-            req.params.id
+            req.params.id,
+            req.user
         );
 
         res.json({
@@ -135,7 +138,8 @@ const allowReportEdit = async (req, res) => {
     try {
 
         const report = await approveReportEdit(
-            req.params.id
+            req.params.id,
+            req.user
         );
 
         res.json({
@@ -161,7 +165,8 @@ const editReport = async (req, res) => {
 
         const report = await updateReport(
             req.params.id,
-            req.body
+            req.body,
+            req.user
         );
 
         res.json({

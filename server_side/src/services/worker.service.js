@@ -2,8 +2,9 @@
 
 const bcrypt = require("bcrypt");
 const supabase = require("../config/supabase");
+const { isSuperAdmin, requireCompanyId, scopeByCompany } = require("../utils/companyScope");
 
-const createWorker = async (data) => {
+const createWorker = async (data, userScope) => {
 
     const {
         company_id,
@@ -25,12 +26,18 @@ const createWorker = async (data) => {
         password,
         role_name
     } = data;
+    const scopedCompanyId = requireCompanyId(userScope) || company_id;
 
-    const { data: position, error: positionError } = await supabase
+    let positionQuery = supabase
         .from("positions")
-        .select("*")
-        .eq("position_id", position_id)
-        .single();
+        .select("*, departments!inner(company_id)")
+        .eq("position_id", position_id);
+
+    if (!isSuperAdmin(userScope)) {
+        positionQuery = positionQuery.eq("departments.company_id", scopedCompanyId);
+    }
+
+    const { data: position, error: positionError } = await positionQuery.single();
 
     if (positionError || !position)
         throw new Error("Position not found.");
@@ -47,7 +54,7 @@ const createWorker = async (data) => {
     const { data: employee, error: employeeError } = await supabase
         .from("employees")
         .insert([{
-            company_id,
+            company_id: scopedCompanyId,
             department_id: position.department_id,
             position_id,
             employee_code,
@@ -95,9 +102,9 @@ const createWorker = async (data) => {
 
 };
 
-const getWorkers = async () => {
+const getWorkers = async (userScope) => {
 
-    const { data, error } = await supabase
+    const query = scopeByCompany(supabase
         .from("employees")
         .select(`
             *,
@@ -106,7 +113,9 @@ const getWorkers = async () => {
         `)
         .order("created_at", {
             ascending: false
-        });
+        }), userScope);
+
+    const { data, error } = await query;
 
     if (error)
         throw error;
@@ -115,17 +124,18 @@ const getWorkers = async () => {
 
 };
 
-const getWorkerById = async (id) => {
+const getWorkerById = async (id, userScope) => {
 
-    const { data, error } = await supabase
+    const query = scopeByCompany(supabase
         .from("employees")
         .select(`
             *,
             positions(position_name),
             departments(department_name)
         `)
-        .eq("employee_id", id)
-        .single();
+        .eq("employee_id", id), userScope);
+
+    const { data, error } = await query.single();
 
     if (error)
         throw error;
@@ -134,7 +144,7 @@ const getWorkerById = async (id) => {
 
 };
 
-const updateWorker = async (id, workerData) => {
+const updateWorker = async (id, workerData, userScope) => {
 
     const {
         first_name,
@@ -151,6 +161,8 @@ const updateWorker = async (id, workerData) => {
         profile_photo,
         position_id
     } = workerData;
+
+    await getWorkerById(id, userScope);
 
     let updateData = {
         first_name,
@@ -169,11 +181,16 @@ const updateWorker = async (id, workerData) => {
 
     if (position_id) {
 
-        const { data: position, error: positionError } = await supabase
+        let positionQuery = supabase
             .from("positions")
-            .select("department_id")
-            .eq("position_id", position_id)
-            .single();
+            .select("department_id, departments!inner(company_id)")
+            .eq("position_id", position_id);
+
+        if (!isSuperAdmin(userScope)) {
+            positionQuery = positionQuery.eq("departments.company_id", requireCompanyId(userScope));
+        }
+
+        const { data: position, error: positionError } = await positionQuery.single();
 
         if (positionError || !position)
             throw new Error("Position not found.");
@@ -183,28 +200,31 @@ const updateWorker = async (id, workerData) => {
 
     }
 
-    const { error } = await supabase
+    const query = scopeByCompany(supabase
         .from("employees")
         .update(updateData)
-        .eq("employee_id", id);
+        .eq("employee_id", id), userScope);
+
+    const { error } = await query;
 
     if (error)
         throw error;
 
-    return await getWorkerById(id);
+    return await getWorkerById(id, userScope);
 
 };
 
-const deactivateWorker = async (id) => {
+const deactivateWorker = async (id, userScope) => {
 
-    const { data, error } = await supabase
+    const query = scopeByCompany(supabase
         .from("employees")
         .update({
             status: "INACTIVE"
         })
         .eq("employee_id", id)
-        .select()
-        .single();
+        .select(), userScope);
+
+    const { data, error } = await query.single();
 
     if (error)
         throw error;

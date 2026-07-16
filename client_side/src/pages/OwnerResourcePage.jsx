@@ -1,524 +1,231 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import {
-  Building2,
-  Calendar,
-  Database,
-  Mountain,
-  Pencil,
-  Plus,
-  RefreshCw,
-  Save,
-  Trash2,
-  X,
-} from 'lucide-react'
-import api from '../api/api'
-import { useAuth } from '../context/authStore'
-import AppSidebar from './Appsidebar'
+import { Plus, Briefcase, X, Loader2 } from 'lucide-react'
+import axiosInstance from '../api/api'
 
-const today = new Date().toISOString().split('T')[0]
+// Mirrors the same convention as your worker.api.js — adjust the import
+// above if your shared axios instance lives at a different path/name.
+const getPositions = () => axiosInstance.get('/positions')
+const createPosition = (data) => axiosInstance.post('/positions', data)
 
-const emptyForms = {
-  departments: {
-    department_name: '',
-    description: '',
-  },
-  positions: {
-    department_id: '',
-    position_name: '',
-    description: '',
-  },
-  production: {
-    employee_id: '',
-    production_date: today,
-    mineral_type: '',
-    quantity: '',
-    unit: 'kg',
-    remarks: '',
-  },
+function formatRWF(amount) {
+  if (amount === null || amount === undefined) return '—'
+  return new Intl.NumberFormat('en-RW', {
+    style: 'currency',
+    currency: 'RWF',
+    maximumFractionDigits: 0,
+  }).format(amount)
 }
 
-const resourceConfig = {
-  departments: {
-    title: 'Departments',
-    subtitle: 'Manage company departments used by employees and positions.',
-    endpoint: '/departments',
-    idKey: 'department_id',
-    icon: Building2,
-    createLabel: 'Add Department',
-    formTitle: 'Department Details',
-    columns: [
-      { label: 'Department', render: (item) => item.department_name },
-      { label: 'Company', render: (item) => item.companies?.company_name || 'Current company' },
-      { label: 'Description', render: (item) => item.description || '-' },
-    ],
-  },
-  positions: {
-    title: 'Positions',
-    subtitle: 'Create and maintain job positions linked to departments.',
-    endpoint: '/positions',
-    idKey: 'position_id',
-    icon: Database,
-    createLabel: 'Add Position',
-    formTitle: 'Position Details',
-    columns: [
-      { label: 'Position', render: (item) => item.position_name },
-      { label: 'Department', render: (item) => item.departments?.department_name || '-' },
-      { label: 'Description', render: (item) => item.description || '-' },
-    ],
-  },
-  production: {
-    title: 'Production',
-    subtitle: 'Record mineral production by employee and production date.',
-    endpoint: '/production',
-    idKey: 'production_id',
-    icon: Mountain,
-    createLabel: 'Log Production',
-    formTitle: 'Production Record',
-    columns: [
-      {
-        label: 'Employee',
-        render: (item) => [item.employees?.first_name, item.employees?.last_name].filter(Boolean).join(' ') || '-',
-      },
-      { label: 'Date', render: (item) => item.production_date || '-' },
-      { label: 'Mineral', render: (item) => item.mineral_type || '-' },
-      { label: 'Quantity', render: (item) => `${Number(item.quantity || 0).toLocaleString()} ${item.unit || ''}` },
-      { label: 'Remarks', render: (item) => item.remarks || '-' },
-    ],
-  },
-}
-
-const getResponseData = (response) => response?.data?.data ?? response?.data ?? []
-
-export default function OwnerResourcePage({ resource }) {
-  const config = resourceConfig[resource]
-  const { user } = useAuth()
-  const [items, setItems] = useState([])
-  const [departments, setDepartments] = useState([])
-  const [employees, setEmployees] = useState([])
-  const [form, setForm] = useState(emptyForms[resource])
-  const [editing, setEditing] = useState(null)
+export default function PositionsPage() {
+  const [positions, setPositions] = useState([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [search, setSearch] = useState('')
+  const [showCreate, setShowCreate] = useState(false)
 
-  const Icon = config.icon
-  const companyId = user?.employees?.company_id || user?.company_id || ''
-  const canManageResource = resource !== 'production' || user?.role_name === 'ACCOUNTANT'
-
-  const loadData = useCallback(async () => {
+  const loadPositions = async () => {
     setLoading(true)
     try {
-      const requests = [api.get(config.endpoint)]
-
-      if (resource === 'positions') {
-        requests.push(api.get('/departments'))
-      }
-
-      if (resource === 'production') {
-        requests.push(api.get('/employees'))
-      }
-
-      const [resourceResponse, relatedResponse] = await Promise.all(requests)
-      setItems(Array.isArray(getResponseData(resourceResponse)) ? getResponseData(resourceResponse) : [])
-
-      if (resource === 'positions') {
-        setDepartments(Array.isArray(getResponseData(relatedResponse)) ? getResponseData(relatedResponse) : [])
-      }
-
-      if (resource === 'production') {
-        setEmployees(Array.isArray(getResponseData(relatedResponse)) ? getResponseData(relatedResponse) : [])
-      }
+      const res = await getPositions()
+      setPositions(res.data.data)
     } catch (error) {
-      toast.error(error.response?.data?.message || `Failed to load ${config.title.toLowerCase()}`)
+      toast.error(error.response?.data?.message || 'Failed to load positions')
     } finally {
       setLoading(false)
     }
-  }, [config.endpoint, config.title, resource])
+  }
 
   useEffect(() => {
-    setForm(emptyForms[resource])
-    setEditing(null)
-    loadData()
-  }, [loadData, resource])
-
-  const filteredItems = useMemo(() => {
-    const term = search.toLowerCase()
-    return items.filter((item) => JSON.stringify(item).toLowerCase().includes(term))
-  }, [items, search])
-
-  const handleChange = (field, value) => {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }))
-  }
-
-  const beginEdit = (item) => {
-    setEditing(item)
-    if (resource === 'departments') {
-      setForm({
-        department_name: item.department_name || '',
-        description: item.description || '',
-      })
-    } else if (resource === 'positions') {
-      setForm({
-        department_id: item.department_id || '',
-        position_name: item.position_name || '',
-        description: item.description || '',
-      })
-    } else {
-      setForm({
-        employee_id: item.employee_id || '',
-        production_date: item.production_date || today,
-        mineral_type: item.mineral_type || '',
-        quantity: item.quantity || '',
-        unit: item.unit || 'kg',
-        remarks: item.remarks || '',
-      })
-    }
-  }
-
-  const resetForm = () => {
-    setForm(emptyForms[resource])
-    setEditing(null)
-  }
-
-  const buildPayload = () => {
-    if (resource === 'departments') {
-      return {
-        ...form,
-        company_id: companyId,
-      }
-    }
-
-    if (resource === 'production') {
-      return {
-        ...form,
-        quantity: Number(form.quantity),
-      }
-    }
-
-    return form
-  }
-
-  const saveItem = async (event) => {
-    event.preventDefault()
-    setSaving(true)
-
-    try {
-      const payload = buildPayload()
-
-      if (editing) {
-        await api.put(`${config.endpoint}/${editing[config.idKey]}`, payload)
-        toast.success(`${config.title.slice(0, -1)} updated`)
-      } else {
-        await api.post(config.endpoint, payload)
-        toast.success(`${config.title.slice(0, -1)} created`)
-      }
-
-      resetForm()
-      loadData()
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Save failed')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const deleteItem = async (item) => {
-    if (!window.confirm(`Delete this ${config.title.slice(0, -1).toLowerCase()}?`)) return
-
-    try {
-      await api.delete(`${config.endpoint}/${item[config.idKey]}`)
-      toast.success(`${config.title.slice(0, -1)} deleted`)
-      loadData()
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Delete failed')
-    }
-  }
+    loadPositions()
+  }, [])
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      <AppSidebar />
-
-      <main className="flex-1 p-4 md:p-8">
-        <div className="mx-auto max-w-7xl space-y-6">
-          <header className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-50 text-amber-600 ring-1 ring-amber-100">
-                <Icon size={24} />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-slate-900">{config.title}</h1>
-                <p className="mt-1 max-w-2xl text-sm text-slate-500">{config.subtitle}</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={loadData}
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-              <RefreshCw size={16} />
-              Refresh
-            </button>
-          </header>
-
-          <section className={`grid gap-4 ${canManageResource ? 'lg:grid-cols-[360px_1fr]' : ''}`}>
-            {canManageResource && (
-            <form onSubmit={saveItem} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-5 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    {editing ? 'Editing' : 'Create'}
-                  </p>
-                  <h2 className="mt-1 text-lg font-semibold text-slate-900">{config.formTitle}</h2>
-                </div>
-                {editing && (
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="rounded-md p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                    aria-label="Cancel edit"
-                  >
-                    <X size={18} />
-                  </button>
-                )}
-              </div>
-
-              <div className="space-y-4">
-                {resource === 'departments' && (
-                  <>
-                    <Field
-                      label="Department name"
-                      value={form.department_name}
-                      onChange={(value) => handleChange('department_name', value)}
-                      required
-                    />
-                    <Textarea
-                      label="Description"
-                      value={form.description}
-                      onChange={(value) => handleChange('description', value)}
-                    />
-                  </>
-                )}
-
-                {resource === 'positions' && (
-                  <>
-                    <Select
-                      label="Department"
-                      value={form.department_id}
-                      onChange={(value) => handleChange('department_id', value)}
-                      required
-                    >
-                      <option value="">Select department</option>
-                      {departments.map((department, index) => (
-                        <option key={`${department.department_id ?? 'department'}-${index}`} value={department.department_id ?? ''}>
-                          {department.department_name}
-                        </option>
-                      ))}
-                    </Select>
-                    <Field
-                      label="Position name"
-                      value={form.position_name}
-                      onChange={(value) => handleChange('position_name', value)}
-                      required
-                    />
-                    <Textarea
-                      label="Description"
-                      value={form.description}
-                      onChange={(value) => handleChange('description', value)}
-                    />
-                  </>
-                )}
-
-                {resource === 'production' && (
-                  <>
-                    <Select
-                      label="Employee"
-                      value={form.employee_id}
-                      onChange={(value) => handleChange('employee_id', value)}
-                      required
-                    >
-                      <option value="">Select employee</option>
-                      {employees.map((employee, index) => (
-                        <option key={`${employee.employee_id ?? 'employee'}-${index}`} value={employee.employee_id ?? ''}>
-                          {employee.employee_code} - {employee.first_name} {employee.last_name}
-                        </option>
-                      ))}
-                    </Select>
-                    <Field
-                      label="Production date"
-                      type="date"
-                      value={form.production_date}
-                      onChange={(value) => handleChange('production_date', value)}
-                      required
-                      icon={Calendar}
-                    />
-                    <Field
-                      label="Mineral type"
-                      value={form.mineral_type}
-                      onChange={(value) => handleChange('mineral_type', value)}
-                      required
-                    />
-                    <div className="grid grid-cols-[1fr_92px] gap-3">
-                      <Field
-                        label="Quantity"
-                        type="number"
-                        value={form.quantity}
-                        onChange={(value) => handleChange('quantity', value)}
-                        required
-                      />
-                      <Field
-                        label="Unit"
-                        value={form.unit}
-                        onChange={(value) => handleChange('unit', value)}
-                        required
-                      />
-                    </div>
-                    <Textarea
-                      label="Remarks"
-                      value={form.remarks}
-                      onChange={(value) => handleChange('remarks', value)}
-                    />
-                  </>
-                )}
-              </div>
-
-              <button
-                type="submit"
-                disabled={saving}
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {editing ? <Save size={16} /> : <Plus size={16} />}
-                {saving ? 'Saving...' : editing ? 'Save Changes' : config.createLabel}
-              </button>
-            </form>
-            )}
-
-            <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
-              <div className="flex flex-col gap-3 border-b border-slate-200 p-5 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900">{config.title} Data</h2>
-                  <p className="text-sm text-slate-500">{filteredItems.length} records found</p>
-                </div>
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder={`Search ${config.title.toLowerCase()}...`}
-                  className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-amber-400 md:w-72"
-                />
-              </div>
-
-              <div className="overflow-x-auto">
-                {loading ? (
-                  <p className="p-5 text-sm text-slate-500">Loading...</p>
-                ) : filteredItems.length === 0 ? (
-                  <p className="p-5 text-sm text-slate-500">No records available.</p>
-                ) : (
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-400">
-                      <tr>
-                        {config.columns.map((column) => (
-                          <th key={column.label} className="px-4 py-3 font-semibold">
-                            {column.label}
-                          </th>
-                        ))}
-                        <th className="px-4 py-3 text-right font-semibold">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredItems.map((item, itemIndex) => (
-                        <tr key={`${item?.[config.idKey] ?? 'row'}-${itemIndex}`} className="transition hover:bg-slate-50/70">
-                          {config.columns.map((column) => (
-                            <td key={column.label} className="px-4 py-3 text-slate-700">
-                              {column.render(item)}
-                            </td>
-                          ))}
-                          <td className="px-4 py-3">
-                            <div className="flex justify-end gap-2">
-                              {canManageResource && (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={() => beginEdit(item)}
-                                    className="rounded-md p-2 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-700"
-                                    aria-label="Edit"
-                                  >
-                                    <Pencil size={16} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => deleteItem(item)}
-                                    className="rounded-md p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-                                    aria-label="Delete"
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
-          </section>
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        {/* Header */}
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-amber-600">Positions</p>
+            <h1 className="mt-1 text-2xl font-bold text-slate-900">
+              {loading ? 'Loading…' : `${positions.length} position${positions.length === 1 ? '' : 's'} defined`}
+            </h1>
+            <p className="mt-1 text-sm text-slate-500">Create and manage roles employees can be assigned to.</p>
+          </div>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-700"
+          >
+            <Plus size={16} />
+            Add position
+          </button>
         </div>
-      </main>
+
+        {/* Table */}
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          {loading ? (
+            <p className="p-6 text-sm text-slate-400">Loading positions…</p>
+          ) : positions.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 p-12 text-center text-slate-400">
+              <Briefcase size={28} className="text-slate-300" />
+              No positions yet. Add one to get started.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-400">
+                  <tr>
+                    <th className="px-6 py-3 text-left font-semibold">Position</th>
+                    <th className="px-6 py-3 text-left font-semibold">Salary / day</th>
+                    <th className="px-6 py-3 text-left font-semibold">Description</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {positions.map((position) => (
+                    <tr key={position.position_id} className="transition hover:bg-slate-50/60">
+                      <td className="px-6 py-4 font-medium text-slate-800">{position.position_name}</td>
+                      <td className="px-6 py-4 font-mono text-slate-600">{formatRWF(position.daily_rate)}</td>
+                      <td className="px-6 py-4 text-slate-500">{position.description || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {showCreate && (
+        <CreatePositionModal
+          onClose={() => setShowCreate(false)}
+          onSuccess={() => {
+            setShowCreate(false)
+            loadPositions()
+          }}
+        />
+      )}
     </div>
   )
 }
 
-function Field({ label, value, onChange, type = 'text', required = false, icon: Icon }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
-      <div className="relative">
-        {Icon && <Icon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />}
-        <input
-          type={type}
-          value={value ?? ''}
-          required={required}
-          onChange={(event) => onChange(event.target.value)}
-          className={`w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-amber-400 ${
-            Icon ? 'pl-9' : ''
-          }`}
-        />
-      </div>
-    </label>
-  )
-}
+function CreatePositionModal({ onClose, onSuccess }) {
+  const [positionName, setPositionName] = useState('')
+  const [dailyRate, setDailyRate] = useState('')
+  const [description, setDescription] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
-function Textarea({ label, value, onChange }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
-      <textarea
-        value={value ?? ''}
-        onChange={(event) => onChange(event.target.value)}
-        rows={4}
-        className="w-full resize-none rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-amber-400"
-      />
-    </label>
-  )
-}
+  const handleSubmit = async (e) => {
+    e.preventDefault()
 
-function Select({ label, value, onChange, required = false, children }) {
+    if (!positionName.trim()) {
+      toast.error('Position name is required.')
+      return
+    }
+    if (!dailyRate || Number(dailyRate) <= 0) {
+      toast.error('Enter a valid salary per day.')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      await createPosition({
+        position_name: positionName.trim(),
+        daily_rate: Number(dailyRate),
+        description: description.trim() || undefined,
+      })
+      toast.success('Position created')
+      onSuccess?.()
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to create position')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
-      <select
-        value={value ?? ''}
-        required={required}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-amber-400"
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-lg"
+        onClick={(e) => e.stopPropagation()}
       >
-        {children}
-      </select>
-    </label>
+        <div className="mb-1 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-slate-900">Add new position</h2>
+          <button
+            onClick={onClose}
+            className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <p className="mb-5 text-sm text-slate-500">
+          Define a position that employees can be assigned to.
+        </p>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Position name
+            </label>
+            <input
+              type="text"
+              value={positionName}
+              onChange={(e) => setPositionName(e.target.value)}
+              placeholder="e.g. Site Supervisor"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Salary per day (RWF)
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={dailyRate}
+              onChange={(e) => setDailyRate(e.target.value)}
+              placeholder="e.g. 5000"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Description
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Briefly describe this role's responsibilities"
+              rows={3}
+              className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {submitting && <Loader2 size={14} className="animate-spin" />}
+              {submitting ? 'Saving…' : 'Save position'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   )
 }

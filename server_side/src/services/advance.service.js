@@ -1,6 +1,7 @@
 const supabase = require("../config/supabase");
+const { isSuperAdmin, requireCompanyId } = require("../utils/companyScope");
 
-const requestAdvance = async (data) => {
+const requestAdvance = async (data, user) => {
 
     const {
         employee_id,
@@ -12,6 +13,20 @@ const requestAdvance = async (data) => {
 
     const month = today.getMonth() + 1;
     const year = today.getFullYear();
+
+    let employeeQuery = supabase
+        .from("employees")
+        .select("employee_id, company_id")
+        .eq("employee_id", employee_id);
+
+    if (!isSuperAdmin(user)) {
+        employeeQuery = employeeQuery.eq("company_id", requireCompanyId(user));
+    }
+
+    const { data: employee, error: employeeError } = await employeeQuery.single();
+
+    if (employeeError || !employee)
+        throw new Error("Employee not found for your company.");
 
     const { data: payroll, error } = await supabase
         .from("payroll")
@@ -59,22 +74,29 @@ const requestAdvance = async (data) => {
 
 };
 
-const getAdvances = async () => {
+const getAdvances = async (user) => {
 
-    const { data, error } = await supabase
+    let query = supabase
         .from("salary_advances")
         .select(`
             *,
-            employees(
+            employees!inner(
                 employee_code,
                 first_name,
-                last_name
+                last_name,
+                company_id
             )
         `)
         .order("created_at", {
             ascending: false
         });
 
+    if (!isSuperAdmin(user)) {
+        query = query.eq("employees.company_id", requireCompanyId(user));
+    }
+
+    const { data, error } = await query;
+
     if (error)
         throw error;
 
@@ -82,20 +104,26 @@ const getAdvances = async () => {
 
 };
 
-const getAdvanceById = async (id) => {
+const getAdvanceById = async (id, user) => {
 
-    const { data, error } = await supabase
+    let query = supabase
         .from("salary_advances")
         .select(`
             *,
-            employees(
+            employees!inner(
                 employee_code,
                 first_name,
-                last_name
+                last_name,
+                company_id
             )
         `)
-        .eq("advance_id", id)
-        .single();
+        .eq("advance_id", id);
+
+    if (!isSuperAdmin(user)) {
+        query = query.eq("employees.company_id", requireCompanyId(user));
+    }
+
+    const { data, error } = await query.single();
 
     if (error)
         throw error;
@@ -104,7 +132,9 @@ const getAdvanceById = async (id) => {
 
 };
 
-const updateAdvance = async (id, advanceData) => {
+const updateAdvance = async (id, advanceData, user) => {
+
+    await getAdvanceById(id, user);
 
     const { data, error } = await supabase
         .from("salary_advances")
@@ -120,7 +150,9 @@ const updateAdvance = async (id, advanceData) => {
 
 };
 
-const deleteAdvance = async (id) => {
+const deleteAdvance = async (id, user) => {
+
+    await getAdvanceById(id, user);
 
     const { error } = await supabase
         .from("salary_advances")

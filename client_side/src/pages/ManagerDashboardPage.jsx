@@ -48,7 +48,7 @@ export default function ManagerDashboardPage() {
 
   useEffect(() => {
     loadDashboard()
-  }, [])
+  }, []) 
 
   const managerName = user?.employees
     ? `${user.employees.first_name} ${user.employees.last_name}`

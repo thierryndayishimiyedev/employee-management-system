@@ -10,7 +10,7 @@ const registerWorker = async (req, res) => {
 
     try {
 
-        const worker = await createWorker(req.body);
+        const worker = await createWorker(req.body, req.user);
 
         res.status(201).json({
             success: true,
@@ -33,7 +33,7 @@ const fetchWorkers = async (req, res) => {
 
     try {
 
-        const workers = await getWorkers();
+        const workers = await getWorkers(req.user);
 
         res.json({
             success: true,
@@ -55,7 +55,7 @@ const fetchWorker = async (req, res) => {
 
     try {
 
-        const worker = await getWorkerById(req.params.id);
+        const worker = await getWorkerById(req.params.id, req.user);
 
         res.json({
             success: true,
@@ -79,7 +79,8 @@ const editWorker = async (req, res) => {
 
         const worker = await updateWorker(
             req.params.id,
-            req.body
+            req.body,
+            req.user
         );
 
         res.json({
@@ -103,7 +104,7 @@ const removeWorker = async (req, res) => {
 
     try {
 
-        await deactivateWorker(req.params.id);
+        await deactivateWorker(req.params.id, req.user);
 
         res.json({
             success: true,

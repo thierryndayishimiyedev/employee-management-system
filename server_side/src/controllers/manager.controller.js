@@ -10,7 +10,7 @@ const registerManager = async (req, res) => {
 
     try {
 
-        const manager = await createManager(req.body);
+        const manager = await createManager(req.body, req.user);
 
         res.status(201).json({
             success: true,
@@ -33,7 +33,7 @@ const fetchManagers = async (req, res) => {
 
     try {
 
-        const managers = await getManagers();
+        const managers = await getManagers(req.user);
 
         res.json({
             success: true,
@@ -55,7 +55,7 @@ const fetchManager = async (req, res) => {
 
     try {
 
-        const manager = await getManagerById(req.params.id);
+        const manager = await getManagerById(req.params.id, req.user);
 
         res.json({
             success: true,
@@ -79,7 +79,8 @@ const editManager = async (req, res) => {
 
         const manager = await updateManager(
             req.params.id,
-            req.body
+            req.body,
+            req.user
         );
 
         res.json({
@@ -103,7 +104,7 @@ const removeManager = async (req, res) => {
 
     try {
 
-        await deactivateManager(req.params.id);
+        await deactivateManager(req.params.id, req.user);
 
         res.json({
             success: true,

@@ -10,7 +10,7 @@ const registerAccountant = async (req, res) => {
 
     try {
 
-        const accountant = await createAccountant(req.body);
+        const accountant = await createAccountant(req.body, req.user);
 
         res.status(201).json({
             success: true,
@@ -33,7 +33,7 @@ const fetchAccountants = async (req, res) => {
 
     try {
 
-        const accountants = await getAccountants();
+        const accountants = await getAccountants(req.user);
 
         res.json({
             success: true,
@@ -55,7 +55,7 @@ const fetchAccountant = async (req, res) => {
 
     try {
 
-        const accountant = await getAccountantById(req.params.id);
+        const accountant = await getAccountantById(req.params.id, req.user);
 
         res.json({
             success: true,
@@ -79,7 +79,8 @@ const editAccountant = async (req, res) => {
 
         const accountant = await updateAccountant(
             req.params.id,
-            req.body
+            req.body,
+            req.user
         );
 
         res.json({
@@ -103,7 +104,7 @@ const removeAccountant = async (req, res) => {
 
     try {
 
-        await deactivateAccountant(req.params.id);
+        await deactivateAccountant(req.params.id, req.user);
 
         res.json({
             success: true,

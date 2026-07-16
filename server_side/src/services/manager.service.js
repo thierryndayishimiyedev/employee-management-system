@@ -1,7 +1,8 @@
 const bcrypt = require("bcrypt");
 const supabase = require("../config/supabase");
+const { isSuperAdmin, requireCompanyId } = require("../utils/companyScope");
 
-const createManager = async (data) => {
+const createManager = async (data, userScope) => {
 
     const {
         company_id,
@@ -18,16 +19,26 @@ const createManager = async (data) => {
         hire_date,
         monthly_salary,
         daily_rate,
-        profile_photo,
         username,
         password
     } = data;
 
-    const { data: position, error: positionError } = await supabase
+    const scopedCompanyId = requireCompanyId(userScope) || company_id;
+
+    if (!scopedCompanyId)
+        throw new Error("Company is required to create a manager.");
+
+    let positionQuery = supabase
         .from("positions")
-        .select("*")
-        .eq("position_id", position_id)
-        .single();
+        .select("*, departments!inner(company_id)")
+        .eq("position_id", position_id);
+
+    // A manager can only be assigned to a position in the same company.
+    if (!isSuperAdmin(userScope)) {
+        positionQuery = positionQuery.eq("departments.company_id", scopedCompanyId);
+    }
+
+    const { data: position, error: positionError } = await positionQuery.single();
 
     if (positionError || !position)
         throw new Error("Position not found.");
@@ -44,8 +55,7 @@ const createManager = async (data) => {
     const { data: employee, error: empError } = await supabase
         .from("employees")
         .insert([{
-            company_id,
-            department_id: position.department_id,
+            company_id: scopedCompanyId,
             position_id,
             employee_code,
             first_name,
@@ -58,8 +68,7 @@ const createManager = async (data) => {
             address,
             hire_date,
             monthly_salary,
-            daily_rate,
-            profile_photo
+            daily_rate
         }])
         .select()
         .single();
@@ -92,15 +101,21 @@ const createManager = async (data) => {
 
 };
 
-const getManagers = async () => {
+const getManagers = async (userScope) => {
 
-    const { data, error } = await supabase
+    let query = supabase
         .from("users")
         .select(`
             *,
             roles(role_name),
-            employees(*)
+            employees!inner(*)
         `);
+
+    if (!isSuperAdmin(userScope)) {
+        query = query.eq("employees.company_id", requireCompanyId(userScope));
+    }
+
+    const { data, error } = await query;
 
     if (error)
         throw error;
@@ -112,17 +127,22 @@ const getManagers = async () => {
 
 };
 
-const getManagerById = async (id) => {
+const getManagerById = async (id, userScope) => {
 
-    const { data, error } = await supabase
+    let query = supabase
         .from("users")
         .select(`
             *,
             roles(role_name),
-            employees(*)
+            employees!inner(*)
         `)
-        .eq("user_id", id)
-        .single();
+        .eq("user_id", id);
+
+    if (!isSuperAdmin(userScope)) {
+        query = query.eq("employees.company_id", requireCompanyId(userScope));
+    }
+
+    const { data, error } = await query.single();
 
     if (error)
         throw error;
@@ -131,7 +151,7 @@ const getManagerById = async (id) => {
 
 };
 
-const updateManager = async (id, managerData) => {
+const updateManager = async (id, managerData, userScope) => {
 
     const {
         first_name,
@@ -145,9 +165,10 @@ const updateManager = async (id, managerData) => {
         hire_date,
         monthly_salary,
         daily_rate,
-        profile_photo,
         username
     } = managerData;
+
+    await getManagerById(id, userScope);
 
     const { data: user, error } = await supabase
         .from("users")
@@ -171,8 +192,7 @@ const updateManager = async (id, managerData) => {
             address,
             hire_date,
             monthly_salary,
-            daily_rate,
-            profile_photo
+            daily_rate
         })
         .eq("employee_id", user.employee_id);
 
@@ -193,11 +213,13 @@ const updateManager = async (id, managerData) => {
 
     }
 
-    return await getManagerById(id);
+    return await getManagerById(id, userScope);
 
 };
 
-const deactivateManager = async (id) => {
+const deactivateManager = async (id, userScope) => {
+
+    await getManagerById(id, userScope);
 
     const { data, error } = await supabase
         .from("users")
@@ -215,10 +237,70 @@ const deactivateManager = async (id) => {
 
 };
 
+// Company-wide staff count + payroll total, shown alongside each manager.
+// There is no department table in this schema, so this is not scoped
+// per-manager — it reflects totals for the whole company. production_kg
+// stays null since there is no production table yet.
+const getManagerOverviews = async (userScope) => {
+
+    let query = supabase
+        .from("users")
+        .select(`
+            *,
+            roles(role_name),
+            employees!inner(*)
+        `);
+
+    if (!isSuperAdmin(userScope)) {
+        query = query.eq("employees.company_id", requireCompanyId(userScope));
+    }
+
+    const { data, error } = await query;
+
+    if (error)
+        throw error;
+
+    const managers = data.filter(user =>
+        user.roles &&
+        user.roles.role_name === "MANAGER"
+    );
+
+    if (managers.length === 0)
+        return [];
+
+    const scopedCompanyId = requireCompanyId(userScope) || managers[0].employees.company_id;
+
+    const { data: companyEmployees, error: empError } = await supabase
+        .from("employees")
+        .select("employee_id, monthly_salary")
+        .eq("company_id", scopedCompanyId);
+
+    if (empError)
+        throw empError;
+
+    const staffCount = companyEmployees.length;
+    const payrollTotal = companyEmployees.reduce(
+        (sum, e) => sum + (Number(e.monthly_salary) || 0),
+        0
+    );
+
+    return managers.map(manager => ({
+        user_id: manager.user_id,
+        employee_id: manager.employees.employee_id,
+        name: `${manager.employees.first_name} ${manager.employees.last_name}`,
+        username: manager.username,
+        staff_count: staffCount,
+        payroll_total: payrollTotal,
+        production_kg: null
+    }));
+
+};
+
 module.exports = {
     createManager,
     getManagers,
     getManagerById,
     updateManager,
-    deactivateManager
+    deactivateManager,
+    getManagerOverviews
 };

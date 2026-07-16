@@ -1,12 +1,13 @@
 const supabase = require("../config/supabase");
+const { requireCompanyId, scopeByCompany } = require("../utils/companyScope");
 
-const createDepartment = async (departmentData) => {
+const createDepartment = async (departmentData, user) => {
 
     const {
-        company_id,
         department_name,
         description
     } = departmentData;
+    const company_id = requireCompanyId(user) || departmentData.company_id;
 
     const { data, error } = await supabase
         .from("departments")
@@ -25,9 +26,9 @@ const createDepartment = async (departmentData) => {
 
 };
 
-const getDepartments = async () => {
+const getDepartments = async (user) => {
 
-    const { data, error } = await supabase
+    const query = scopeByCompany(supabase
         .from("departments")
         .select(`
             *,
@@ -37,7 +38,9 @@ const getDepartments = async () => {
         `)
         .order("created_at", {
             ascending: false
-        });
+        }), user);
+
+    const { data, error } = await query;
 
     if (error)
         throw error;
@@ -46,9 +49,9 @@ const getDepartments = async () => {
 
 };
 
-const getDepartmentById = async (id) => {
+const getDepartmentById = async (id, user) => {
 
-    const { data, error } = await supabase
+    const query = scopeByCompany(supabase
         .from("departments")
         .select(`
             *,
@@ -56,8 +59,9 @@ const getDepartmentById = async (id) => {
                 company_name
             )
         `)
-        .eq("department_id", id)
-        .single();
+        .eq("department_id", id), user);
+
+    const { data, error } = await query.single();
 
     if (error)
         throw error;
@@ -66,22 +70,23 @@ const getDepartmentById = async (id) => {
 
 };
 
-const updateDepartment = async (id, departmentData) => {
+const updateDepartment = async (id, departmentData, user) => {
 
     const {
         department_name,
         description
     } = departmentData;
 
-    const { data, error } = await supabase
+    const query = scopeByCompany(supabase
         .from("departments")
         .update({
             department_name,
             description
         })
         .eq("department_id", id)
-        .select()
-        .single();
+        .select(), user);
+
+    const { data, error } = await query.single();
 
     if (error)
         throw error;
@@ -90,12 +95,14 @@ const updateDepartment = async (id, departmentData) => {
 
 };
 
-const deleteDepartment = async (id) => {
+const deleteDepartment = async (id, user) => {
 
-    const { error } = await supabase
+    const query = scopeByCompany(supabase
         .from("departments")
         .delete()
-        .eq("department_id", id);
+        .eq("department_id", id), user);
+
+    const { error } = await query;
 
     if (error)
         throw error;

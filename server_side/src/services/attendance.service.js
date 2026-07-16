@@ -142,6 +142,7 @@
 // };
 
 const supabase = require("../config/supabase");
+const { isSuperAdmin, requireCompanyId, scopeByCompany } = require("../utils/companyScope");
 
 const recordAttendance = async (attendanceData, user) => {
 
@@ -156,20 +157,25 @@ const recordAttendance = async (attendanceData, user) => {
         remarks
     } = attendanceData;
 
-    const { data: employee, error: employeeError } = await supabase
+    let employeeQuery = supabase
         .from("employees")
         .select("company_id")
-        .eq("employee_id", employee_id)
-        .single();
+        .eq("employee_id", employee_id);
+
+    if (!isSuperAdmin(user)) {
+        employeeQuery = employeeQuery.eq("company_id", requireCompanyId(user));
+    }
+
+    const { data: employee, error: employeeError } = await employeeQuery.single();
 
     if (employeeError || !employee)
         throw new Error("Employee not found.");
 
-    const { data: existing } = await supabase
+    const { data: existing } = await scopeByCompany(supabase
         .from("attendance")
         .select("attendance_id")
         .eq("employee_id", employee_id)
-        .eq("attendance_date", attendance_date)
+        .eq("attendance_date", attendance_date), user)
         .maybeSingle();
 
     if (existing)
@@ -199,9 +205,9 @@ const recordAttendance = async (attendanceData, user) => {
 
 };
 
-const getAttendances = async () => {
+const getAttendances = async (user) => {
 
-    const { data, error } = await supabase
+    const query = scopeByCompany(supabase
         .from("attendance")
         .select(`
             *,
@@ -213,7 +219,9 @@ const getAttendances = async () => {
         `)
         .order("attendance_date", {
             ascending: false
-        });
+        }), user);
+
+    const { data, error } = await query;
 
     if (error)
         throw error;
@@ -222,9 +230,9 @@ const getAttendances = async () => {
 
 };
 
-const getAttendanceById = async (id) => {
+const getAttendanceById = async (id, user) => {
 
-    const { data, error } = await supabase
+    const query = scopeByCompany(supabase
         .from("attendance")
         .select(`
             *,
@@ -234,8 +242,9 @@ const getAttendanceById = async (id) => {
                 last_name
             )
         `)
-        .eq("attendance_id", id)
-        .single();
+        .eq("attendance_id", id), user);
+
+    const { data, error } = await query.single();
 
     if (error)
         throw error;
@@ -244,14 +253,15 @@ const getAttendanceById = async (id) => {
 
 };
 
-const updateAttendance = async (id, attendanceData) => {
+const updateAttendance = async (id, attendanceData, user) => {
 
-    const { data, error } = await supabase
+    const query = scopeByCompany(supabase
         .from("attendance")
         .update(attendanceData)
         .eq("attendance_id", id)
-        .select()
-        .single();
+        .select(), user);
+
+    const { data, error } = await query.single();
 
     if (error)
         throw error;
@@ -260,12 +270,14 @@ const updateAttendance = async (id, attendanceData) => {
 
 };
 
-const deleteAttendance = async (id) => {
+const deleteAttendance = async (id, user) => {
 
-    const { error } = await supabase
+    const query = scopeByCompany(supabase
         .from("attendance")
         .delete()
-        .eq("attendance_id", id);
+        .eq("attendance_id", id), user);
+
+    const { error } = await query;
 
     if (error)
         throw error;
@@ -276,43 +288,43 @@ const deleteAttendance = async (id) => {
 
 };
 
-const getAttendanceDashboard = async () => {
+const getAttendanceDashboard = async (user) => {
 
     const today = new Date().toISOString().split("T")[0];
 
-    const { count: totalEmployees } = await supabase
+    const { count: totalEmployees } = await scopeByCompany(supabase
         .from("employees")
         .select("*", {
             count: "exact",
             head: true
-        });
+        }), user);
 
-    const { count: presentToday } = await supabase
+    const { count: presentToday } = await scopeByCompany(supabase
         .from("attendance")
         .select("*", {
             count: "exact",
             head: true
         })
         .eq("attendance_date", today)
-        .eq("attendance_status", "PRESENT");
+        .eq("attendance_status", "PRESENT"), user);
 
-    const { count: absentToday } = await supabase
+    const { count: absentToday } = await scopeByCompany(supabase
         .from("attendance")
         .select("*", {
             count: "exact",
             head: true
         })
         .eq("attendance_date", today)
-        .eq("attendance_status", "ABSENT");
+        .eq("attendance_status", "ABSENT"), user);
 
-    const { count: lateToday } = await supabase
+    const { count: lateToday } = await scopeByCompany(supabase
         .from("attendance")
         .select("*", {
             count: "exact",
             head: true
         })
         .eq("attendance_date", today)
-        .eq("attendance_status", "LATE");
+        .eq("attendance_status", "LATE"), user);
 
     return {
         totalEmployees,
@@ -323,14 +335,16 @@ const getAttendanceDashboard = async () => {
 
 };
 
-const getWeeklyAttendance = async () => {
+const getWeeklyAttendance = async (user) => {
 
-    const { data, error } = await supabase
+    const query = scopeByCompany(supabase
         .from("attendance")
         .select(`
             attendance_date,
             attendance_status
-        `);
+        `), user);
+
+    const { data, error } = await query;
 
     if (error)
         throw error;
@@ -339,11 +353,11 @@ const getWeeklyAttendance = async () => {
 
 };
 
-const getTodayAttendance = async () => {
+const getTodayAttendance = async (user) => {
 
     const today = new Date().toISOString().split("T")[0];
 
-    const { data, error } = await supabase
+    const query = scopeByCompany(supabase
         .from("attendance")
         .select(`
             *,
@@ -353,7 +367,9 @@ const getTodayAttendance = async () => {
                 last_name
             )
         `)
-        .eq("attendance_date", today);
+        .eq("attendance_date", today), user);
+
+    const { data, error } = await query;
 
     if (error)
         throw error;
@@ -362,15 +378,17 @@ const getTodayAttendance = async () => {
 
 };
 
-const getEmployeeAttendance = async (employeeId) => {
+const getEmployeeAttendance = async (employeeId, user) => {
 
-    const { data, error } = await supabase
+    const query = scopeByCompany(supabase
         .from("attendance")
         .select("*")
         .eq("employee_id", employeeId)
         .order("attendance_date", {
             ascending: false
-        });
+        }), user);
+
+    const { data, error } = await query;
 
     if (error)
         throw error;
@@ -379,17 +397,20 @@ const getEmployeeAttendance = async (employeeId) => {
 
 };
 
-const getMonthlyAttendanceSummary = async () => {
+const getMonthlyAttendanceSummary = async (user) => {
 
     const month = new Date().getMonth() + 1;
     const year = new Date().getFullYear();
 
-    const { data, error } = await supabase
+    const query = scopeByCompany(supabase
         .from("attendance")
         .select(`
             attendance_status,
-            attendance_date
-        `);
+            attendance_date,
+            company_id
+        `), user);
+
+    const { data, error } = await query;
 
     if (error)
         throw error;

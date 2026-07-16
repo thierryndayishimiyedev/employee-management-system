@@ -14,12 +14,17 @@ const getOwnerDashboard = async (company_id) => {
     const { data: attendance } = await supabase
         .from("attendance")
         .select("*")
-        .eq("attendance_date", today);
+        .eq("attendance_date", today)
+        .eq("company_id", company_id);
 
     // TOTAL PAYROLL
     const { data: payroll } = await supabase
         .from("payroll")
-        .select("net_salary");
+        .select(`
+            net_salary,
+            employees!inner(company_id)
+        `)
+        .eq("employees.company_id", company_id);
 
     const totalPayroll = payroll?.reduce(
         (sum, p) => sum + Number(p.net_salary),
@@ -29,7 +34,11 @@ const getOwnerDashboard = async (company_id) => {
     // TOTAL PRODUCTION
     const { data: production } = await supabase
         .from("production_records")
-        .select("quantity");
+        .select(`
+            quantity,
+            employees!inner(company_id)
+        `)
+        .eq("employees.company_id", company_id);
 
     const totalProduction = production?.reduce(
         (sum, p) => sum + Number(p.quantity),
@@ -39,8 +48,12 @@ const getOwnerDashboard = async (company_id) => {
     // PENDING ADVANCES
     const { data: advances } = await supabase
         .from("salary_advances")
-        .select("*")
-        .eq("status", "PENDING");
+        .select(`
+            *,
+            employees!inner(company_id)
+        `)
+        .eq("status", "PENDING")
+        .eq("employees.company_id", company_id);
 
     return {
         total_employees: employees?.length || 0,
@@ -52,17 +65,25 @@ const getOwnerDashboard = async (company_id) => {
 
 };
 
-const getAccountantDashboard = async () => {
+const getAccountantDashboard = async (company_id) => {
 
     const { data: pendingPayrolls } = await supabase
         .from("payroll")
-        .select("*")
-        .eq("payment_status", "PENDING");
+        .select(`
+            *,
+            employees!inner(company_id)
+        `)
+        .in("payment_status", ["PENDING", "GENERATED"])
+        .eq("employees.company_id", company_id);
 
     const { data: advances } = await supabase
         .from("salary_advances")
-        .select("*")
-        .eq("status", "PENDING");
+        .select(`
+            *,
+            employees!inner(company_id)
+        `)
+        .eq("status", "PENDING")
+        .eq("employees.company_id", company_id);
 
     return {
         pending_payrolls: pendingPayrolls?.length || 0,
@@ -80,7 +101,11 @@ const getManagerDashboard = async (company_id) => {
 
     const { data: production } = await supabase
         .from("production_records")
-        .select("*");
+        .select(`
+            *,
+            employees!inner(company_id)
+        `)
+        .eq("employees.company_id", company_id);
 
     return {
         total_workers: employees?.length || 0,

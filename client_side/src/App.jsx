@@ -13,6 +13,7 @@ import MinesPage from "./pages/MinePage";
 import AttendancePage from "./pages/AttendancePage";
 import OwnerResourcePage from "./pages/OwnerResourcePage";
 import ManagementPage from "./pages/ManagementPage";
+import DownloadCenterPage from "./pages/DownloadCenterPage";
 
 import "./App.css";
 
@@ -111,8 +112,8 @@ function App() {
                 path="/positions"
                 element={
                     <ProtectedRoute
-                        allowedRoles={["OWNER"]}
-                        redirectTo="/owner/login"
+                        allowedRoles={["MANAGER"]}
+                        redirectTo="/login"
                     >
                         <OwnerResourcePage resource="positions" />
                     </ProtectedRoute>
@@ -258,6 +259,17 @@ function App() {
                         redirectTo="/owner/login"
                     >
                         <ManagementPage resource="reports" />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/downloads"
+                element={
+                    <ProtectedRoute
+                        allowedRoles={["SUPER_ADMIN", "OWNER", "ACCOUNTANT", "MANAGER"]}
+                        redirectTo="/login"
+                    >
+                        <DownloadCenterPage />
                     </ProtectedRoute>
                 }
             />

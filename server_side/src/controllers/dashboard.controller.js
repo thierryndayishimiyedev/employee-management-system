@@ -32,7 +32,9 @@ const accountantDashboard = async (req, res) => {
 
     try {
 
-        const data = await getAccountantDashboard();
+        const data = await getAccountantDashboard(
+            req.user.company_id
+        );
 
         res.json({
             success: true,
