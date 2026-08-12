@@ -30,11 +30,11 @@ const createWorker = async (data, userScope) => {
 
     let positionQuery = supabase
         .from("positions")
-        .select("*, departments!inner(company_id)")
+        .select("*")
         .eq("position_id", position_id);
 
     if (!isSuperAdmin(userScope)) {
-        positionQuery = positionQuery.eq("departments.company_id", scopedCompanyId);
+        positionQuery = positionQuery.eq("company_id", scopedCompanyId);
     }
 
     const { data: position, error: positionError } = await positionQuery.single();
@@ -55,7 +55,6 @@ const createWorker = async (data, userScope) => {
         .from("employees")
         .insert([{
             company_id: scopedCompanyId,
-            department_id: position.department_id,
             position_id,
             employee_code,
             first_name,
@@ -108,8 +107,7 @@ const getWorkers = async (userScope) => {
         .from("employees")
         .select(`
             *,
-            positions(position_name),
-            departments(department_name)
+            positions(position_name)
         `)
         .order("created_at", {
             ascending: false
@@ -130,8 +128,7 @@ const getWorkerById = async (id, userScope) => {
         .from("employees")
         .select(`
             *,
-            positions(position_name),
-            departments(department_name)
+            positions(position_name)
         `)
         .eq("employee_id", id), userScope);
 
@@ -183,11 +180,11 @@ const updateWorker = async (id, workerData, userScope) => {
 
         let positionQuery = supabase
             .from("positions")
-            .select("department_id, departments!inner(company_id)")
+            .select("*")
             .eq("position_id", position_id);
 
         if (!isSuperAdmin(userScope)) {
-            positionQuery = positionQuery.eq("departments.company_id", requireCompanyId(userScope));
+            positionQuery = positionQuery.eq("company_id", requireCompanyId(userScope));
         }
 
         const { data: position, error: positionError } = await positionQuery.single();
@@ -196,7 +193,6 @@ const updateWorker = async (id, workerData, userScope) => {
             throw new Error("Position not found.");
 
         updateData.position_id = position_id;
-        updateData.department_id = position.department_id;
 
     }
 

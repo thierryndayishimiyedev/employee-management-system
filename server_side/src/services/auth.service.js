@@ -56,6 +56,28 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const supabase = require("../config/supabase");
 
+const resolveUserRoleName = async (user) => {
+    if (user?.roles?.role_name) {
+        return user.roles.role_name;
+    }
+
+    if (!user?.role_id) {
+        return null;
+    }
+
+    const { data: role, error } = await supabase
+        .from("roles")
+        .select("role_name")
+        .eq("role_id", user.role_id)
+        .maybeSingle();
+
+    if (error || !role) {
+        return null;
+    }
+
+    return role.role_name;
+};
+
 const login = async ({ username, password }) => {
 
     // FIRST TRY ADMINS
@@ -125,12 +147,38 @@ const login = async ({ username, password }) => {
         throw new Error("Invalid username or password.");
     }
 
+    const resolvedRole = await resolveUserRoleName(user);
+    const companyIds = [];
+
+    if (user.employees?.company_id) {
+        companyIds.push(user.employees.company_id);
+    }
+
+    if (resolvedRole === "OWNER") {
+        const { data: ownerAssignments } = await supabase
+            .from("company_owners")
+            .select("company_id")
+            .eq("username", username)
+            .order("created_at", { ascending: true });
+
+        if (ownerAssignments?.length) {
+            // At least one company assignment is available; this keeps multi-company owner access working.
+            ownerAssignments.forEach((assignment) => {
+                if (assignment.company_id) {
+                    companyIds.push(assignment.company_id);
+                }
+            });
+        }
+    }
+
+    const normalizedCompanyIds = [...new Set(companyIds.filter(Boolean))];
     const token = jwt.sign(
         {
             user_id: user.user_id,
             employee_id: user.employee_id,
-            company_id: user.employees.company_id,
-            role_name: user.roles.role_name
+            company_id: normalizedCompanyIds[0] || user.employees?.company_id,
+            company_ids: normalizedCompanyIds,
+            role_name: resolvedRole || user.roles?.role_name
         },
         process.env.JWT_SECRET,
         {
@@ -144,7 +192,7 @@ const login = async ({ username, password }) => {
         token,
         user: {
             ...user,
-            role_name: user.roles.role_name
+            role_name: resolvedRole || user.roles?.role_name
         }
     };
 

@@ -91,11 +91,11 @@ const getPositionById = async (position_id) => {
     return data;
 };
 
-const ensurePositionForDepartment = async (department_id, positionName = "Owner") => {
+const ensurePositionForDepartment = async (company_id, positionName = "Owner") => {
     const { data: existingPositions, error: findError } = await supabase
         .from("positions")
         .select("*")
-        .eq("department_id", department_id)
+        .eq("company_id", company_id)
         .eq("position_name", positionName)
         .limit(1);
 
@@ -108,7 +108,7 @@ const ensurePositionForDepartment = async (department_id, positionName = "Owner"
     const { data, error } = await supabase
         .from("positions")
         .insert([{
-            department_id,
+            company_id,
             position_name: positionName,
             description: "Company Owner"
         }])
@@ -123,9 +123,7 @@ const ensurePositionForDepartment = async (department_id, positionName = "Owner"
 
 const ensureOwnerPosition = async ({
     company_id,
-    department_id,
     position_id,
-    department_name,
     position_name
 }) => {
     if (position_id)
@@ -133,37 +131,33 @@ const ensureOwnerPosition = async ({
 
     const requestedPosition = position_name || "Owner";
 
-    if (department_id)
-        return await ensurePositionForDepartment(department_id, requestedPosition);
+    const { data: existingPositions, error: findError } = await supabase
+        .from("positions")
+        .select("*")
+        .eq("company_id", company_id)
+        .eq("position_name", requestedPosition)
+        .limit(1);
 
-    const { data: departments, error: departmentError } = await supabase
-        .from("departments")
-        .select("department_id")
-        .eq("company_id", company_id);
+    if (findError)
+        throw findError;
 
-    if (departmentError)
-        throw departmentError;
+    if (existingPositions && existingPositions.length > 0)
+        return existingPositions[0];
 
-    const departmentIds = (departments || []).map((department) => department.department_id);
+    const { data, error } = await supabase
+        .from("positions")
+        .insert([{
+            company_id,
+            position_name: requestedPosition,
+            description: "Company Owner"
+        }])
+        .select()
+        .single();
 
-    if (departmentIds.length > 0) {
-        const { data: positions, error: positionError } = await supabase
-            .from("positions")
-            .select("*")
-            .in("department_id", departmentIds)
-            .eq("position_name", requestedPosition)
-            .limit(1);
+    if (error)
+        throw error;
 
-        if (positionError)
-            throw positionError;
-
-        if (positions && positions.length > 0)
-            return positions[0];
-    }
-
-    const department = await ensureOwnerDepartment(company_id, department_name || "Administration");
-
-    return await ensurePositionForDepartment(department.department_id, requestedPosition);
+    return data;
 };
 
 const createOwner = async (ownerData) => {
@@ -181,7 +175,6 @@ const createOwner = async (ownerData) => {
         hire_date,
         monthly_salary,
         profile_photo,
-        department_id,
         position_id,
         department_name,
         position_name,
@@ -221,7 +214,6 @@ const createOwner = async (ownerData) => {
 
     const position = await ensureOwnerPosition({
         company_id,
-        department_id,
         position_id,
         department_name,
         position_name
@@ -243,7 +235,6 @@ const createOwner = async (ownerData) => {
         .insert([
             {
                 company_id,
-                department_id: position.department_id,
                 position_id: position.position_id,
                 employee_code,
                 first_name,

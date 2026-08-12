@@ -30,12 +30,12 @@ const createManager = async (data, userScope) => {
 
     let positionQuery = supabase
         .from("positions")
-        .select("*, departments!inner(company_id)")
+        .select("*")
         .eq("position_id", position_id);
 
     // A manager can only be assigned to a position in the same company.
     if (!isSuperAdmin(userScope)) {
-        positionQuery = positionQuery.eq("departments.company_id", scopedCompanyId);
+        positionQuery = positionQuery.eq("company_id", scopedCompanyId);
     }
 
     const { data: position, error: positionError } = await positionQuery.single();

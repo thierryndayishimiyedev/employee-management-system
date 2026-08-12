@@ -78,13 +78,11 @@ async function main() {
     }, adminToken);
 
     const workerPosition = await post("/positions", {
-        department_id: idOf(department, "department_id"),
         position_name: `Smoke Worker ${stamp}`,
         description: "E2E smoke worker position"
     }, adminToken);
 
     const accountantPosition = await post("/positions", {
-        department_id: idOf(department, "department_id"),
         position_name: `Smoke Accountant ${stamp}`,
         description: "E2E smoke accountant position"
     }, adminToken);

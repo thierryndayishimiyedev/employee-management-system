@@ -363,7 +363,7 @@ const simpleEmployeePdf = async (user, query, type) => {
 
     const rows = (data || []).map((record) => ({
         name: record.first_name ? nameOf(record) : record.department_name || record.position_name || "-",
-        code: record.employee_code || record.department_id || record.position_id || "-",
+        code: record.employee_code || record.position_id || record.department_id || "-",
         status: record.status || "ACTIVE",
         phone: record.phone || "-",
         email: record.email || "-"

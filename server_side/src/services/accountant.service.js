@@ -47,7 +47,6 @@ const createAccountant = async (data, userScope) => {
         .from("employees")
         .insert([{
             company_id: scopedCompanyId,
-            department_id: position.department_id,
             position_id,
             employee_code,
             first_name,

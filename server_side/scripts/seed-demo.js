@@ -169,11 +169,11 @@ const ensureDepartment = async (company_id, department_name, description) => {
     return data;
 };
 
-const ensurePosition = async (department_id, position_name, description) => {
+const ensurePosition = async (company_id, position_name, description) => {
     const { data: existing } = await supabase
         .from("positions")
         .select("*")
-        .eq("department_id", department_id)
+        .eq("company_id", company_id)
         .eq("position_name", position_name)
         .maybeSingle();
 
@@ -181,7 +181,7 @@ const ensurePosition = async (department_id, position_name, description) => {
 
     const { data, error } = await supabase
         .from("positions")
-        .insert([{ department_id, position_name, description }])
+        .insert([{ company_id, position_name, description }])
         .select()
         .single();
 
@@ -211,7 +211,6 @@ const ensureEmployeeUser = async ({ company, position, role, person }) => {
             .from("employees")
             .insert([{
                 company_id: company.company_id,
-                department_id: position.department_id,
                 position_id: position.position_id,
                 employee_code: person.employee_code,
                 first_name: person.first_name,
@@ -266,10 +265,10 @@ async function main() {
     const financeDepartment = await ensureDepartment(company.company_id, "Demo Finance", "Demo finance department");
 
     const positions = {
-        owner: await ensurePosition(adminDepartment.department_id, "Owner", "Company owner"),
-        manager: await ensurePosition(adminDepartment.department_id, "Manager", "Company manager"),
-        accountant: await ensurePosition(financeDepartment.department_id, "Accountant", "Company accountant"),
-        worker: await ensurePosition(miningDepartment.department_id, "Miner", "Mining worker")
+        owner: await ensurePosition(company.company_id, "Owner", "Company owner"),
+        manager: await ensurePosition(company.company_id, "Manager", "Company manager"),
+        accountant: await ensurePosition(company.company_id, "Accountant", "Company accountant"),
+        worker: await ensurePosition(company.company_id, "Miner", "Mining worker")
     };
 
     await ensureEmployeeUser({ company, position: positions.owner, role: roles.OWNER, person: demo.owner });
