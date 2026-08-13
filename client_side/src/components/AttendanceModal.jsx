@@ -25,10 +25,6 @@ export default function AttendanceModal({
 
         check_in: "",
 
-        check_out: "",
-
-        hours_worked: "",
-
         overtime_hours: "",
 
         attendance_status: "PRESENT",
@@ -57,10 +53,6 @@ export default function AttendanceModal({
 
                 check_in: attendance.check_in || "",
 
-                check_out: attendance.check_out || "",
-
-                hours_worked: attendance.hours_worked || "",
-
                 overtime_hours: attendance.overtime_hours || "",
 
                 attendance_status: attendance.attendance_status || "PRESENT",
@@ -78,10 +70,6 @@ export default function AttendanceModal({
                 attendance_date: "",
 
                 check_in: "",
-
-                check_out: "",
-
-                hours_worked: "",
 
                 overtime_hours: "",
 
@@ -136,8 +124,6 @@ export default function AttendanceModal({
                 ...formData,
 
                 employee_id: formData.employee_id || null,
-
-                hours_worked: formData.hours_worked === "" ? null : Number(formData.hours_worked),
 
                 overtime_hours: formData.overtime_hours === "" ? null : Number(formData.overtime_hours)
 
@@ -201,9 +187,9 @@ export default function AttendanceModal({
 
                             attendance
 
-                                ? "Edit Attendance"
+                                ? "Edit check-in"
 
-                                : "Record Attendance"
+                                : "Check in worker"
 
                         }
 
@@ -361,84 +347,18 @@ export default function AttendanceModal({
 
                         </div>
 
-                        <div>
-
-                            <label className="text-sm text-slate-300">
-
-                                Check Out
-
-                            </label>
-
-                            <input
-
-                                type="time"
-
-                                name="check_out"
-
-                                value={formData.check_out}
-
-                                onChange={handleChange}
-
-                                className="mt-2 w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-3"
-
-                            />
-
+                        <div className="rounded-xl border border-amber-800 bg-amber-950/40 px-4 py-3 text-sm text-amber-100">
+                            <p className="font-medium">Check-out is recorded later</p>
+                            <p className="mt-1 text-amber-200">Save this form to check the worker in. Use the check-out button when the worker leaves.</p>
                         </div>
 
                     </div>
 
-                    <div className="grid md:grid-cols-3 gap-5">
+                    <div className="grid md:grid-cols-2 gap-5">
 
-                        <div>
-
-                            <label className="text-sm text-slate-300">
-
-                                Hours Worked
-
-                            </label>
-
-                            <input
-
-                                type="number"
-
-                                step="0.5"
-
-                                name="hours_worked"
-
-                                value={formData.hours_worked}
-
-                                onChange={handleChange}
-
-                                className="mt-2 w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-3"
-
-                            />
-
-                        </div>
-
-                        <div>
-
-                            <label className="text-sm text-slate-300">
-
-                                Overtime
-
-                            </label>
-
-                            <input
-
-                                type="number"
-
-                                step="0.5"
-
-                                name="overtime_hours"
-
-                                value={formData.overtime_hours}
-
-                                onChange={handleChange}
-
-                                className="mt-2 w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-3"
-
-                            />
-
+                        <div className="rounded-xl border border-cyan-800 bg-cyan-950/40 px-4 py-3 text-sm text-cyan-100">
+                            <p className="font-medium">Hours worked</p>
+                            <p className="mt-1 text-cyan-200">Calculated automatically after the later check-out action.</p>
                         </div>
 
                         <div>
@@ -473,29 +393,12 @@ export default function AttendanceModal({
 
                                 </option>
 
-                                <option value="LATE">
-
-                                    Late
-
-                                </option>
-
                                 <option value="LEAVE">
 
                                     Leave
 
                                 </option>
 
-                                <option value="SICK">
-
-                                    Sick
-
-                                </option>
-
-                                <option value="HOLIDAY">
-
-                                    Holiday
-
-                                </option>
 
                             </select>
 
@@ -561,9 +464,9 @@ export default function AttendanceModal({
 
                                     : attendance
 
-                                    ? "Update Attendance"
+                                    ? "Update check-in"
 
-                                    : "Record Attendance"
+                                    : "Check in worker"
 
                             }
 

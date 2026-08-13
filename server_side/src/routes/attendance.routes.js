@@ -57,6 +57,7 @@ const {
     fetchAttendances,
     fetchAttendance,
     editAttendance,
+    completeAttendanceCheckOut,
     removeAttendance,
     fetchAttendanceDashboard,
     fetchWeeklyAttendance,
@@ -68,7 +69,7 @@ const {
 router.post(
     "/",
     authenticate,
-    authorize("OWNER", "MANAGER", "ACCOUNTANT", "SUPER_ADMIN"),
+    authorize("ACCOUNTANT", "SUPER_ADMIN"),
     createAttendance
 );
 
@@ -119,6 +120,13 @@ router.get(
     authenticate,
     authorize("OWNER", "MANAGER", "ACCOUNTANT", "SUPER_ADMIN"),
     fetchAttendance
+);
+
+router.put(
+    "/:id/check-out",
+    authenticate,
+    authorize("ACCOUNTANT", "SUPER_ADMIN"),
+    completeAttendanceCheckOut
 );
 
 router.put(

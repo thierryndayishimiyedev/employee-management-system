@@ -12,6 +12,8 @@ import { DashboardHeader, DashboardShell, MetricList, QuickActionGrid, SectionCa
 
 const quickActions = [
   { to: '/reports', label: 'Review reports', icon: ClipboardList },
+  { to: '/payroll', label: 'Review payroll', icon: ClipboardList },
+  { to: '/advances', label: 'Review advances', icon: ClipboardList },
   { to: '/attendance', label: 'View attendance', icon: CalendarCheck },
   { to: '/production', label: 'View production', icon: Mountain },
   { to: '/workers', label: 'View workers', icon: Users },

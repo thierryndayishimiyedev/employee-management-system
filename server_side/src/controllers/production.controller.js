@@ -3,7 +3,9 @@ const {
     getProductions,
     getProductionById,
     updateProduction,
-    deleteProduction
+    deleteProduction,
+    addProductionExpense,
+    setProductionWorkers
 } = require("../services/production.service");
 
 const createProduction = async (req, res) => {
@@ -27,6 +29,16 @@ const createProduction = async (req, res) => {
 
     }
 
+};
+
+const createExpense = async (req, res) => {
+    try { res.status(201).json({ success: true, data: await addProductionExpense(req.params.id, req.body, req.user) }); }
+    catch (err) { res.status(400).json({ success: false, message: err.message }); }
+};
+
+const replaceWorkers = async (req, res) => {
+    try { await setProductionWorkers(req.params.id, req.body.workers, req.user); res.json({ success: true, data: await getProductionById(req.params.id, req.user) }); }
+    catch (err) { res.status(400).json({ success: false, message: err.message }); }
 };
 
 const fetchProductions = async (req, res) => {
@@ -127,5 +139,7 @@ module.exports = {
     fetchProductions,
     fetchProduction,
     editProduction,
-    removeProduction
+    removeProduction,
+    createExpense,
+    replaceWorkers
 };

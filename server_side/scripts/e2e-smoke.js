@@ -140,11 +140,16 @@ async function main() {
         employee_id: employeeId,
         attendance_date: today,
         check_in: "08:00",
-        check_out: "17:00",
-        hours_worked: 8,
-        overtime_hours: 1,
         attendance_status: "PRESENT",
         remarks: "Smoke attendance"
+    }, adminToken);
+
+    const todayAttendance = await get("/attendance/today", adminToken);
+    const openAttendance = (todayAttendance || []).find((item) => item.employee_id === employeeId);
+    if (!openAttendance) throw new Error("Check-in record was not created.");
+    await put(`/attendance/${openAttendance.attendance_id}/check-out`, {
+        check_out: "17:00",
+        overtime_hours: 1
     }, adminToken);
 
     await post("/production", {

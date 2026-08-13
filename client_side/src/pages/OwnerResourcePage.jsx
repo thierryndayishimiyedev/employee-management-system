@@ -66,7 +66,7 @@ export default function PositionsPage() {
           ) : positions.length === 0 ? (
             <div className="flex flex-col items-center gap-2 p-12 text-center text-slate-400">
               <Briefcase size={28} className="text-slate-300" />
-              No positions yet. Add one to get started.
+              No positions exist for your company yet. Use “Add position” to create one; it will then be available when registering workers.
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -82,7 +82,7 @@ export default function PositionsPage() {
                   {positions.map((position) => (
                     <tr key={position.position_id} className="transition hover:bg-slate-50/60">
                       <td className="px-6 py-4 font-medium text-slate-800">{position.position_name}</td>
-                      <td className="px-6 py-4 font-mono text-slate-600">{formatRWF(position.daily_rate)}</td>
+                      <td className="px-6 py-4 font-mono text-slate-600">{formatRWF(position.daily_salary)}</td>
                       <td className="px-6 py-4 text-slate-500">{position.description || '—'}</td>
                     </tr>
                   ))}
@@ -128,7 +128,7 @@ function CreatePositionModal({ onClose, onSuccess }) {
     try {
       await createPosition({
         position_name: positionName.trim(),
-        daily_rate: Number(dailyRate),
+        daily_salary: Number(dailyRate),
         description: description.trim() || undefined,
       })
       toast.success('Position created')

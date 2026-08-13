@@ -13,7 +13,7 @@ const {
     removeWorker
 } = require("../controllers/worker.controller");
 
-router.post("/", authenticate, authorize("OWNER", "MANAGER", "SUPER_ADMIN"), registerWorker);
+router.post("/", authenticate, authorize("OWNER", "MANAGER", "ACCOUNTANT", "SUPER_ADMIN"), registerWorker);
 
 router.get("/", authenticate, authorize("OWNER", "MANAGER", "ACCOUNTANT", "SUPER_ADMIN"), fetchWorkers);
 

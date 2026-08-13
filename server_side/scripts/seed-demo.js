@@ -249,6 +249,31 @@ const ensureEmployeeUser = async ({ company, position, role, person }) => {
     return user;
 };
 
+const ensureOwnerAssignment = async (company, ownerUser) => {
+    const { data: existing, error: lookupError } = await supabase
+        .from("company_owners")
+        .select("company_id")
+        .eq("company_id", company.company_id)
+        .eq("owner_user_id", ownerUser.user_id)
+        .maybeSingle();
+    if (lookupError) throw lookupError;
+    if (existing) return existing;
+    const { data, error } = await supabase
+        .from("company_owners")
+        .insert([{
+            company_id: company.company_id,
+            owner_user_id: ownerUser.user_id,
+            username: ownerUser.username,
+            password: ownerUser.password,
+            first_name: ownerUser.employees?.first_name || demo.owner.first_name,
+            last_name: ownerUser.employees?.last_name || demo.owner.last_name
+        }])
+        .select()
+        .single();
+    if (error) throw error;
+    return data;
+};
+
 async function main() {
     await ensureAdmin();
 
@@ -271,7 +296,8 @@ async function main() {
         worker: await ensurePosition(company.company_id, "Miner", "Mining worker")
     };
 
-    await ensureEmployeeUser({ company, position: positions.owner, role: roles.OWNER, person: demo.owner });
+    const ownerUser = await ensureEmployeeUser({ company, position: positions.owner, role: roles.OWNER, person: demo.owner });
+    await ensureOwnerAssignment(company, ownerUser);
     await ensureEmployeeUser({ company, position: positions.manager, role: roles.MANAGER, person: demo.manager });
     await ensureEmployeeUser({ company, position: positions.accountant, role: roles.ACCOUNTANT, person: demo.accountant });
     await ensureEmployeeUser({ company, position: positions.worker, role: roles.WORKER, person: demo.worker });

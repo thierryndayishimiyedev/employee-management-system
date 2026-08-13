@@ -13,7 +13,7 @@ const {
     removeAccountant
 } = require("../controllers/accountant.controller");
 
-router.post("/", authenticate, authorize("OWNER", "SUPER_ADMIN"), registerAccountant);
+router.post("/", authenticate, authorize("OWNER", "MANAGER", "SUPER_ADMIN"), registerAccountant);
 
 router.get("/", authenticate, authorize("OWNER", "MANAGER", "ACCOUNTANT", "SUPER_ADMIN"), fetchAccountants);
 

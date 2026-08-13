@@ -139,6 +139,7 @@ const {
     getAttendances,
     getAttendanceById,
     updateAttendance,
+    checkOutAttendance,
     deleteAttendance,
     getAttendanceDashboard,
     getWeeklyAttendance,
@@ -245,6 +246,15 @@ const editAttendance = async (req, res) => {
 
     }
 
+};
+
+const completeAttendanceCheckOut = async (req, res) => {
+    try {
+        const attendance = await checkOutAttendance(req.params.id, req.body || {}, req.user);
+        return res.status(200).json({ success: true, message: "Check-out recorded and hours calculated.", data: attendance });
+    } catch (err) {
+        return res.status(400).json({ success: false, message: err.message });
+    }
 };
 
 const removeAttendance = async (req, res) => {
@@ -387,6 +397,7 @@ module.exports = {
     fetchAttendances,
     fetchAttendance,
     editAttendance,
+    completeAttendanceCheckOut,
     removeAttendance,
     fetchAttendanceDashboard,
     fetchWeeklyAttendance,

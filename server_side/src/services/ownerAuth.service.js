@@ -33,11 +33,22 @@ const ownerLogin = async ({ username, password }) => {
         companyIds.push(user.employees.company_id);
     }
 
-    const { data: ownerAssignments } = await supabase
+    const { data: normalizedAssignments } = await supabase
         .from("company_owners")
         .select("company_id")
-        .eq("username", username)
+        .eq("owner_user_id", user.user_id)
         .order("created_at", { ascending: true });
+
+    let ownerAssignments = normalizedAssignments || [];
+    if (!ownerAssignments.length) {
+        const { data: legacyAssignments } = await supabase
+            .from("company_owners")
+            .select("company_id")
+            .is("owner_user_id", null)
+            .eq("username", username)
+            .order("created_at", { ascending: true });
+        ownerAssignments = legacyAssignments || [];
+    }
 
     if (ownerAssignments?.length) {
         ownerAssignments.forEach((assignment) => {

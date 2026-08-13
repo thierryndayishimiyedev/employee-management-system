@@ -1,6 +1,6 @@
 const supabase = require("../config/supabase");
 const { createPdfBuffer } = require("../utils/pdfBuilder");
-const { isSuperAdmin, requireCompanyId } = require("../utils/companyScope");
+const { isSuperAdmin, requireCompanyId, requireCompanyIds, scopeByCompany, scopeByRelatedCompany } = require("../utils/companyScope");
 
 const systemName = "MineWise Operations Suite";
 
@@ -46,8 +46,10 @@ const dateRange = (query = {}) => {
 
     if (period === "week") {
         const start = startOfDay(today);
-        start.setDate(start.getDate() - 6);
-        return { start: toIso(start), end: toIso(today), label: "Weekly" };
+        start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+        const end = new Date(start);
+        end.setDate(end.getDate() + 6);
+        return { start: toIso(start), end: toIso(end), label: "Weekly" };
     }
 
     if (period === "month") {
@@ -88,7 +90,7 @@ const attendancePdf = async (user, query) => {
         .lte("attendance_date", range.end)
         .order("attendance_date", { ascending: true });
 
-    if (!isSuperAdmin(user)) request = request.eq("company_id", requireCompanyId(user));
+    request = scopeByCompany(request, user);
     const { data, error } = await request;
     if (error) throw error;
 
@@ -154,7 +156,7 @@ const productionPdf = async (user, query) => {
         .lte("production_date", range.end)
         .order("production_date", { ascending: true });
 
-    if (!isSuperAdmin(user)) request = request.eq("employees.company_id", requireCompanyId(user));
+    request = scopeByRelatedCompany(request, user);
     const { data, error } = await request;
     if (error) throw error;
 
@@ -200,19 +202,26 @@ const payrollPdf = async (user, query) => {
                 first_name,
                 last_name,
                 company_id,
-                departments(department_name),
                 positions(position_name)
             )
         `)
         .order("generated_at", { ascending: false });
 
-    if (!isSuperAdmin(user)) request = request.eq("employees.company_id", requireCompanyId(user));
+    request = scopeByRelatedCompany(request, user);
+    if (query.payroll_period_start && query.payroll_period_end) {
+        request = request
+            .eq("payroll_frequency", "BIWEEKLY")
+            .eq("payroll_period_start", query.payroll_period_start)
+            .eq("payroll_period_end", query.payroll_period_end);
+    }
     const { data, error } = await request;
     if (error) throw error;
 
     const rows = (data || []).map((record) => ({
         employee: nameOf(record.employees),
-        department: record.employees?.departments?.department_name,
+        period: record.payroll_frequency === "BIWEEKLY"
+            ? `${record.payroll_period_start} to ${record.payroll_period_end}`
+            : `${record.payroll_month}/${record.payroll_year}`,
         position: record.employees?.positions?.position_name,
         basic: record.basic_salary || 0,
         overtime: record.overtime_pay || 0,
@@ -229,18 +238,21 @@ const payrollPdf = async (user, query) => {
         generatedBy: generatedBy(user),
         summary: [
             { label: "Period Filter", value: `${range.start} to ${range.end}` },
+            ...(query.payroll_period_start && query.payroll_period_end
+                ? [{ label: "Biweekly Payroll Period", value: `${query.payroll_period_start} to ${query.payroll_period_end}` }]
+                : []),
             { label: "Payroll Records", value: rows.length },
             { label: "Total Net Salary", value: rows.reduce((sum, row) => sum + Number(row.net || 0), 0) }
         ],
         columns: [
-            { key: "employee", label: "Employee", width: 18 },
-            { key: "department", label: "Department", width: 14 },
-            { key: "position", label: "Position", width: 14 },
-            { key: "basic", label: "Basic", width: 10 },
-            { key: "overtime", label: "Overtime", width: 10 },
-            { key: "advances", label: "Advances", width: 10 },
-            { key: "net", label: "Net", width: 10 },
-            { key: "status", label: "Status", width: 12 }
+            { key: "employee", label: "Employee", width: 16 },
+            { key: "period", label: "Payroll Period", width: 26 },
+            { key: "position", label: "Position", width: 10 },
+            { key: "basic", label: "Basic", width: 9 },
+            { key: "overtime", label: "Overtime", width: 9 },
+            { key: "advances", label: "Advances", width: 9 },
+            { key: "net", label: "Net", width: 9 },
+            { key: "status", label: "Status", width: 10 }
         ],
         rows
     });
@@ -257,7 +269,7 @@ const paymentPdf = async (user, query) => {
         `)
         .order("payment_date", { ascending: false });
 
-    if (!isSuperAdmin(user)) request = request.eq("employees.company_id", requireCompanyId(user));
+    request = scopeByRelatedCompany(request, user);
     const { data, error } = await request;
     if (error) throw error;
 
@@ -306,7 +318,7 @@ const advancesPdf = async (user, query) => {
         `)
         .order("created_at", { ascending: false });
 
-    if (!isSuperAdmin(user)) request = request.eq("employees.company_id", requireCompanyId(user));
+    request = scopeByRelatedCompany(request, user);
     const { data, error } = await request;
     if (error) throw error;
 
@@ -350,12 +362,12 @@ const simpleEmployeePdf = async (user, query, type) => {
         request = request
             .select("*, departments!inner(company_id, department_name)")
             .order("created_at", { ascending: false });
-        if (!isSuperAdmin(user)) request = request.eq("departments.company_id", requireCompanyId(user));
+        if (!isSuperAdmin(user)) request = request.in("departments.company_id", requireCompanyIds(user));
     } else {
         request = request
             .select("*")
             .order("created_at", { ascending: false });
-        if (!isSuperAdmin(user)) request = request.eq("company_id", requireCompanyId(user));
+        request = scopeByCompany(request, user);
     }
 
     const { data, error } = await request;
@@ -399,7 +411,7 @@ const dailyReportsPdf = async (user, query) => {
         .lte("report_date", range.end)
         .order("report_date", { ascending: false });
 
-    if (!isSuperAdmin(user)) request = request.eq("company_id", requireCompanyId(user));
+    request = scopeByCompany(request, user);
     if (user?.role_name === "ACCOUNTANT") request = request.eq("accountant_id", user.employee_id);
 
     const { data, error } = await request;

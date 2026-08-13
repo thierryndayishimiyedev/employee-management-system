@@ -12,6 +12,7 @@ import AccountantDashboardPage from "./pages/AccountantDashboardPage";
 import MinesPage from "./pages/MinePage";
 import AttendancePage from "./pages/AttendancePage";
 import OwnerResourcePage from "./pages/OwnerResourcePage";
+import ProductionPage from "./pages/ProductionPage";
 import ManagementPage from "./pages/ManagementPage";
 import DownloadCenterPage from "./pages/DownloadCenterPage";
 
@@ -112,7 +113,7 @@ function App() {
                 path="/positions"
                 element={
                     <ProtectedRoute
-                        allowedRoles={["MANAGER"]}
+                        allowedRoles={["OWNER", "MANAGER", "ACCOUNTANT"]}
                         redirectTo="/login"
                     >
                         <OwnerResourcePage resource="positions" />
@@ -126,7 +127,7 @@ function App() {
                         allowedRoles={["OWNER", "MANAGER", "ACCOUNTANT"]}
                         redirectTo="/owner/login"
                     >
-                        <OwnerResourcePage resource="production" />
+                        <ProductionPage />
                     </ProtectedRoute>
                 }
             />
@@ -145,7 +146,7 @@ function App() {
                 path="/payroll"
                 element={
                     <ProtectedRoute
-                        allowedRoles={["OWNER", "ACCOUNTANT"]}
+                        allowedRoles={["OWNER", "MANAGER", "ACCOUNTANT"]}
                         redirectTo="/owner/login"
                     >
                         <ManagementPage resource="payrolls" />
@@ -200,7 +201,7 @@ function App() {
                 path="/workers"
                 element={
                     <ProtectedRoute
-                        allowedRoles={["OWNER", "MANAGER"]}
+                        allowedRoles={["OWNER", "MANAGER", "ACCOUNTANT"]}
                         redirectTo="/owner/login"
                     >
                         <ManagementPage resource="workers" />
@@ -233,7 +234,7 @@ function App() {
                 path="/advances"
                 element={
                     <ProtectedRoute
-                        allowedRoles={["OWNER", "ACCOUNTANT"]}
+                        allowedRoles={["OWNER", "MANAGER", "ACCOUNTANT"]}
                         redirectTo="/owner/login"
                     >
                         <ManagementPage resource="advances" />

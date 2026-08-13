@@ -7,6 +7,7 @@ const authorize = require("../middleware/authorize.middleware");
 
 const {
     createAdvance,
+    fetchAdvanceEligibility,
     fetchAdvances,
     fetchAdvance,
     editAdvance,
@@ -15,9 +16,11 @@ const {
 
 router.post("/", authenticate, authorize("ACCOUNTANT", "OWNER", "SUPER_ADMIN"), createAdvance);
 
-router.get("/", authenticate, authorize("OWNER", "ACCOUNTANT", "SUPER_ADMIN"), fetchAdvances);
+router.get("/", authenticate, authorize("OWNER", "MANAGER", "ACCOUNTANT", "SUPER_ADMIN"), fetchAdvances);
 
-router.get("/:id", authenticate, authorize("OWNER", "ACCOUNTANT", "SUPER_ADMIN"), fetchAdvance);
+router.get("/eligibility/:employeeId", authenticate, authorize("OWNER", "MANAGER", "ACCOUNTANT", "SUPER_ADMIN"), fetchAdvanceEligibility);
+
+router.get("/:id", authenticate, authorize("OWNER", "MANAGER", "ACCOUNTANT", "SUPER_ADMIN"), fetchAdvance);
 
 router.put("/:id", authenticate, authorize("ACCOUNTANT", "OWNER", "SUPER_ADMIN"), editAdvance);
 

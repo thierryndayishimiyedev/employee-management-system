@@ -20,6 +20,7 @@ import {
   ChevronsRight,
 } from 'lucide-react'
 import { useAuth } from '../context/authStore'
+import { useLanguage } from '../context/LanguageContext'
 
 const nav = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['SUPER_ADMIN'] },
@@ -31,12 +32,12 @@ const nav = [
   { to: '/accountant/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['ACCOUNTANT'] },
   { to: '/mines', label: 'Mines', icon: Building2, roles: ['OWNER'] },
   { to: '/departments', label: 'Departments', icon: Building2, roles: ['OWNER'] },
-  { to: '/positions', label: 'Positions', icon: TrendingUp, roles: ['MANAGER'] },
+  { to: '/positions', label: 'Positions', icon: TrendingUp, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { to: '/attendance', label: 'Attendance', icon: CalendarCheck, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { to: '/production', label: 'Production', icon: Mountain, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { to: '/workers', label: 'Workers', icon: Users, roles: ['OWNER', 'MANAGER'] },
-  { to: '/payroll', label: 'Payroll', icon: Wallet, roles: ['OWNER', 'ACCOUNTANT'] },
-  { to: '/advances', label: 'Advances', icon: BadgeDollarSign, roles: ['OWNER', 'ACCOUNTANT'] },
+  { to: '/workers', label: 'Workers', icon: Users, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+  { to: '/payroll', label: 'Payroll', icon: Wallet, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+  { to: '/advances', label: 'Advances', icon: BadgeDollarSign, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { to: '/payments', label: 'Payments', icon: CreditCard, roles: ['OWNER'] },
   { to: '/reports', label: 'Reports', icon: FileText, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { to: '/downloads', label: 'Downloads', icon: Download, roles: ['SUPER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTANT'] },
@@ -50,6 +51,7 @@ export default function AppSidebar() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
+  const { language, setLanguage, t } = useLanguage()
 
   if (!user) return null
 
@@ -94,7 +96,7 @@ export default function AppSidebar() {
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         {!collapsed && (
           <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Workspace
+            {t('Workspace')}
           </p>
         )}
         <ul className="space-y-1">
@@ -114,7 +116,7 @@ export default function AppSidebar() {
                   }`}
                 >
                   <Icon size={18} className="shrink-0" />
-                  {!collapsed && <span>{item.label}</span>}
+                  {!collapsed && <span>{t(item.label)}</span>}
                 </Link>
               </li>
             )
@@ -128,8 +130,15 @@ export default function AppSidebar() {
         className="mx-3 mb-2 flex items-center justify-center gap-2 rounded-lg border border-slate-200 py-2 text-xs font-medium text-slate-500 transition hover:bg-slate-50"
       >
         {collapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
-        {!collapsed && <span>Collapse</span>}
+        {!collapsed && <span>{t('Collapse')}</span>}
       </button>
+
+      {!collapsed && (
+        <div className="mx-3 mb-3 flex rounded-lg border border-slate-200 p-1 text-xs font-medium">
+          <button onClick={() => setLanguage('en')} className={`flex-1 rounded-md px-2 py-1.5 ${language === 'en' ? 'bg-amber-100 text-amber-800' : 'text-slate-500'}`}>EN</button>
+          <button onClick={() => setLanguage('rw')} className={`flex-1 rounded-md px-2 py-1.5 ${language === 'rw' ? 'bg-amber-100 text-amber-800' : 'text-slate-500'}`}>RW</button>
+        </div>
+      )}
 
       {/* Footer / user */}
       <div className="border-t border-slate-200 px-3 py-3">

@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { X } from 'lucide-react'
+import api from '../api/api'
+import { useAuth } from '../context/authStore'
 import { createWorker } from '../api/worker.api'
 
 const initialForm = {
@@ -24,8 +26,37 @@ const initialForm = {
 }
 
 export default function CreateWorkerModal({ isOpen, onClose, onSuccess }) {
+  const { user } = useAuth()
   const [form, setForm] = useState(initialForm)
   const [loading, setLoading] = useState(false)
+  const [companyOptions, setCompanyOptions] = useState([])
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    const loadCompanies = async () => {
+      try {
+        const response = await api.get('/companies')
+        const companies = Array.isArray(response?.data?.data) ? response.data.data : []
+        const allowedCompanies = user?.role_name === 'SUPER_ADMIN'
+          ? companies
+          : companies.filter((company) => {
+              const ids = Array.isArray(user?.company_ids) ? user.company_ids : []
+              if (user?.company_id && !ids.includes(user.company_id)) ids.push(user.company_id)
+              return !ids.length || ids.includes(String(company.company_id))
+            })
+        setCompanyOptions(allowedCompanies)
+
+        if (allowedCompanies.length === 1 && !form.company_id) {
+          setForm((current) => ({ ...current, company_id: String(allowedCompanies[0].company_id) }))
+        }
+      } catch {
+        setCompanyOptions([])
+      }
+    }
+
+    loadCompanies()
+  }, [isOpen, user, form.company_id])
 
   if (!isOpen) return null
 
@@ -59,7 +90,23 @@ export default function CreateWorkerModal({ isOpen, onClose, onSuccess }) {
         </div>
 
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field label="Company ID" name="company_id" value={form.company_id} onChange={handleChange} required />
+          <div>
+            <label className="block text-sm text-slate-300 mb-1">Company</label>
+            <select
+              name="company_id"
+              value={form.company_id}
+              onChange={handleChange}
+              required
+              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-cyan-500"
+            >
+              <option value="">Select company</option>
+              {companyOptions.map((company) => (
+                <option key={company.company_id} value={company.company_id}>
+                  {company.company_name}
+                </option>
+              ))}
+            </select>
+          </div>
           <Field label="Position ID" name="position_id" value={form.position_id} onChange={handleChange} required />
           <Field label="Employee Code" name="employee_code" value={form.employee_code} onChange={handleChange} required />
           <Field label="First Name" name="first_name" value={form.first_name} onChange={handleChange} required />

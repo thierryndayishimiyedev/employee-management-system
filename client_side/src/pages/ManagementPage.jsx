@@ -172,7 +172,6 @@ const resourceConfig = {
       email: '',
       address: '',
       hire_date: today,
-      monthly_salary: '',
       daily_rate: '',
       profile_photo: '',
       username: '',
@@ -192,8 +191,7 @@ const resourceConfig = {
       ['email', 'Email', 'email', true],
       ['address', 'Address', 'text', true],
       ['hire_date', 'Hire date', 'date', true],
-      ['monthly_salary', 'Monthly salary', 'number', true],
-      ['daily_rate', 'Daily rate', 'number', true],
+      ['daily_rate', 'Daily payment (RWF)', 'number', true],
       ['profile_photo', 'Profile photo URL', 'text', false],
       ['username', 'Username', 'text', true, 'createOnly'],
       ['password', 'Password', 'password', true, 'createOnly'],
@@ -244,16 +242,51 @@ const resourceConfig = {
       ['Employee', (item) => employeeName(item)],
       ['Amount', (item) => `${Number(item.amount || 0).toLocaleString()} RWF`],
       ['Status', (item) => item.status || '-'],
+      ['Payment', (item) => statusBadge(item.payment_status || 'UNPAID')],
+      ['Paid', (item) => formatDate(item.payment_date)],
+      ['Balance', (item) => `${Number(item.remaining_balance || 0).toLocaleString()} RWF`],
+      ['Deducted', (item) => `${Number(item.amount_deducted || 0).toLocaleString()} RWF`],
       ['Requested', (item) => formatDate(item.request_date || item.created_at)],
       ['Reason', (item) => item.reason || '-'],
     ],
     actions: [
       {
-        label: 'Approve',
+        label: 'Manager Approve',
+        icon: CheckCircle2,
+        roles: ['MANAGER'],
+        show: (item) => ['PENDING_MANAGER', 'CHANGES_REQUESTED'].includes(item.status),
+        run: (item) => api.put(`/advance-approvals/${item.advance_id}/approve`),
+      },
+      {
+        label: 'Request Changes',
+        icon: XCircle,
+        roles: ['MANAGER'],
+        show: (item) => item.status === 'PENDING_MANAGER',
+        confirm: 'Return this advance request to the accountant?',
+        run: (item) => api.put(`/advance-approvals/${item.advance_id}/reject`, { reason: 'Changes requested' }),
+      },
+      {
+        label: 'Final Approve',
         icon: CheckCircle2,
         roles: ['OWNER'],
-        show: (item) => item.status !== 'APPROVED',
+        show: (item) => item.status === 'PENDING_OWNER',
         run: (item) => api.put(`/advance-approvals/${item.advance_id}/approve`),
+      },
+      {
+        label: 'Request Changes',
+        icon: XCircle,
+        roles: ['OWNER'],
+        show: (item) => item.status === 'PENDING_OWNER',
+        confirm: 'Return this advance request to the accountant?',
+        run: (item) => api.put(`/advance-approvals/${item.advance_id}/reject`, { reason: 'Changes requested' }),
+      },
+      {
+        label: 'Pay Advance',
+        icon: CreditCard,
+        roles: ['OWNER'],
+        show: (item) => item.status === 'OWNER_APPROVED' && item.payment_status !== 'PAID',
+        confirm: 'Process this INTERNAL/TEST advance payment?',
+        run: (item) => api.post(`/advance-approvals/${item.advance_id}/pay`),
       },
     ],
   },
@@ -290,7 +323,7 @@ const resourceConfig = {
   },
   reports: {
     title: 'Reports',
-    subtitle: 'Create reports, mark as read, submit, and approve editing.',
+    subtitle: 'Create activity-based reports and move them through manager and owner approval.',
     icon: FileText,
     endpoint: '/reports',
     idKey: 'report_id',
@@ -313,37 +346,53 @@ const resourceConfig = {
       ['Title', (item) => item.title],
       ['Accountant', (item) => employeeName(item)],
       ['Date', (item) => formatDate(item.report_date)],
-      ['Read', (item) => yesNo(item.is_read)],
-      ['Submitted', (item) => yesNo(item.is_submitted)],
-      ['Edit Approved', (item) => yesNo(item.owner_edit_approved)],
+      ['Status', (item) => statusBadge(item.status || 'DRAFT')],
+      ['Manager review', (item) => formatDate(item.manager_reviewed_at)],
+      ['Owner review', (item) => formatDate(item.owner_reviewed_at)],
     ],
     actions: [
       {
-        label: 'Read',
+        label: 'Manager Approve',
         icon: CheckCircle2,
-        roles: ['OWNER', 'MANAGER'],
-        show: (item) => !item.is_read,
-        run: (item) => api.put(`/reports/${item.report_id}/read`),
+        roles: ['MANAGER'],
+        show: (item) => item.status === 'PENDING_MANAGER',
+        run: (item) => api.put(`/reports/${item.report_id}/review`, { decision: 'approve' }),
       },
       {
         label: 'Send',
         icon: FileText,
         roles: ['ACCOUNTANT'],
-        show: (item) => !item.is_submitted,
+        show: (item) => ['DRAFT', 'CHANGES_REQUESTED'].includes(item.status || 'DRAFT'),
         run: (item) => api.put(`/reports/${item.report_id}/send`),
       },
       {
-        label: 'Approve Edit',
-        icon: Shield,
+        label: 'Request Changes',
+        icon: XCircle,
+        roles: ['MANAGER'],
+        show: (item) => item.status === 'PENDING_MANAGER',
+        confirm: 'Request corrections from the accountant?',
+        run: (item) => api.put(`/reports/${item.report_id}/review`, { decision: 'reject', comments: 'Changes requested' }),
+      },
+      {
+        label: 'Final Approve',
+        icon: CheckCircle2,
         roles: ['OWNER'],
-        show: (item) => item.is_submitted && !item.owner_edit_approved,
-        run: (item) => api.put(`/reports/${item.report_id}/approve-edit`),
+        show: (item) => item.status === 'PENDING_OWNER',
+        run: (item) => api.put(`/reports/${item.report_id}/review`, { decision: 'approve' }),
+      },
+      {
+        label: 'Request Changes',
+        icon: XCircle,
+        roles: ['OWNER'],
+        show: (item) => item.status === 'PENDING_OWNER',
+        confirm: 'Return this report to the accountant for correction?',
+        run: (item) => api.put(`/reports/${item.report_id}/review`, { decision: 'reject', comments: 'Changes requested' }),
       },
     ],
   },
   payrolls: {
     title: 'Payroll',
-    subtitle: 'Generate payroll, approve payroll, and remove payroll records.',
+    subtitle: 'Generate attendance-based payroll, then submit it for manager and owner approval.',
     icon: BadgeDollarSign,
     endpoint: '/payroll',
     idKey: 'payroll_id',
@@ -352,44 +401,68 @@ const resourceConfig = {
     related: ['employees'],
     empty: {
       employee_id: '',
+      payroll_frequency: 'BIWEEKLY',
+      payroll_period_start: '',
+      payroll_period_end: '',
       payroll_month: currentMonth,
       payroll_year: currentYear,
     },
     form: [
       ['employee_id', 'Employee', 'employee', true],
-      ['payroll_month', 'Month', 'number', true],
-      ['payroll_year', 'Year', 'number', true],
+      ['payroll_frequency', 'Frequency', 'frequency', true],
+      ['payroll_period_start', 'Period start', 'date', true],
+      ['payroll_period_end', 'Period end (14th day)', 'date', true],
+      ['payroll_month', 'Month (monthly only)', 'number', true],
+      ['payroll_year', 'Year (monthly only)', 'number', true],
     ],
     createEndpoint: '/payroll/generate',
     noEdit: true,
     columns: [
       ['Employee', (item) => employeeName(item)],
-      ['Period', (item) => `${item.payroll_month}/${item.payroll_year}`],
+      ['Period', (item) => item.payroll_frequency === 'BIWEEKLY'
+        ? `${item.payroll_period_start} to ${item.payroll_period_end}`
+        : `${item.payroll_month}/${item.payroll_year}`],
       ['Days', (item) => item.days_worked ?? 0],
       ['Net Salary', (item) => `${Number(item.net_salary || 0).toLocaleString()} RWF`],
-      ['Status', (item) => statusBadge(item.payment_status || 'GENERATED')],
+      ['Approval', (item) => statusBadge(item.approval_status || 'GENERATED')],
+      ['Payment', (item) => statusBadge(item.payment_status || 'GENERATED')],
     ],
     actions: [
       {
         label: 'Approve',
         icon: CheckCircle2,
-        roles: ['OWNER'],
-        show: (item) => ['GENERATED', 'PENDING'].includes(item.payment_status),
+        roles: ['MANAGER'],
+        show: (item) => ['GENERATED', 'CHANGES_REQUESTED'].includes(item.approval_status || 'GENERATED'),
         run: (item) => api.put(`/payroll-approvals/${item.payroll_id}/approve`),
       },
       {
         label: 'Reject',
         icon: XCircle,
-        roles: ['OWNER'],
-        show: (item) => ['GENERATED', 'PENDING'].includes(item.payment_status),
+        roles: ['MANAGER'],
+        show: (item) => ['GENERATED', 'CHANGES_REQUESTED'].includes(item.approval_status || 'GENERATED'),
         confirm: 'Reject this generated payroll?',
+        run: (item) => api.put(`/payroll-approvals/${item.payroll_id}/reject`),
+      },
+      {
+        label: 'Final Approve',
+        icon: CheckCircle2,
+        roles: ['OWNER'],
+        show: (item) => item.approval_status === 'MANAGER_APPROVED',
+        run: (item) => api.put(`/payroll-approvals/${item.payroll_id}/approve`),
+      },
+      {
+        label: 'Request Changes',
+        icon: XCircle,
+        roles: ['OWNER'],
+        show: (item) => item.approval_status === 'MANAGER_APPROVED',
+        confirm: 'Return this payroll to the accountant for correction?',
         run: (item) => api.put(`/payroll-approvals/${item.payroll_id}/reject`),
       },
       {
         label: 'Pay',
         icon: CreditCard,
         roles: ['OWNER'],
-        show: (item) => item.payment_status === 'APPROVED',
+        show: (item) => item.approval_status === 'OWNER_APPROVED' && item.payment_status === 'APPROVED',
         confirm: 'Validate and pay this employee payroll?',
         run: (item) => api.post('/payments/pay-all', { payroll_id: item.payroll_id }),
       },
@@ -459,10 +532,24 @@ export default function ManagementPage({ resource }) {
   const { user } = useAuth()
   const [items, setItems] = useState([])
   const [related, setRelated] = useState({ companies: [], positions: [], employees: [] })
+
+  const allowedCompanyIds = useMemo(() => {
+    const ids = Array.isArray(user?.company_ids) ? [...user.company_ids] : []
+    if (user?.company_id && !ids.includes(user.company_id)) {
+      ids.push(user.company_id)
+    }
+    return ids.map(String)
+  }, [user?.company_id, user?.company_ids])
+
+  const isAllowedCompany = useCallback((company) => {
+    if (!company || user?.role_name === 'SUPER_ADMIN') return true
+    return !allowedCompanyIds.length || allowedCompanyIds.includes(String(company.company_id))
+  }, [allowedCompanyIds, user?.role_name])
   const [form, setForm] = useState(config.empty || {})
   const [editing, setEditing] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [advanceEligibility, setAdvanceEligibility] = useState(null)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const pageSize = 10
@@ -483,7 +570,10 @@ export default function ManagementPage({ resource }) {
 
       const nextRelated = { companies: [], positions: [], employees: [] }
       relatedKeys.forEach((key, index) => {
-        nextRelated[key] = asArray(responses[index + 1])
+        const list = asArray(responses[index + 1])
+        nextRelated[key] = key === 'companies'
+          ? list.filter(isAllowedCompany)
+          : list
       })
       setRelated(nextRelated)
     } catch (error) {
@@ -491,13 +581,37 @@ export default function ManagementPage({ resource }) {
     } finally {
       setLoading(false)
     }
-  }, [config.endpoint, config.related, config.title])
+  }, [config.endpoint, config.related, config.title, isAllowedCompany])
 
   useEffect(() => {
     setForm(config.empty || {})
     setEditing(null)
     loadData()
   }, [config.empty, loadData, resource])
+
+  useEffect(() => {
+    if (!user || user.role_name === 'SUPER_ADMIN') return
+    const formFields = config.form || []
+    if (!formFields.some(([field]) => field === 'company_id')) return
+    const allowedCompanies = related.companies
+    if (allowedCompanies.length === 1 && !editing && !form.company_id) {
+      setForm((current) => ({ ...current, company_id: String(allowedCompanies[0].company_id) }))
+    }
+  }, [user, config.form, related.companies, editing, form.company_id, resource])
+
+  useEffect(() => {
+    if (config.endpoint !== '/advances' || !form.employee_id || editing) {
+      setAdvanceEligibility(null)
+      return
+    }
+    let active = true
+    api.get(`/advances/eligibility/${form.employee_id}`)
+      .then((response) => { if (active) setAdvanceEligibility(response.data?.data || null) })
+      .catch((error) => {
+        if (active) setAdvanceEligibility({ error: error.response?.data?.message || 'Unable to calculate advance eligibility.' })
+      })
+    return () => { active = false }
+  }, [config.endpoint, editing, form.employee_id])
 
   const filteredItems = useMemo(() => {
     const term = search.toLowerCase()
@@ -548,6 +662,11 @@ export default function ManagementPage({ resource }) {
     ;['monthly_salary', 'daily_rate', 'amount', 'payroll_month', 'payroll_year'].forEach((key) => {
       if (next[key] !== '' && next[key] !== undefined) next[key] = Number(next[key])
     })
+    // Company scope comes from the JWT for operational roles.  Do not send a
+    // selectable company ID from Manager/Accountant worker onboarding.
+    if (['MANAGER', 'ACCOUNTANT'].includes(user?.role_name) && config.endpoint === '/workers') {
+      delete next.company_id
+    }
     return next
   }
 
@@ -656,6 +775,9 @@ export default function ManagementPage({ resource }) {
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-1">
                 {config.form.map(([field, label, type, required, mode]) => {
                   if (editing && mode === 'createOnly') return null
+                  if (field === 'company_id' && config.endpoint === '/workers' && ['MANAGER', 'ACCOUNTANT'].includes(user?.role_name)) return null
+                  if (config.endpoint === '/payroll' && form.payroll_frequency === 'BIWEEKLY' && ['payroll_month', 'payroll_year'].includes(field)) return null
+                  if (config.endpoint === '/payroll' && form.payroll_frequency !== 'BIWEEKLY' && ['payroll_period_start', 'payroll_period_end'].includes(field)) return null
                   return (
                     <Field
                       key={field}
@@ -669,6 +791,27 @@ export default function ManagementPage({ resource }) {
                   )
                 })}
               </div>
+
+              {config.endpoint === '/advances' && form.employee_id && !editing && (
+                <div className="mt-4 rounded-md border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-950">
+                  {advanceEligibility?.error ? (
+                    <p>{advanceEligibility.error}</p>
+                  ) : !advanceEligibility ? (
+                    <p>Calculating attendance-based advance eligibility…</p>
+                  ) : (
+                    <>
+                      <p className="font-semibold">Attendance-based advance balance</p>
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-cyan-900">
+                        <span>Worked days: {advanceEligibility.worked_days}</span>
+                        <span>Earned: {Number(advanceEligibility.earned_amount || 0).toLocaleString()} RWF</span>
+                        <span>Allowed (50%): {Number(advanceEligibility.allowed_advance || 0).toLocaleString()} RWF</span>
+                        <span>Still available: {Number(advanceEligibility.remaining_allowed_advance || 0).toLocaleString()} RWF</span>
+                      </div>
+                      {!advanceEligibility.eligible && <p className="mt-2 font-medium">Available after seven recorded worked days.</p>}
+                    </>
+                  )}
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -832,6 +975,15 @@ function Field({ label, type, value, onChange, required, related }) {
     )
   }
 
+  if (type === 'frequency') {
+    return (
+      <SelectBase label={label} value={value} onChange={onChange} required={required}>
+        <option value="BIWEEKLY">Biweekly (14 days)</option>
+        <option value="MONTHLY">Monthly</option>
+      </SelectBase>
+    )
+  }
+
   return (
     <label className="block">
       <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
@@ -894,9 +1046,6 @@ function formatDate(value) {
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value))
 }
 
-function yesNo(value) {
-  return value ? 'Yes' : 'No'
-}
 
 async function downloadPaymentReport() {
   const response = await api.get('/payments/report/download', {

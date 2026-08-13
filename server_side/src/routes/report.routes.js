@@ -12,7 +12,8 @@ const {
     readReport,
     sendReport,
     allowReportEdit,
-    editReport
+    editReport,
+    review
 } = require("../controllers/report.controller");
 
 router.post(
@@ -57,10 +58,12 @@ router.put(
     allowReportEdit
 );
 
+router.put("/:id/review", authenticate, authorize("MANAGER", "OWNER"), review);
+
 router.put(
     "/:id",
     authenticate,
-    authorize("ACCOUNTANT", "OWNER", "SUPER_ADMIN"),
+    authorize("ACCOUNTANT", "SUPER_ADMIN"),
     editReport
 );
 

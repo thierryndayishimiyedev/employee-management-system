@@ -1,6 +1,6 @@
 const bcrypt = require("bcrypt");
 const supabase = require("../config/supabase");
-const { isSuperAdmin, requireCompanyId } = require("../utils/companyScope");
+const { isSuperAdmin, requireCompanyIds, resolveAuthorizedCompanyId, scopeByRelatedCompany } = require("../utils/companyScope");
 
 const createManager = async (data, userScope) => {
 
@@ -23,7 +23,7 @@ const createManager = async (data, userScope) => {
         password
     } = data;
 
-    const scopedCompanyId = requireCompanyId(userScope) || company_id;
+    const scopedCompanyId = resolveAuthorizedCompanyId(userScope, company_id);
 
     if (!scopedCompanyId)
         throw new Error("Company is required to create a manager.");
@@ -112,7 +112,7 @@ const getManagers = async (userScope) => {
         `);
 
     if (!isSuperAdmin(userScope)) {
-        query = query.eq("employees.company_id", requireCompanyId(userScope));
+        query = scopeByRelatedCompany(query, userScope);
     }
 
     const { data, error } = await query;
@@ -139,7 +139,7 @@ const getManagerById = async (id, userScope) => {
         .eq("user_id", id);
 
     if (!isSuperAdmin(userScope)) {
-        query = query.eq("employees.company_id", requireCompanyId(userScope));
+        query = scopeByRelatedCompany(query, userScope);
     }
 
     const { data, error } = await query.single();

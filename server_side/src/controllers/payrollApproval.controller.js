@@ -1,13 +1,12 @@
 const {
-    approvePayroll,
-    rejectPayroll
+    reviewPayroll
 } = require("../services/payrollApproval.service");
 
 const approve = async (req, res) => {
 
     try {
 
-        const payroll = await approvePayroll(req.params.id, req.user);
+        const payroll = await reviewPayroll(req.params.id, "approve", req.body?.reason, req.user);
 
         res.json({
             success: true,
@@ -30,7 +29,7 @@ const reject = async (req, res) => {
 
     try {
 
-        const payroll = await rejectPayroll(req.params.id, req.user);
+        const payroll = await reviewPayroll(req.params.id, "reject", req.body?.reason, req.user);
 
         res.json({
             success: true,

@@ -13,7 +13,7 @@ const {
     removePosition
 } = require("../controllers/position.controller");
 
-router.post("/", authenticate, authorize("OWNER", "SUPER_ADMIN"), registerPosition);
+router.post("/", authenticate, authorize("OWNER", "MANAGER", "ACCOUNTANT", "SUPER_ADMIN"), registerPosition);
 
 router.get("/", authenticate, authorize("OWNER", "MANAGER", "ACCOUNTANT", "SUPER_ADMIN"), fetchPositions);
 

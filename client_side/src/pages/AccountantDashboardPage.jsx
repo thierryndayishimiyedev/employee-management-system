@@ -14,6 +14,7 @@ import { DashboardHeader, DashboardShell, MetricList, QuickActionGrid, SectionCa
 
 const quickActions = [
   { to: '/attendance', label: 'Record attendance', icon: CalendarCheck },
+  { to: '/workers', label: 'Register worker', icon: Users },
   { to: '/production', label: 'Record production', icon: Mountain },
   { to: '/reports', label: 'Create daily report', icon: FileText },
   { to: '/payroll', label: 'Generate payroll', icon: Wallet },

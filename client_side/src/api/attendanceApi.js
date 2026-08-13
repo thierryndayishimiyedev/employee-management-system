@@ -78,6 +78,11 @@ export const updateAttendance = async (
 
 };
 
+export const checkOutAttendance = async (id, data) => {
+    const response = await api.put(`/attendance/${id}/check-out`, data);
+    return response.data;
+};
+
 /*
 |--------------------------------------------------------------------------
 | Delete Attendance

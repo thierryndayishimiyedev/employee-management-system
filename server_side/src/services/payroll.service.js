@@ -1,5 +1,6 @@
 const supabase = require("../config/supabase");
-const { isSuperAdmin, requireCompanyId } = require("../utils/companyScope");
+const { isSuperAdmin, requireCompanyIds, scopeByRelatedCompany } = require("../utils/companyScope");
+const { applyPayrollAdvanceDeductions } = require("./advanceDeduction.service");
 
 const isPayrollStatusConstraintError = (error) => {
 
@@ -32,7 +33,41 @@ const persistPayroll = async (builder, payrollData) => {
 
 };
 
-const generatePayroll = async (employee_id, payroll_month, payroll_year, user) => {
+const parseDate = (value, label) => {
+    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) {
+        throw new Error(`A valid ${label} is required.`);
+    }
+    return new Date(`${value}T00:00:00Z`);
+};
+
+const resolvePayrollPeriod = ({ payroll_month, payroll_year, payroll_period_start, payroll_period_end, payroll_frequency }) => {
+    const frequency = payroll_frequency || (payroll_period_start || payroll_period_end ? "BIWEEKLY" : "MONTHLY");
+    if (!["MONTHLY", "BIWEEKLY"].includes(frequency)) throw new Error("Payroll frequency must be MONTHLY or BIWEEKLY.");
+    if (frequency === "BIWEEKLY") {
+        const start = parseDate(payroll_period_start, "payroll period start");
+        const end = parseDate(payroll_period_end, "payroll period end");
+        const days = Math.round((end - start) / 86400000) + 1;
+        if (days !== 14) throw new Error("A biweekly payroll period must contain exactly 14 days, inclusive.");
+        return {
+            frequency,
+            startDate: payroll_period_start,
+            endDate: payroll_period_end,
+            payroll_month: start.getUTCMonth() + 1,
+            payroll_year: start.getUTCFullYear()
+        };
+    }
+    const month = Number(payroll_month);
+    const year = Number(payroll_year);
+    if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2000) {
+        throw new Error("A valid payroll month and year are required.");
+    }
+    const endDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    return { frequency, startDate: `${year}-${String(month).padStart(2, "0")}-01`, endDate: `${year}-${String(month).padStart(2, "0")}-${endDay}`, payroll_month: month, payroll_year: year };
+};
+
+const generatePayroll = async (payload, user) => {
+    const { employee_id } = payload;
+    const period = resolvePayrollPeriod(payload);
 
     let employeeQuery = supabase
         .from("employees")
@@ -40,7 +75,7 @@ const generatePayroll = async (employee_id, payroll_month, payroll_year, user) =
         .eq("employee_id", employee_id);
 
     if (!isSuperAdmin(user)) {
-        employeeQuery = employeeQuery.eq("company_id", requireCompanyId(user));
+        employeeQuery = employeeQuery.in("company_id", requireCompanyIds(user));
     }
 
     const { data: employee, error: employeeError } = await employeeQuery.single();
@@ -48,15 +83,12 @@ const generatePayroll = async (employee_id, payroll_month, payroll_year, user) =
     if (employeeError || !employee)
         throw new Error("Employee not found.");
 
-    const startDate = `${payroll_year}-${String(payroll_month).padStart(2, "0")}-01`;
-    const endDate = `${payroll_year}-${String(payroll_month).padStart(2, "0")}-31`;
-
     const { data: attendance, error: attendanceError } = await supabase
         .from("attendance")
         .select("*")
         .eq("employee_id", employee_id)
-        .gte("attendance_date", startDate)
-        .lte("attendance_date", endDate);
+        .gte("attendance_date", period.startDate)
+        .lte("attendance_date", period.endDate);
 
     if (attendanceError)
         throw attendanceError;
@@ -74,69 +106,58 @@ const generatePayroll = async (employee_id, payroll_month, payroll_year, user) =
 
     const overtimePay = overtimeHours * (Number(employee.daily_rate) / 8);
 
-    const { data: advances, error: advanceError } = await supabase
-        .from("salary_advances")
-        .select("amount")
-        .eq("employee_id", employee_id)
-        .eq("status", "APPROVED");
-
-    if (advanceError)
-        throw advanceError;
-
-    const advanceDeduction = advances.reduce(
-        (sum, a) => sum + Number(a.amount),
-        0
-    );
-
     const allowances = 0;
     const deductions = 0;
 
-    const netSalary =
-        basicSalary +
-        overtimePay +
-        allowances -
-        deductions -
-        advanceDeduction;
-
     const payrollData = {
         employee_id,
-        payroll_month,
-        payroll_year,
+        company_id: employee.company_id,
+        payroll_month: period.payroll_month,
+        payroll_year: period.payroll_year,
+        payroll_period_start: period.frequency === "BIWEEKLY" ? period.startDate : null,
+        payroll_period_end: period.frequency === "BIWEEKLY" ? period.endDate : null,
+        payroll_frequency: period.frequency,
         days_worked: daysWorked,
         overtime_hours: overtimeHours,
         basic_salary: basicSalary,
         overtime_pay: overtimePay,
         allowances,
         deductions,
-        advance_deduction: advanceDeduction,
-        net_salary: netSalary,
-        payment_status: "GENERATED"
+        advance_deduction: 0,
+        net_salary: basicSalary + overtimePay + allowances - deductions,
+        payment_status: "GENERATED",
+        approval_status: "GENERATED"
     };
 
-    const { data: existing } = await supabase
-        .from("payroll")
-        .select("payroll_id")
-        .eq("employee_id", employee_id)
-        .eq("payroll_month", payroll_month)
-        .eq("payroll_year", payroll_year)
-        .maybeSingle();
-
-    if (existing) {
-
-        return persistPayroll((data) => supabase
-            .from("payroll")
-            .update(data)
-            .eq("payroll_id", existing.payroll_id)
-            .select()
-            .single(), payrollData);
-
+    let existingQuery = supabase.from("payroll").select("payroll_id").eq("employee_id", employee_id);
+    if (period.frequency === "BIWEEKLY") {
+        existingQuery = existingQuery.eq("payroll_frequency", "BIWEEKLY")
+            .eq("payroll_period_start", period.startDate)
+            .eq("payroll_period_end", period.endDate);
+    } else {
+        existingQuery = existingQuery.eq("payroll_frequency", "MONTHLY")
+            .eq("payroll_month", period.payroll_month)
+            .eq("payroll_year", period.payroll_year);
     }
+    const { data: existing, error: existingError } = await existingQuery.maybeSingle();
+    if (existingError) throw existingError;
 
-    return persistPayroll((data) => supabase
+    // A regenerated period must not silently rewrite a payroll with an immutable
+    // advance-deduction ledger.  Return it instead.
+    if (existing) return getPayrollById(existing.payroll_id, user);
+
+    const payroll = await persistPayroll((data) => supabase
         .from("payroll")
         .insert([data])
         .select()
         .single(), payrollData);
+    const advanceDeduction = await applyPayrollAdvanceDeductions({ payrollId: payroll.payroll_id, employeeId: employee_id, createdBy: user?.user_id });
+    const { data: finalized, error: finalizeError } = await supabase.from("payroll").update({
+        advance_deduction: advanceDeduction,
+        net_salary: Math.max(0, basicSalary + overtimePay + allowances - deductions - advanceDeduction)
+    }).eq("payroll_id", payroll.payroll_id).select().single();
+    if (finalizeError) throw finalizeError;
+    return finalized;
 
 };
 
@@ -157,9 +178,7 @@ const getPayrolls = async (user) => {
             ascending: false
         });
 
-    if (!isSuperAdmin(user)) {
-        query = query.eq("employees.company_id", requireCompanyId(user));
-    }
+    query = scopeByRelatedCompany(query, user);
 
     const { data, error } = await query;
 
@@ -176,10 +195,15 @@ const getPayrollSummary = async (user) => {
     const groups = new Map();
 
     payrolls.forEach((payroll) => {
-        const key = `${payroll.payroll_year}-${String(payroll.payroll_month).padStart(2, "0")}`;
+        const key = payroll.payroll_frequency === "BIWEEKLY"
+            ? `BIWEEKLY-${payroll.payroll_period_start}-${payroll.payroll_period_end}`
+            : `MONTHLY-${payroll.payroll_year}-${String(payroll.payroll_month).padStart(2, "0")}`;
         const group = groups.get(key) || {
             payroll_month: payroll.payroll_month,
             payroll_year: payroll.payroll_year,
+            payroll_frequency: payroll.payroll_frequency || "MONTHLY",
+            payroll_period_start: payroll.payroll_period_start || null,
+            payroll_period_end: payroll.payroll_period_end || null,
             employees: 0,
             total_salary: 0,
             status: payroll.payment_status || "GENERATED"
@@ -217,9 +241,7 @@ const getPayrollById = async (id, user) => {
         `)
         .eq("payroll_id", id);
 
-    if (!isSuperAdmin(user)) {
-        query = query.eq("employees.company_id", requireCompanyId(user));
-    }
+    query = scopeByRelatedCompany(query, user);
 
     const { data, error } = await query.single();
 

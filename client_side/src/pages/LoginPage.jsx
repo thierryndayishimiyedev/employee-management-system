@@ -14,7 +14,8 @@ const destinationForRole = (roleName) => {
   if (roleName === 'OWNER') return '/owner/dashboard'
   if (roleName === 'MANAGER') return '/manager/dashboard'
   if (roleName === 'ACCOUNTANT') return '/accountant/dashboard'
-  return '/dashboard'
+  if (roleName === 'SUPER_ADMIN') return '/dashboard'
+  return null
 }
 
 export default function LoginPage() {
@@ -24,10 +25,21 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
-  if (isAuthenticated) {
+  if (isAuthenticated && user?.role_name) {
+    const destination = destinationForRole(user.role_name)
+    if (!destination) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+          <div className="max-w-md rounded-2xl border border-amber-200 bg-white p-6 text-center shadow-sm">
+            <h1 className="text-xl font-semibold text-slate-900">Portal not available for this role</h1>
+            <p className="mt-2 text-sm text-slate-600">This account has no web dashboard configured yet. Please sign in with an Owner, Manager, Accountant, or Super Admin account.</p>
+          </div>
+        </div>
+      )
+    }
     return (
       <Navigate
-        to={destinationForRole(user?.role_name)}
+        to={destination}
         replace
       />
     )
@@ -41,11 +53,13 @@ export default function LoginPage() {
       const response = await login(name, password)
       toast.success('Welcome back')
       const roleName =
-        response?.data?.data?.user?.role_name ||
-        response?.data?.data?.user?.roles?.role_name ||
-        response?.data?.data?.user?.role ||
+        response?.data?.user?.role_name ||
+        response?.data?.user?.roles?.role_name ||
+        response?.data?.user?.role ||
         user?.role_name
-      navigate(destinationForRole(roleName))
+      const destination = destinationForRole(roleName)
+      if (!destination) throw new Error('This role has no web dashboard configured yet.')
+      navigate(destination)
     } catch (error) {
       const message =
         error.response?.data?.message || error.message || 'Login failed'

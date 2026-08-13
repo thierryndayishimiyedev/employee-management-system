@@ -5,7 +5,8 @@ const {
     markReportAsRead,
     submitReport,
     approveReportEdit,
-    updateReport
+    updateReport,
+    reviewReport
 } = require("../services/report.service");
 
 const registerReport = async (req, res) => {
@@ -32,6 +33,15 @@ const registerReport = async (req, res) => {
 
     }
 
+};
+
+const review = async (req, res) => {
+    try {
+        const report = await reviewReport(req.params.id, req.body?.decision, req.body?.comments, req.user);
+        res.json({ success: true, message: "Report review recorded.", data: report });
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
 };
 
 const fetchReports = async (req, res) => {
@@ -193,5 +203,6 @@ module.exports = {
     readReport,
     sendReport,
     allowReportEdit,
-    editReport
+    editReport,
+    review
 };

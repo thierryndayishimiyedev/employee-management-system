@@ -10,18 +10,7 @@ const createPayroll = async (req, res) => {
 
     try {
 
-        const {
-            employee_id,
-            payroll_month,
-            payroll_year
-        } = req.body;
-
-        const payroll = await generatePayroll(
-            employee_id,
-            payroll_month,
-            payroll_year,
-            req.user
-        );
+        const payroll = await generatePayroll(req.body, req.user);
 
         res.status(201).json({
             success: true,

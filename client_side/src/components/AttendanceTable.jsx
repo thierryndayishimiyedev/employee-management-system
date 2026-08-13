@@ -1,7 +1,8 @@
 import {
     Eye,
     Pencil,
-    Trash2
+    Trash2,
+    LogOut
 } from "lucide-react";
 
 export default function AttendanceTable({
@@ -14,7 +15,8 @@ export default function AttendanceTable({
 
     onDelete,
 
-    canManage = true
+    canManage = true,
+    onCheckOut
 
 }) {
 
@@ -228,6 +230,15 @@ export default function AttendanceTable({
 
                                     {canManage && (
                                         <>
+                                            {attendance.attendance_status === "PRESENT" && attendance.check_in && !attendance.check_out && (
+                                                <button
+                                                    onClick={() => onCheckOut?.(attendance)}
+                                                    title="Check out worker"
+                                                    className="rounded-md p-2 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-700"
+                                                >
+                                                    <LogOut size={18} />
+                                                </button>
+                                            )}
                                             <button
 
                                                 onClick={() =>

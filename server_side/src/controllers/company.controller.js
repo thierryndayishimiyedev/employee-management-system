@@ -33,7 +33,7 @@ const fetchCompanies = async (req, res) => {
 
     try {
 
-        const companies = await getCompanies();
+        const companies = await getCompanies(req.user);
 
         res.json({
             success: true,
@@ -55,7 +55,7 @@ const fetchCompany = async (req, res) => {
 
     try {
 
-        const company = await getCompanyById(req.params.id);
+        const company = await getCompanyById(req.params.id, req.user);
 
         res.json({
             success: true,

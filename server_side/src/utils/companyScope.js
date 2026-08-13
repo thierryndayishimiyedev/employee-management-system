@@ -54,6 +54,27 @@ const scopeByCompany = (query, user, column = "company_id") => {
     return query.in(column, companyIds);
 };
 
+const resolveAuthorizedCompanyId = (user, companyId) => {
+    if (isSuperAdmin(user)) {
+        if (!companyId) throw new Error("Company is required.");
+        return companyId;
+    }
+
+    const companyIds = requireCompanyIds(user);
+    if (companyId && !companyIds.includes(companyId)) {
+        throw new Error("Forbidden: company does not belong to your assigned companies.");
+    }
+    return companyId || companyIds[0];
+};
+
+// Use this for resources scoped through an embedded employee/company relation.
+// It deliberately uses every company assigned to an owner, not just the first.
+const scopeByRelatedCompany = (query, user, relation = "employees") => {
+    if (isSuperAdmin(user)) return query;
+
+    return query.in(`${relation}.company_id`, requireCompanyIds(user));
+};
+
 const assertCompanyAccess = (record, user, column = "company_id") => {
     if (isSuperAdmin(user)) return;
 
@@ -68,6 +89,8 @@ module.exports = {
     isSuperAdmin,
     requireCompanyId,
     requireCompanyIds,
+    resolveAuthorizedCompanyId,
     scopeByCompany,
+    scopeByRelatedCompany,
     assertCompanyAccess
 };

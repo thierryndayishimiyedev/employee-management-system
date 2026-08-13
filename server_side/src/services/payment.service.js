@@ -1,9 +1,14 @@
 const { randomUUID } = require("crypto");
 const supabase = require("../config/supabase");
-const { isSuperAdmin, requireCompanyId } = require("../utils/companyScope");
+const { isSuperAdmin, requireCompanyIds, scopeByRelatedCompany } = require("../utils/companyScope");
 const { getPaymentProvider } = require("./paymentProviders");
 
-const PAYMENT_METHOD = "MTN_MOBILE_MONEY";
+// The configured development provider is a simulation. Never label its records
+// as MTN payments; a real MTN provider can provide its own method identifier.
+const paymentMethodForProvider = () => {
+    const provider = String(process.env.PAYMENT_PROVIDER || "INTERNAL").toUpperCase();
+    return provider === "INTERNAL" ? "INTERNAL_TEST" : provider;
+};
 const READY_STATUSES = ["APPROVED"];
 const MTN_PREFIXES = (process.env.MTN_PHONE_PREFIXES || "25078,25079,078,079")
     .split(",")
@@ -43,7 +48,7 @@ const legacyPayrollStatus = (status) => {
 
 const normalizePhone = (phone) => String(phone || "").replace(/[^\d+]/g, "");
 
-const isValidPhone = (phone) => /^(?:\+?2507\d{8}|07\d{8})$/.test(normalizePhone(phone));
+const isValidPhone = (phone) => /^(?:\+?2507[2389]\d{7}|07[2389]\d{7})$/.test(normalizePhone(phone));
 
 const isMtnPhone = (phone) => {
     const normalized = normalizePhone(phone).replace(/^\+/, "");
@@ -82,7 +87,7 @@ const validatePayrollEmployee = async (payroll) => {
 
     if (!employee) return "Employee does not exist";
     if (employee.status && employee.status !== "ACTIVE") return "Employee is not active";
-    if (!READY_STATUSES.includes(payroll.payment_status)) return "Payroll is not approved";
+    if (!READY_STATUSES.includes(payroll.payment_status) || payroll.approval_status !== "OWNER_APPROVED") return "Payroll is not owner-approved";
     if (Number(payroll.net_salary || 0) <= 0) return "Salary must be greater than zero";
     if (!employee.phone) return "Phone is missing";
     if (!isValidPhone(employee.phone)) return "Invalid phone";
@@ -300,7 +305,7 @@ const createPaymentQueue = async (payrolls, user) => {
             amount: Number(payroll.net_salary || 0),
             receiver_phone: employee?.phone || null,
             receiver_name: employeeName(employee),
-            payment_method: PAYMENT_METHOD,
+            payment_method: paymentMethodForProvider(),
             reference_id: `PAY-${randomUUID()}`,
             payment_status: failureReason ? "FAILED_VALIDATION" : "READY",
             failure_reason: failureReason,
@@ -354,9 +359,10 @@ const payAllApprovedPayrolls = async (filters = {}, user = null) => {
             employees!inner(*)
         `)
         .eq("payment_status", "APPROVED");
+    query = query.eq("approval_status", "OWNER_APPROVED");
 
     if (!isSuperAdmin(user)) {
-        query = query.eq("employees.company_id", requireCompanyId(user));
+        query = query.in("employees.company_id", requireCompanyIds(user));
     }
 
     if (filters.payroll_id) query = query.eq("payroll_id", filters.payroll_id);
@@ -419,6 +425,8 @@ const payAllApprovedPayrolls = async (filters = {}, user = null) => {
             });
 
             paidPayments.push(paidPayment);
+            payment.payment_status = "PAID";
+            payment.failure_reason = null;
         } catch (err) {
             const failedPayment = await updatePayment(payment.payment_id, {
                 payment_status: "FAILED_NETWORK",
@@ -426,6 +434,8 @@ const payAllApprovedPayrolls = async (filters = {}, user = null) => {
             });
 
             failedPayments.push(failedPayment);
+            payment.payment_status = "FAILED_NETWORK";
+            payment.failure_reason = err.message || "Payment failed";
         }
     }
 
@@ -471,9 +481,7 @@ const getPayments = async (user) => {
             ascending: false
         });
 
-    if (!isSuperAdmin(user)) {
-        query = query.eq("employees.company_id", requireCompanyId(user));
-    }
+    query = scopeByRelatedCompany(query, user);
 
     const { data, error } = await query;
 
@@ -499,9 +507,7 @@ const getPaymentById = async (id, user) => {
         `)
         .eq("payment_id", id);
 
-    if (!isSuperAdmin(user)) {
-        query = query.eq("employees.company_id", requireCompanyId(user));
-    }
+    query = scopeByRelatedCompany(query, user);
 
     const { data, error } = await query.single();
 

@@ -142,7 +142,48 @@
 // };
 
 const supabase = require("../config/supabase");
-const { isSuperAdmin, requireCompanyId, scopeByCompany } = require("../utils/companyScope");
+const { isSuperAdmin, requireCompanyIds, scopeByCompany } = require("../utils/companyScope");
+
+const calculateHours = (checkIn, checkOut) => {
+    if (!checkIn || !checkOut) return null;
+    const parse = (value) => {
+        const [hours, minutes = "0"] = String(value).split(":");
+        const total = Number(hours) * 60 + Number(minutes);
+        return Number.isFinite(total) ? total : NaN;
+    };
+    const start = parse(checkIn);
+    const end = parse(checkOut);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
+        throw new Error("Check-out must be later than check-in.");
+    }
+    return Number(((end - start) / 60).toFixed(2));
+};
+
+// The live attendance_status enum currently supports PRESENT, ABSENT and LEAVE.
+// Do not send UI-only values such as LATE/SICK/HOLIDAY to Supabase.
+const VALID_ATTENDANCE_STATUSES = ["PRESENT", "ABSENT", "LEAVE"];
+const isWorkedStatus = (status) => status === "PRESENT";
+
+const buildAttendanceValues = (attendanceData, { allowOpenCheckIn = false } = {}) => {
+    const { check_in, check_out, overtime_hours, attendance_status } = attendanceData;
+    if (!VALID_ATTENDANCE_STATUSES.includes(attendance_status)) {
+        throw new Error("Attendance status must be PRESENT, ABSENT, or LEAVE.");
+    }
+    if (isWorkedStatus(attendance_status) && !check_in) {
+        throw new Error("Check-in is required for worked attendance.");
+    }
+    if (isWorkedStatus(attendance_status) && !check_out && !allowOpenCheckIn) {
+        throw new Error("Use the check-out action after the worker finishes work.");
+    }
+    const hours_worked = isWorkedStatus(attendance_status) && check_out
+        ? calculateHours(check_in, check_out)
+        : 0;
+    const overtime = overtime_hours === "" || overtime_hours === null || overtime_hours === undefined
+        ? Math.max(0, Number(hours_worked) - 8)
+        : Number(overtime_hours);
+    if (!Number.isFinite(overtime) || overtime < 0) throw new Error("Overtime hours cannot be negative.");
+    return { hours_worked, overtime_hours: overtime };
+};
 
 const recordAttendance = async (attendanceData, user) => {
 
@@ -151,7 +192,6 @@ const recordAttendance = async (attendanceData, user) => {
         attendance_date,
         check_in,
         check_out,
-        hours_worked,
         overtime_hours,
         attendance_status,
         remarks
@@ -163,7 +203,7 @@ const recordAttendance = async (attendanceData, user) => {
         .eq("employee_id", employee_id);
 
     if (!isSuperAdmin(user)) {
-        employeeQuery = employeeQuery.eq("company_id", requireCompanyId(user));
+        employeeQuery = employeeQuery.in("company_id", requireCompanyIds(user));
     }
 
     const { data: employee, error: employeeError } = await employeeQuery.single();
@@ -181,6 +221,21 @@ const recordAttendance = async (attendanceData, user) => {
     if (existing)
         throw new Error("Attendance already recorded for this employee.");
 
+    if (!attendance_date || Number.isNaN(Date.parse(attendance_date))) {
+        throw new Error("A valid attendance date is required.");
+    }
+    // Normal hours are never supplied by the client. An accountant may record
+    // approved extra/overtime hours explicitly; otherwise excess over 8 is used.
+    // A present worker is checked in first.  Check-out is deliberately a
+    // separate operation so the client cannot complete a shift on arrival.
+    if (attendance_status === "PRESENT" && check_out) {
+        throw new Error("Record check-in first. Check-out is only allowed through the dedicated check-out action.");
+    }
+    if (attendance_status === "PRESENT" && overtime_hours !== undefined && overtime_hours !== null && overtime_hours !== "") {
+        throw new Error("Overtime can only be recorded when the worker is checked out.");
+    }
+    const calculated = buildAttendanceValues({ check_in, check_out, overtime_hours, attendance_status }, { allowOpenCheckIn: true });
+
     const { data: attendance, error: attendanceError } = await supabase
         .from("attendance")
         .insert([{
@@ -189,8 +244,7 @@ const recordAttendance = async (attendanceData, user) => {
             attendance_date,
             check_in,
             check_out,
-            hours_worked,
-            overtime_hours,
+            ...calculated,
             attendance_status,
             remarks,
             recorded_by: user.user_id
@@ -203,6 +257,37 @@ const recordAttendance = async (attendanceData, user) => {
 
     return attendance;
 
+};
+
+const checkOutAttendance = async (id, attendanceData, user) => {
+    const existing = await getAttendanceById(id, user);
+    if (existing.attendance_status !== "PRESENT") {
+        throw new Error("Only a present worker can be checked out.");
+    }
+    if (!existing.check_in) throw new Error("This attendance record has no check-in time.");
+    if (existing.check_out) throw new Error("This worker has already been checked out and cannot be checked out twice.");
+    if (!attendanceData?.check_out) throw new Error("A check-out time is required.");
+
+    const calculated = buildAttendanceValues({
+        check_in: existing.check_in,
+        check_out: attendanceData.check_out,
+        overtime_hours: attendanceData.overtime_hours,
+        attendance_status: "PRESENT"
+    });
+    const query = scopeByCompany(supabase
+        .from("attendance")
+        .update({
+            check_out: attendanceData.check_out,
+            hours_worked: calculated.hours_worked,
+            overtime_hours: calculated.overtime_hours,
+            remarks: attendanceData.remarks ?? existing.remarks
+        })
+        .eq("attendance_id", id)
+        .is("check_out", null)
+        .select(), user);
+    const { data, error } = await query.single();
+    if (error) throw error;
+    return data;
 };
 
 const getAttendances = async (user) => {
@@ -254,10 +339,36 @@ const getAttendanceById = async (id, user) => {
 };
 
 const updateAttendance = async (id, attendanceData, user) => {
-
+    const existing = await getAttendanceById(id, user);
+    if (existing.attendance_status === "PRESENT" && existing.check_out) {
+        throw new Error("Completed attendance cannot be edited. Use the approved correction process if a correction is required.");
+    }
+    if (attendanceData.check_out) {
+        throw new Error("Use the dedicated check-out action to complete attendance.");
+    }
+    const safeData = {
+        attendance_date: attendanceData.attendance_date ?? existing.attendance_date,
+        check_in: attendanceData.check_in ?? existing.check_in,
+        check_out: attendanceData.check_out ?? existing.check_out,
+        attendance_status: attendanceData.attendance_status ?? existing.attendance_status,
+        overtime_hours: attendanceData.overtime_hours,
+        remarks: attendanceData.remarks
+    };
+    if (!safeData.attendance_date || Number.isNaN(Date.parse(safeData.attendance_date))) {
+        throw new Error("A valid attendance date is required.");
+    }
+    const calculated = buildAttendanceValues(safeData, { allowOpenCheckIn: true });
     const query = scopeByCompany(supabase
         .from("attendance")
-        .update(attendanceData)
+        .update({
+            attendance_date: safeData.attendance_date,
+            check_in: safeData.check_in,
+            check_out: safeData.check_out,
+            attendance_status: safeData.attendance_status,
+            overtime_hours: calculated.overtime_hours,
+            hours_worked: calculated.hours_worked,
+            remarks: safeData.remarks ?? existing.remarks
+        })
         .eq("attendance_id", id)
         .select(), user);
 
@@ -299,50 +410,48 @@ const getAttendanceDashboard = async (user) => {
             head: true
         }), user);
 
-    const { count: presentToday } = await scopeByCompany(supabase
+    const { data: todayRecords, error: todayError } = await scopeByCompany(supabase
         .from("attendance")
-        .select("*", {
-            count: "exact",
-            head: true
-        })
-        .eq("attendance_date", today)
-        .eq("attendance_status", "PRESENT"), user);
-
-    const { count: absentToday } = await scopeByCompany(supabase
-        .from("attendance")
-        .select("*", {
-            count: "exact",
-            head: true
-        })
-        .eq("attendance_date", today)
-        .eq("attendance_status", "ABSENT"), user);
-
-    const { count: lateToday } = await scopeByCompany(supabase
-        .from("attendance")
-        .select("*", {
-            count: "exact",
-            head: true
-        })
-        .eq("attendance_date", today)
-        .eq("attendance_status", "LATE"), user);
+        .select("attendance_status,hours_worked,overtime_hours")
+        .eq("attendance_date", today), user);
+    if (todayError) throw todayError;
+    const records = todayRecords || [];
+    const presentToday = records.filter((record) => record.attendance_status === "PRESENT").length;
+    const absentToday = records.filter((record) => record.attendance_status === "ABSENT").length;
 
     return {
         totalEmployees,
         presentToday,
         absentToday,
-        lateToday
+        // LATE is not an available value in the current live enum. Keep the
+        // response shape stable without querying it as a supported workflow.
+        lateToday: 0,
+        totalHours: records.reduce((sum, record) => sum + Number(record.hours_worked || 0), 0),
+        overtimeHours: records.reduce((sum, record) => sum + Number(record.overtime_hours || 0), 0),
+        attendancePercentage: totalEmployees ? Number(((presentToday / totalEmployees) * 100).toFixed(2)) : 0
     };
 
 };
 
 const getWeeklyAttendance = async (user) => {
-
+    const today = new Date();
+    const day = today.getDay();
+    const daysSinceMonday = (day + 6) % 7;
+    const start = new Date(today);
+    start.setDate(today.getDate() - daysSinceMonday);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    const toDate = (value) => value.toISOString().slice(0, 10);
     const query = scopeByCompany(supabase
         .from("attendance")
         .select(`
             attendance_date,
-            attendance_status
-        `), user);
+            attendance_status,
+            hours_worked,
+            overtime_hours
+        `)
+        .gte("attendance_date", toDate(start))
+        .lte("attendance_date", toDate(end)), user);
 
     const { data, error } = await query;
 
@@ -433,6 +542,7 @@ module.exports = {
     getAttendances,
     getAttendanceById,
     updateAttendance,
+    checkOutAttendance,
     deleteAttendance,
     getAttendanceDashboard,
     getWeeklyAttendance,

@@ -16,7 +16,8 @@ import {
     getWeeklyAttendance,
     getTodayAttendance,
     getMonthlySummary,
-    deleteAttendance
+    deleteAttendance,
+    checkOutAttendance
 } from "../api/attendanceApi";
 
 import AttendanceTable from "../components/AttendanceTable";
@@ -643,6 +644,22 @@ export default function AttendancePage() {
 
                             }
 
+                        }}
+
+                        onCheckOut={(attendance) => {
+                            if (!canManageAttendance) return;
+                            const checkOut = window.prompt(
+                                `Check-out time for ${attendance.employees.first_name} ${attendance.employees.last_name} (HH:MM)`,
+                                new Date().toTimeString().slice(0, 5)
+                            );
+                            if (!checkOut) return;
+                            const overtime = window.prompt("Approved overtime hours (leave blank to calculate automatically)", "");
+                            checkOutAttendance(attendance.attendance_id, {
+                                check_out: checkOut,
+                                overtime_hours: overtime === "" ? null : Number(overtime)
+                            })
+                                .then(refreshDashboard)
+                                .catch((error) => alert(error.response?.data?.message || "Could not record check-out"));
                         }}
 
                     />

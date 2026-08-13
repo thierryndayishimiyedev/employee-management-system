@@ -158,12 +158,25 @@ const login = async ({ username, password }) => {
         const { data: ownerAssignments } = await supabase
             .from("company_owners")
             .select("company_id")
-            .eq("username", username)
+            .eq("owner_user_id", user.user_id)
             .order("created_at", { ascending: true });
 
-        if (ownerAssignments?.length) {
+        let assignments = ownerAssignments || [];
+        // Preserve access for legacy assignments not yet backfilled, but never
+        // use username when a normalized owner_user_id relationship exists.
+        if (!assignments.length) {
+            const { data: legacyAssignments } = await supabase
+                .from("company_owners")
+                .select("company_id")
+                .is("owner_user_id", null)
+                .eq("username", username)
+                .order("created_at", { ascending: true });
+            assignments = legacyAssignments || [];
+        }
+
+        if (assignments.length) {
             // At least one company assignment is available; this keeps multi-company owner access working.
-            ownerAssignments.forEach((assignment) => {
+            assignments.forEach((assignment) => {
                 if (assignment.company_id) {
                     companyIds.push(assignment.company_id);
                 }

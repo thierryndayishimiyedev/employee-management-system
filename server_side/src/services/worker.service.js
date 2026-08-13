@@ -2,7 +2,8 @@
 
 const bcrypt = require("bcrypt");
 const supabase = require("../config/supabase");
-const { isSuperAdmin, requireCompanyId, scopeByCompany } = require("../utils/companyScope");
+const { isSuperAdmin, requireCompanyIds, resolveAuthorizedCompanyId, scopeByCompany } = require("../utils/companyScope");
+const { normalizeRwandaPhone } = require("../utils/rwandaPhone");
 
 const createWorker = async (data, userScope) => {
 
@@ -26,7 +27,16 @@ const createWorker = async (data, userScope) => {
         password,
         role_name
     } = data;
-    const scopedCompanyId = requireCompanyId(userScope) || company_id;
+    const scopedCompanyId = resolveAuthorizedCompanyId(userScope, company_id);
+    const parsedDailyRate = Number(daily_rate);
+    if (!Number.isFinite(parsedDailyRate) || parsedDailyRate <= 0) {
+        throw new Error("Daily payment must be greater than zero.");
+    }
+    // Payroll uses a fixed 30-day policy.  Keep the existing monthly_salary column
+    // in sync instead of asking an accountant to enter two conflicting amounts.
+    const resolvedMonthlySalary = Number.isFinite(Number(monthly_salary)) && Number(monthly_salary) > 0
+        ? Number(monthly_salary)
+        : parsedDailyRate * 30;
 
     let positionQuery = supabase
         .from("positions")
@@ -62,12 +72,12 @@ const createWorker = async (data, userScope) => {
             gender,
             date_of_birth,
             national_id,
-            phone,
+            phone: normalizeRwandaPhone(phone),
             email,
             address,
             hire_date,
-            monthly_salary,
-            daily_rate,
+            monthly_salary: resolvedMonthlySalary,
+            daily_rate: parsedDailyRate,
             profile_photo
         }])
         .select()
@@ -161,18 +171,25 @@ const updateWorker = async (id, workerData, userScope) => {
 
     await getWorkerById(id, userScope);
 
+    const parsedDailyRate = daily_rate === undefined ? undefined : Number(daily_rate);
+    if (parsedDailyRate !== undefined && (!Number.isFinite(parsedDailyRate) || parsedDailyRate <= 0)) {
+        throw new Error("Daily payment must be greater than zero.");
+    }
+    const resolvedMonthlySalary = parsedDailyRate !== undefined && (monthly_salary === undefined || monthly_salary === null || monthly_salary === "")
+        ? parsedDailyRate * 30
+        : monthly_salary;
     let updateData = {
         first_name,
         last_name,
         gender,
         date_of_birth,
         national_id,
-        phone,
+        phone: normalizeRwandaPhone(phone),
         email,
         address,
         hire_date,
-        monthly_salary,
-        daily_rate,
+        monthly_salary: resolvedMonthlySalary,
+        daily_rate: parsedDailyRate,
         profile_photo
     };
 
@@ -184,7 +201,7 @@ const updateWorker = async (id, workerData, userScope) => {
             .eq("position_id", position_id);
 
         if (!isSuperAdmin(userScope)) {
-            positionQuery = positionQuery.eq("company_id", requireCompanyId(userScope));
+            positionQuery = positionQuery.in("company_id", requireCompanyIds(userScope));
         }
 
         const { data: position, error: positionError } = await positionQuery.single();

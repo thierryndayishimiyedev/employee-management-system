@@ -1,10 +1,19 @@
 const {
     requestAdvance,
+    getAdvanceEligibility,
     getAdvances,
     getAdvanceById,
     updateAdvance,
     deleteAdvance
 } = require("../services/advance.service");
+
+const fetchAdvanceEligibility = async (req, res) => {
+    try {
+        res.json({ success: true, data: await getAdvanceEligibility(req.params.employeeId, req.user) });
+    } catch (err) {
+        res.status(400).json({ success: false, message: err.message });
+    }
+};
 
 const createAdvance = async (req, res) => {
 
@@ -124,6 +133,7 @@ const removeAdvance = async (req, res) => {
 
 module.exports = {
     createAdvance,
+    fetchAdvanceEligibility,
     fetchAdvances,
     fetchAdvance,
     editAdvance,

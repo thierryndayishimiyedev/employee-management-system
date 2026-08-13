@@ -11,10 +11,10 @@ export default function OwnerLoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
-  if (isAuthenticated) {
+  if (isAuthenticated && user?.role_name) {
     return (
       <Navigate
-        to={user?.role_name === 'OWNER' ? '/owner/dashboard' : '/login'}
+        to={user.role_name === 'OWNER' ? '/owner/dashboard' : '/login'}
         replace
       />
     )
@@ -28,9 +28,9 @@ export default function OwnerLoginPage() {
       const response = await login(username, password, 'owner')
       toast.success('Welcome back, Owner!')
       const roleName =
-        response?.data?.data?.user?.role_name ||
-        response?.data?.data?.user?.roles?.role_name ||
-        response?.data?.data?.user?.role ||
+        response?.data?.user?.role_name ||
+        response?.data?.user?.roles?.role_name ||
+        response?.data?.user?.role ||
         user?.role_name
       const destination = roleName === 'OWNER' ? '/owner/dashboard' : '/login'
       navigate(destination)

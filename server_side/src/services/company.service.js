@@ -1,4 +1,5 @@
 const supabase = require("../config/supabase");
+const { isSuperAdmin, requireCompanyIds } = require("../utils/companyScope");
 
 const createCompany = async (companyData) => {
 
@@ -39,25 +40,39 @@ const createCompany = async (companyData) => {
     return data;
 };
 
-const getCompanies = async () => {
+const getCompanies = async (user = null) => {
 
-    const { data, error } = await supabase
+    let query = supabase
         .from("companies")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .select("*");
+
+    if (!isSuperAdmin(user)) {
+        const allowedCompanyIds = requireCompanyIds(user);
+        query = query.in("company_id", allowedCompanyIds);
+    }
+
+    const { data, error } = await query.order("created_at", { ascending: false });
 
     if (error) throw error;
 
     return data;
 };
 
-const getCompanyById = async (id) => {
+const getCompanyById = async (id, user = null) => {
 
-    const { data, error } = await supabase
+    let query = supabase
         .from("companies")
         .select("*")
-        .eq("company_id", id)
-        .single();
+        .eq("company_id", id);
+
+    if (!isSuperAdmin(user)) {
+        const allowedCompanyIds = requireCompanyIds(user);
+        if (!allowedCompanyIds.includes(id)) {
+            throw new Error("Forbidden: company does not belong to your assigned companies.");
+        }
+    }
+
+    const { data, error } = await query.single();
 
     if (error) throw error;
 

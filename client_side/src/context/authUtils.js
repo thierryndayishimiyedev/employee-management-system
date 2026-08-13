@@ -8,7 +8,7 @@ export const normalizeUser = (user) => {
         user.roles?.[0]?.role_name;
 
     if (!roleName) {
-        return user;
+        return null;
     }
 
     return {
