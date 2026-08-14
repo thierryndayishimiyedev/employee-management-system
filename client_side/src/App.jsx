@@ -15,6 +15,8 @@ import OwnerResourcePage from "./pages/OwnerResourcePage";
 import ProductionPage from "./pages/ProductionPage";
 import ManagementPage from "./pages/ManagementPage";
 import DownloadCenterPage from "./pages/DownloadCenterPage";
+import FoodSupplyPage from "./pages/FoodSupplyPage";
+import WorkerConsumptionsPage from "./pages/WorkerConsumptionsPage";
 
 import "./App.css";
 
@@ -87,6 +89,14 @@ function App() {
                 }
             />
 
+            <Route
+                path="/food-supplies"
+                element={<ProtectedRoute allowedRoles={["OWNER", "MANAGER", "FOOD_SUPPLIER"]} redirectTo="/login"><FoodSupplyPage /></ProtectedRoute>}
+            />
+            <Route
+                path="/worker-consumptions"
+                element={<ProtectedRoute allowedRoles={["OWNER", "MANAGER", "ACCOUNTANT"]} redirectTo="/login"><WorkerConsumptionsPage /></ProtectedRoute>}
+            />
             <Route
                 path="/mines"
                 element={

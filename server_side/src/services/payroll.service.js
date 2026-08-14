@@ -1,6 +1,7 @@
 const supabase = require("../config/supabase");
 const { isSuperAdmin, requireCompanyIds, scopeByRelatedCompany } = require("../utils/companyScope");
 const { applyPayrollAdvanceDeductions } = require("./advanceDeduction.service");
+const { applyPayrollConsumptionDeductions } = require("./workerConsumptionDeduction.service");
 
 const isPayrollStatusConstraintError = (error) => {
 
@@ -124,6 +125,7 @@ const generatePayroll = async (payload, user) => {
         allowances,
         deductions,
         advance_deduction: 0,
+        consumption_deduction: 0,
         net_salary: basicSalary + overtimePay + allowances - deductions,
         payment_status: "GENERATED",
         approval_status: "GENERATED"
@@ -152,9 +154,11 @@ const generatePayroll = async (payload, user) => {
         .select()
         .single(), payrollData);
     const advanceDeduction = await applyPayrollAdvanceDeductions({ payrollId: payroll.payroll_id, employeeId: employee_id, createdBy: user?.user_id });
+    const consumptionDeduction = await applyPayrollConsumptionDeductions({ payrollId: payroll.payroll_id, employeeId: employee_id, periodEnd: period.endDate, createdBy: user?.user_id });
     const { data: finalized, error: finalizeError } = await supabase.from("payroll").update({
         advance_deduction: advanceDeduction,
-        net_salary: Math.max(0, basicSalary + overtimePay + allowances - deductions - advanceDeduction)
+        consumption_deduction: consumptionDeduction,
+        net_salary: Math.max(0, basicSalary + overtimePay + allowances - deductions - advanceDeduction - consumptionDeduction)
     }).eq("payroll_id", payroll.payroll_id).select().single();
     if (finalizeError) throw finalizeError;
     return finalized;

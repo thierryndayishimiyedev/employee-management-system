@@ -2,7 +2,7 @@ const supabase = require("../config/supabase");
 const { createPdfBuffer } = require("../utils/pdfBuilder");
 const { isSuperAdmin, requireCompanyId, requireCompanyIds, scopeByCompany, scopeByRelatedCompany } = require("../utils/companyScope");
 
-const systemName = "MineWise Operations Suite";
+const systemName = "C.M.K Gatsibo Mining Operations";
 
 const nameOf = (employee) => [employee?.first_name, employee?.last_name].filter(Boolean).join(" ") || "-";
 
@@ -27,6 +27,11 @@ const getCompany = async (user) => {
 };
 
 const generatedBy = (user) => user?.username || user?.role_name || "System User";
+const parseReportSummary = (value) => {
+    if (!value) return {};
+    if (typeof value === "object") return value;
+    try { return JSON.parse(value); } catch { return {}; }
+};
 
 const dateRange = (query = {}) => {
     const today = new Date();
@@ -417,14 +422,23 @@ const dailyReportsPdf = async (user, query) => {
     const { data, error } = await request;
     if (error) throw error;
 
-    const rows = (data || []).map((record) => ({
-        date: record.report_date,
-        title: record.title,
+    const rows = (data || []).map((record) => {
+        const summary = parseReportSummary(record.daily_summary);
+        return ({
+        period: record.report_type && record.period_start && record.period_end
+            ? `${record.report_type}: ${record.period_start} to ${record.period_end}`
+            : summary.report_period
+            ? `${summary.report_period.type}: ${summary.report_period.start} to ${summary.report_period.end}`
+            : record.report_date,
         prepared: nameOf(record.employees),
-        submitted: record.is_submitted ? "Submitted" : "Draft",
-        reviewed: record.is_read ? "Reviewed" : "Pending",
-        approved: record.owner_edit_approved ? "Editable" : "-"
-    }));
+        attendance: `${record.attendance_summary?.present || 0} present / ${record.attendance_summary?.hours || 0} hrs`,
+        production: record.production_summary?.gross_value || 0,
+        expenses: record.production_summary?.expenses || 0,
+        result: record.production_summary?.net_result || 0,
+        advances: record.advances_summary?.total || 0,
+        payroll: summary.payroll_summary?.net_salary || 0,
+        status: record.status || (record.is_submitted ? "Submitted" : "Draft")
+    }); });
 
     return createPdfBuffer({
         title: `${range.label} Daily Reports`,
@@ -435,16 +449,20 @@ const dailyReportsPdf = async (user, query) => {
         summary: [
             { label: "Period", value: `${range.start} to ${range.end}` },
             { label: "Reports", value: rows.length },
-            { label: "Draft", value: rows.filter((row) => row.submitted === "Draft").length },
-            { label: "Submitted", value: rows.filter((row) => row.submitted === "Submitted").length }
+            { label: "Pending Manager", value: rows.filter((row) => row.status === "PENDING_MANAGER").length },
+            { label: "Pending Owner", value: rows.filter((row) => row.status === "PENDING_OWNER").length },
+            { label: "Final Approved", value: rows.filter((row) => row.status === "APPROVED").length }
         ],
         columns: [
-            { key: "date", label: "Date", width: 12 },
-            { key: "title", label: "Title", width: 26 },
-            { key: "prepared", label: "Prepared By", width: 18 },
-            { key: "submitted", label: "Status", width: 12 },
-            { key: "reviewed", label: "Review", width: 12 },
-            { key: "approved", label: "Owner", width: 12 }
+            { key: "period", label: "Report Period", width: 22 },
+            { key: "prepared", label: "Prepared By", width: 14 },
+            { key: "attendance", label: "Attendance", width: 15 },
+            { key: "production", label: "Gross Value", width: 11 },
+            { key: "expenses", label: "Expenses", width: 10 },
+            { key: "result", label: "Net Result", width: 11 },
+            { key: "advances", label: "Advances", width: 10 },
+            { key: "payroll", label: "Payroll", width: 10 },
+            { key: "status", label: "Status", width: 12 }
         ],
         rows
     });

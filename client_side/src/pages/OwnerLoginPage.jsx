@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { ArrowRight, Pickaxe, ShieldCheck } from 'lucide-react'
+import { ArrowRight, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/authStore'
 
@@ -47,11 +47,11 @@ export default function OwnerLoginPage() {
       <div className="relative hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-700 text-white overflow-hidden">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_30%_20%,#fff_1px,transparent_1px)] [background-size:24px_24px]" />
         <div className="relative z-10 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-amber-300 text-slate-950">
-            <Pickaxe className="h-6 w-6" />
+          <div className="flex h-11 w-16 items-center justify-center overflow-hidden rounded-lg bg-white p-1">
+            <img src="/logo.png" alt="C.M.K Gatsibo" className="h-full w-full object-contain" />
           </div>
           <div>
-            <div className="font-display text-xl font-semibold">MineOps Owner</div>
+            <div className="font-display text-xl font-semibold">C.M.K Gatsibo</div>
             <div className="text-xs uppercase tracking-widest text-white/70">Owner portal access</div>
           </div>
         </div>
@@ -79,10 +79,10 @@ export default function OwnerLoginPage() {
       <div className="flex items-center justify-center p-6 lg:p-12 bg-slate-50">
         <div className="w-full max-w-md space-y-8">
           <div className="lg:hidden flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-300 text-slate-950">
-              <Pickaxe className="h-5 w-5" />
+            <div className="flex h-9 w-12 items-center justify-center overflow-hidden rounded-lg bg-white p-1 shadow-sm">
+              <img src="/logo.png" alt="C.M.K Gatsibo" className="h-full w-full object-contain" />
             </div>
-            <span className="font-display text-lg font-semibold">Owner Portal</span>
+            <span className="font-display text-lg font-semibold">C.M.K Gatsibo Owner Portal</span>
           </div>
 
           <div className="space-y-3">

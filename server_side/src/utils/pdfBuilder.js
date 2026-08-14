@@ -1,3 +1,10 @@
+const fs = require("fs");
+const path = require("path");
+const zlib = require("zlib");
+
+const BRAND_NAME = "C.M.K Gatsibo";
+const LOGO_PATH = path.resolve(__dirname, "../../assets/logo.png");
+
 const formatDateTime = (value = new Date()) => {
     const date = new Date(value);
     return {
@@ -25,7 +32,7 @@ const buildTextLines = ({ title, reportNumber, company, generatedBy, preparedBy,
         company?.email
     ].filter(Boolean).join(" | ");
     const lines = [
-        "MineWise Operations Suite",
+        BRAND_NAME,
         companyName,
         companyInfo || "Company information",
         "",
@@ -55,8 +62,78 @@ const buildTextLines = ({ title, reportNumber, company, generatedBy, preparedBy,
     }
 
     lines.push("");
-    lines.push("Footer: MineWise Operations Suite - Confidential company report");
+    lines.push(`Footer: ${BRAND_NAME} - Confidential company report`);
     return lines;
+};
+
+// Converts the supplied non-interlaced 8-bit PNG logo into PDF image streams.
+// Keeping this local avoids adding a heavyweight PDF dependency to the backend.
+const readLogo = () => {
+    try {
+        const file = fs.readFileSync(LOGO_PATH);
+        if (file.toString("ascii", 1, 4) !== "PNG") return null;
+
+        let offset = 8;
+        let width;
+        let height;
+        let bitDepth;
+        let colorType;
+        const dataChunks = [];
+        while (offset + 12 <= file.length) {
+            const length = file.readUInt32BE(offset);
+            const type = file.toString("ascii", offset + 4, offset + 8);
+            const start = offset + 8;
+            const end = start + length;
+            if (end + 4 > file.length) return null;
+            if (type === "IHDR") {
+                width = file.readUInt32BE(start);
+                height = file.readUInt32BE(start + 4);
+                bitDepth = file[start + 8];
+                colorType = file[start + 9];
+            } else if (type === "IDAT") dataChunks.push(file.subarray(start, end));
+            else if (type === "IEND") break;
+            offset = end + 4;
+        }
+        if (!width || !height || bitDepth !== 8 || ![2, 6].includes(colorType)) return null;
+
+        const channels = colorType === 6 ? 4 : 3;
+        const rowLength = width * channels;
+        const packed = zlib.inflateSync(Buffer.concat(dataChunks));
+        const decoded = Buffer.alloc(rowLength * height);
+        let source = 0;
+        let previous = Buffer.alloc(rowLength);
+        for (let row = 0; row < height; row += 1) {
+            const filter = packed[source++];
+            const current = Buffer.alloc(rowLength);
+            for (let x = 0; x < rowLength; x += 1) {
+                const raw = packed[source++];
+                const left = x >= channels ? current[x - channels] : 0;
+                const up = previous[x];
+                const upLeft = x >= channels ? previous[x - channels] : 0;
+                if (filter === 0) current[x] = raw;
+                else if (filter === 1) current[x] = (raw + left) & 255;
+                else if (filter === 2) current[x] = (raw + up) & 255;
+                else if (filter === 3) current[x] = (raw + Math.floor((left + up) / 2)) & 255;
+                else if (filter === 4) {
+                    const p = left + up - upLeft;
+                    const pa = Math.abs(p - left), pb = Math.abs(p - up), pc = Math.abs(p - upLeft);
+                    current[x] = (raw + (pa <= pb && pa <= pc ? left : pb <= pc ? up : upLeft)) & 255;
+                } else return null;
+            }
+            current.copy(decoded, row * rowLength);
+            previous = current;
+        }
+
+        const rgb = Buffer.alloc(width * height * 3);
+        const alpha = colorType === 6 ? Buffer.alloc(width * height) : null;
+        for (let pixel = 0; pixel < width * height; pixel += 1) {
+            decoded.copy(rgb, pixel * 3, pixel * channels, pixel * channels + 3);
+            if (alpha) alpha[pixel] = decoded[pixel * channels + 3];
+        }
+        return { width, height, rgb: zlib.deflateSync(rgb), alpha: alpha && zlib.deflateSync(alpha) };
+    } catch (_) {
+        return null;
+    }
 };
 
 const createPdfBuffer = (options) => {
@@ -64,7 +141,7 @@ const createPdfBuffer = (options) => {
     const pageWidth = 612;
     const pageHeight = 792;
     const marginX = 42;
-    const startY = 744;
+    const startY = 690;
     const lineHeight = 13;
     const maxLinesPerPage = 50;
     const pages = [];
@@ -75,15 +152,33 @@ const createPdfBuffer = (options) => {
 
     const objects = [];
     const addObject = (body) => {
-        objects.push(body);
+        objects.push(Buffer.isBuffer(body) ? body : Buffer.from(body, "binary"));
         return objects.length;
     };
 
+    const logo = readLogo();
+    let logoId = null;
+    let alphaId = null;
+    if (logo?.alpha) {
+        alphaId = addObject(Buffer.concat([
+            Buffer.from(`<< /Type /XObject /Subtype /Image /Width ${logo.width} /Height ${logo.height} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode /Length ${logo.alpha.length} >>\nstream\n`, "binary"),
+            logo.alpha,
+            Buffer.from("\nendstream", "binary")
+        ]));
+    }
+    if (logo) {
+        logoId = addObject(Buffer.concat([
+            Buffer.from(`<< /Type /XObject /Subtype /Image /Width ${logo.width} /Height ${logo.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length ${logo.rgb.length}${alphaId ? ` /SMask ${alphaId} 0 R` : ""} >>\nstream\n`, "binary"),
+            logo.rgb,
+            Buffer.from("\nendstream", "binary")
+        ]));
+    }
     const fontId = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
     const pageIds = [];
 
     pages.forEach((pageLines, pageIndex) => {
         const textCommands = [
+            ...(logoId ? ["q", "170 0 0 38 42 738 cm", "/Logo Do", "Q"] : []),
             "BT",
             "/F1 9 Tf",
             `${marginX} ${startY} Td`
@@ -101,32 +196,33 @@ const createPdfBuffer = (options) => {
 
         const stream = textCommands.join("\n");
         const contentId = addObject(`<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`);
-        const pageId = addObject(`<< /Type /Page /Parent 0 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`);
+        const resources = `/Font << /F1 ${fontId} 0 R >>${logoId ? ` /XObject << /Logo ${logoId} 0 R >>` : ""}`;
+        const pageId = addObject(`<< /Type /Page /Parent 0 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << ${resources} >> /Contents ${contentId} 0 R >>`);
         pageIds.push(pageId);
     });
 
     const pagesId = addObject(`<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`);
     pageIds.forEach((pageId) => {
-        objects[pageId - 1] = objects[pageId - 1].replace("/Parent 0 0 R", `/Parent ${pagesId} 0 R`);
+        objects[pageId - 1] = Buffer.from(objects[pageId - 1].toString("binary").replace("/Parent 0 0 R", `/Parent ${pagesId} 0 R`), "binary");
     });
     const catalogId = addObject(`<< /Type /Catalog /Pages ${pagesId} 0 R >>`);
 
-    let pdf = "%PDF-1.4\n";
+    let pdf = Buffer.from("%PDF-1.4\n", "binary");
     const offsets = [0];
     objects.forEach((body, index) => {
-        offsets.push(Buffer.byteLength(pdf));
-        pdf += `${index + 1} 0 obj\n${body}\nendobj\n`;
+        offsets.push(pdf.length);
+        pdf = Buffer.concat([pdf, Buffer.from(`${index + 1} 0 obj\n`, "binary"), body, Buffer.from("\nendobj\n", "binary")]);
     });
 
-    const xrefOffset = Buffer.byteLength(pdf);
-    pdf += `xref\n0 ${objects.length + 1}\n`;
-    pdf += "0000000000 65535 f \n";
+    const xrefOffset = pdf.length;
+    let trailer = `xref\n0 ${objects.length + 1}\n`;
+    trailer += "0000000000 65535 f \n";
     offsets.slice(1).forEach((offset) => {
-        pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
+        trailer += `${String(offset).padStart(10, "0")} 00000 n \n`;
     });
-    pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+    trailer += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
 
-    return Buffer.from(pdf, "binary");
+    return Buffer.concat([pdf, Buffer.from(trailer, "binary")]);
 };
 
 module.exports = {

@@ -178,6 +178,22 @@ export default function PayrollDetail({
 
                         </tr>
 
+                        <tr className="border-b border-slate-700">
+
+                            <td className="px-5 py-4 text-slate-400">
+
+                                Worker food / items
+
+                            </td>
+
+                            <td className="px-5 py-4 text-right font-semibold text-red-400">
+
+                                - {Number(payroll.consumption_deduction || 0).toLocaleString()}
+
+                            </td>
+
+                        </tr>
+
                         <tr>
 
                             <td className="px-5 py-5 text-xl font-bold">

@@ -8,7 +8,7 @@ import AppSidebar from './Appsidebar'
 const reports = [
   { type: 'attendance', title: 'Attendance', roles: ['SUPER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { type: 'production', title: 'Production', roles: ['SUPER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { type: 'reports', title: 'Daily Reports', roles: ['SUPER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTANT'] },
+  { type: 'reports', title: 'Automatic Operations Reports', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { type: 'payroll', title: 'Payroll', roles: ['SUPER_ADMIN', 'OWNER', 'ACCOUNTANT'] },
   { type: 'payments', title: 'Payments', roles: ['SUPER_ADMIN', 'OWNER'] },
   { type: 'advances', title: 'Advances', roles: ['SUPER_ADMIN', 'OWNER', 'ACCOUNTANT'] },
@@ -85,11 +85,11 @@ export default function DownloadCenterPage() {
                 onChange={(event) => setPeriod(event.target.value)}
                 className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-amber-400"
               >
-                <option value="today">Today</option>
-                <option value="yesterday">Yesterday</option>
-                <option value="week">This Week</option>
-                <option value="month">This Month</option>
-                <option value="year">This Year</option>
+                <option value="today">Daily — Today</option>
+                <option value="yesterday">Daily — Yesterday</option>
+                <option value="week">Weekly — This Week</option>
+                <option value="month">Monthly — This Month</option>
+                <option value="year">Yearly — This Year</option>
                 <option value="custom">Custom Range</option>
               </select>
               <input

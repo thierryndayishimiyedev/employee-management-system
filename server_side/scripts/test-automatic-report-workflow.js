@@ -1,0 +1,20 @@
+require("dotenv").config();
+const supabase = require("../src/config/supabase");
+const { createReport, submitReport, reviewReport } = require("../src/services/report.service");
+let reportId;
+const cleanup = async () => { if (reportId) await supabase.from("reports").delete().eq("report_id", reportId); };
+(async () => {
+  const { data: company, error: companyError } = await supabase.from("companies").select("company_id").limit(1).single(); if (companyError) throw companyError;
+  const { data: accountant, error: accountantError } = await supabase.from("users").select("user_id,employee_id,employees!inner(company_id),roles!inner(role_name)").eq("employees.company_id", company.company_id).eq("roles.role_name", "ACCOUNTANT").limit(1).single(); if (accountantError) throw accountantError;
+  const { data: manager, error: managerError } = await supabase.from("users").select("user_id,employees!inner(company_id),roles!inner(role_name)").eq("employees.company_id", company.company_id).eq("roles.role_name", "MANAGER").limit(1).single(); if (managerError) throw managerError;
+  const { data: assignment, error: assignmentError } = await supabase.from("company_owners").select("owner_user_id").eq("company_id", company.company_id).not("owner_user_id", "is", null).limit(1).single(); if (assignmentError) throw assignmentError;
+  const accountantUser={user_id:accountant.user_id,employee_id:accountant.employee_id,role_name:"ACCOUNTANT",company_ids:[company.company_id]}; const managerUser={user_id:manager.user_id,role_name:"MANAGER",company_ids:[company.company_id]}; const ownerUser={user_id:assignment.owner_user_id,role_name:"OWNER",company_ids:[company.company_id]};
+  const report=await createReport({company_id:company.company_id,report_date:"2099-01-14",report_type:"WEEKLY"},accountantUser); reportId=report.report_id;
+  const summary = typeof report.daily_summary === "string" ? JSON.parse(report.daily_summary) : report.daily_summary;
+  if (!report.attendance_summary || !summary?.report_period || report.report_type !== "WEEKLY" || report.period_start !== "2099-01-12" || report.period_end !== "2099-01-18" || report.title.includes("undefined")) throw new Error(`Automatic report snapshot was not created: ${JSON.stringify({ title: report.title, attendance_summary: report.attendance_summary, daily_summary: report.daily_summary })}`);
+  let duplicateBlocked=false; try { await createReport({company_id:company.company_id,report_date:"2099-01-14",report_type:"WEEKLY"},accountantUser); } catch (error) { duplicateBlocked=String(error.message).includes("already exists"); } if(!duplicateBlocked) throw new Error("Duplicate automatic report was not blocked.");
+  const submitted=await submitReport(reportId,accountantUser); if(submitted.status!=="PENDING_MANAGER") throw new Error("Report was not sent to manager.");
+  const managerApproved=await reviewReport(reportId,"approve","Verified",managerUser); if(managerApproved.status!=="PENDING_OWNER") throw new Error("Manager approval did not send the report to owner.");
+  const ownerApproved=await reviewReport(reportId,"approve","Final approval",ownerUser); if(ownerApproved.status!=="APPROVED"||!ownerApproved.is_locked) throw new Error("Owner approval did not lock report.");
+  console.log(JSON.stringify({success:true,period:summary.report_period,final_status:ownerApproved.status,locked:ownerApproved.is_locked,duplicate_blocked:duplicateBlocked},null,2));
+})().catch(e=>{console.error(e.message);process.exitCode=1;}).finally(async()=>{await cleanup();});

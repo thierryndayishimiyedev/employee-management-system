@@ -229,7 +229,7 @@ export default function OwnerDashboardPage() {
               <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Company tier</p>
                 <p className="text-2xl font-semibold text-amber-600">Gold</p>
-                <p className="text-sm text-slate-400">Powered by MineWise ERP</p>
+                <p className="text-sm text-slate-400">Powered by C.M.K Gatsibo Mining Operations</p>
               </div>
             </div>
           </header>

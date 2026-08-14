@@ -251,6 +251,12 @@ const resourceConfig = {
     ],
     actions: [
       {
+        label: 'View Activity Summary',
+        icon: FileText,
+        roles: ['ACCOUNTANT', 'MANAGER', 'OWNER'],
+        detail: true,
+      },
+      {
         label: 'Manager Approve',
         icon: CheckCircle2,
         roles: ['MANAGER'],
@@ -327,25 +333,25 @@ const resourceConfig = {
     icon: FileText,
     endpoint: '/reports',
     idKey: 'report_id',
-    createLabel: 'Create Report',
+    createLabel: 'Generate Report from Activities',
     createRoles: ['ACCOUNTANT'],
+    noEdit: true,
     empty: {
       company_id: '',
       report_date: today,
-      title: '',
-      report_content: '',
+      report_type: 'DAILY',
     },
     form: [
       ['company_id', 'Company', 'company', true],
-      ['report_date', 'Report date', 'date', true],
-      ['title', 'Title', 'text', true],
-      ['report_content', 'Content', 'textarea', true],
+      ['report_type', 'Report period', 'reporttype', true],
+      ['report_date', 'Date inside the report period', 'date', true],
     ],
     related: ['companies'],
     columns: [
-      ['Title', (item) => item.title],
+      ['Period', (item) => item.report_type && item.period_start && item.period_end ? `${item.report_type}: ${item.period_start} to ${item.period_end}` : reportSummary(item).report_period ? `${reportSummary(item).report_period.type}: ${reportSummary(item).report_period.start} to ${reportSummary(item).report_period.end}` : item.report_date],
       ['Accountant', (item) => employeeName(item)],
-      ['Date', (item) => formatDate(item.report_date)],
+      ['Attendance', (item) => `${item.attendance_summary?.present || 0} present / ${item.attendance_summary?.hours || 0} hrs`],
+      ['Production result', (item) => `${Number(item.production_summary?.net_result || 0).toLocaleString()} RWF`],
       ['Status', (item) => statusBadge(item.status || 'DRAFT')],
       ['Manager review', (item) => formatDate(item.manager_reviewed_at)],
       ['Owner review', (item) => formatDate(item.owner_reviewed_at)],
@@ -423,6 +429,8 @@ const resourceConfig = {
         ? `${item.payroll_period_start} to ${item.payroll_period_end}`
         : `${item.payroll_month}/${item.payroll_year}`],
       ['Days', (item) => item.days_worked ?? 0],
+      ['Advance', (item) => `-${Number(item.advance_deduction || 0).toLocaleString()} RWF`],
+      ['Worker items', (item) => `-${Number(item.consumption_deduction || 0).toLocaleString()} RWF`],
       ['Net Salary', (item) => `${Number(item.net_salary || 0).toLocaleString()} RWF`],
       ['Approval', (item) => statusBadge(item.approval_status || 'GENERATED')],
       ['Payment', (item) => statusBadge(item.payment_status || 'GENERATED')],
@@ -551,6 +559,7 @@ export default function ManagementPage({ resource }) {
   const [saving, setSaving] = useState(false)
   const [advanceEligibility, setAdvanceEligibility] = useState(null)
   const [search, setSearch] = useState('')
+  const [reportDetail, setReportDetail] = useState(null)
   const [page, setPage] = useState(1)
   const pageSize = 10
 
@@ -702,6 +711,10 @@ export default function ManagementPage({ resource }) {
   }
 
   const runAction = async (action, item) => {
+    if (action.detail) {
+      setReportDetail(item)
+      return
+    }
     if (action.confirm && !window.confirm(action.confirm)) return
     try {
       const result = await action.run(item)
@@ -934,6 +947,7 @@ export default function ManagementPage({ resource }) {
             )}
           </div>
         </section>
+        {reportDetail && <ReportSnapshotModal report={reportDetail} onClose={() => setReportDetail(null)} />}
       </div>
     </main>
   )
@@ -980,6 +994,17 @@ function Field({ label, type, value, onChange, required, related }) {
       <SelectBase label={label} value={value} onChange={onChange} required={required}>
         <option value="BIWEEKLY">Biweekly (14 days)</option>
         <option value="MONTHLY">Monthly</option>
+      </SelectBase>
+    )
+  }
+
+  if (type === 'reporttype') {
+    return (
+      <SelectBase label={label} value={value} onChange={onChange} required={required}>
+        <option value="DAILY">Daily</option>
+        <option value="WEEKLY">Weekly (Monday to Sunday)</option>
+        <option value="MONTHLY">Monthly (calendar month)</option>
+        <option value="YEARLY">Yearly (calendar year)</option>
       </SelectBase>
     )
   }
@@ -1039,6 +1064,29 @@ function rowKey(item, idKey, index) {
 function employeeName(item) {
   const employee = item.employees || item.employee || item
   return [employee?.first_name, employee?.last_name].filter(Boolean).join(' ') || '-'
+}
+
+function reportSummary(item) {
+  if (!item?.daily_summary) return {}
+  if (typeof item.daily_summary === 'object') return item.daily_summary
+  try { return JSON.parse(item.daily_summary) } catch { return {} }
+}
+
+function ReportSnapshotModal({ report, onClose }) {
+  const summary = reportSummary(report)
+  const attendance = report.attendance_summary || {}
+  const production = report.production_summary || {}
+  const advances = report.advances_summary || {}
+  const payroll = summary.payroll_summary || {}
+  const consumptions = summary.worker_consumptions || {}
+  const food = summary.food_supplies || {}
+  const amount = (value) => `${Number(value || 0).toLocaleString()} RWF`
+  const period = report.report_type && report.period_start && report.period_end ? `${report.report_type}: ${report.period_start} to ${report.period_end}` : summary.report_period ? `${summary.report_period.type}: ${summary.report_period.start} to ${summary.report_period.end}` : report.report_date
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"><div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl bg-white shadow-2xl"><div className="sticky top-0 flex items-start justify-between border-b bg-white p-6"><div><p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Automatic Operations Report</p><h2 className="mt-1 text-2xl font-bold text-slate-900">{period}</h2><p className="mt-1 text-sm text-slate-500">Status: {report.status || 'DRAFT'}</p></div><button onClick={onClose} className="rounded-md p-2 text-slate-500 hover:bg-slate-100"><X size={20}/></button></div><div className="grid gap-4 p-6 md:grid-cols-2"><SummarySection title="Attendance" rows={[['Workers', attendance.total_workers],['Present', attendance.present],['Absent', attendance.absent],['Hours worked', attendance.hours],['Overtime', attendance.overtime]]}/><SummarySection title="Production" rows={[['Production records', production.records],['Gross value', amount(production.gross_value)],['Production expenses', amount(production.expenses)],['Net result', amount(production.net_result)]]}/><SummarySection title="Advances" rows={[['Requests', advances.count],['Total requested', amount(advances.total)],['Paid advances', amount(advances.paid)]]}/><SummarySection title="Payroll" rows={[['Payroll records', payroll.count],['Net payroll', amount(payroll.net_salary)],['Advance deductions', amount(payroll.advance_deduction)],['Worker item deductions', amount(payroll.consumption_deduction)]]}/><SummarySection title="Worker items" rows={[['Items recorded', amount(consumptions.total)],['Already deducted', amount(consumptions.deducted)],['Outstanding balance', amount(consumptions.outstanding)]]}/><SummarySection title="Food supplies" rows={[['Supply records', food.count],['Supply value', amount(food.total)],['Paid supplies', food.paid]]}/></div><div className="border-t p-6 text-right"><button onClick={onClose} className="rounded-md bg-slate-800 px-4 py-2 text-sm font-semibold text-white">Close</button></div></div></div>
+}
+
+function SummarySection({ title, rows }) {
+  return <section className="rounded-lg border border-slate-200"><h3 className="border-b bg-slate-50 px-4 py-3 font-semibold text-slate-800">{title}</h3><dl className="divide-y divide-slate-100">{rows.map(([label, value]) => <div key={label} className="flex items-center justify-between px-4 py-2.5 text-sm"><dt className="text-slate-500">{label}</dt><dd className="font-semibold text-slate-800">{value ?? 0}</dd></div>)}</dl></section>
 }
 
 function formatDate(value) {

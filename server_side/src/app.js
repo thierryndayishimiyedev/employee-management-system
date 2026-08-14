@@ -27,6 +27,9 @@ const dashboardRoutes = require("./routes/dashboard.routes");
 const superAdminDashboardRoutes = require("./routes/superAdminDashboard.routes");
 const employeeRoutes = require("./routes/employee.routes");
 const downloadRoutes = require("./routes/download.routes");
+const foodSupplierRoutes = require("./routes/foodSupplier.routes");
+const foodSupplyRoutes = require("./routes/foodSupply.routes");
+const workerConsumptionRoutes = require("./routes/workerConsumption.routes");
 
 const app = express();
 
@@ -66,6 +69,9 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/super-admin/dashboard", superAdminDashboardRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use("/api/downloads", downloadRoutes);
+app.use("/api/food-suppliers", foodSupplierRoutes);
+app.use("/api/food-supplies", foodSupplyRoutes);
+app.use("/api/worker-consumptions", workerConsumptionRoutes);
 
 
 

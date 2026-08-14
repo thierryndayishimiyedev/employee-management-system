@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { ArrowRight, Pickaxe, ShieldCheck } from 'lucide-react'
+import { ArrowRight, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/authStore'
 
@@ -15,6 +15,7 @@ const destinationForRole = (roleName) => {
   if (roleName === 'MANAGER') return '/manager/dashboard'
   if (roleName === 'ACCOUNTANT') return '/accountant/dashboard'
   if (roleName === 'SUPER_ADMIN') return '/dashboard'
+  if (roleName === 'FOOD_SUPPLIER') return '/food-supplies'
   return null
 }
 
@@ -23,6 +24,7 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
+  const [accountType, setAccountType] = useState('MANAGER')
   const [loading, setLoading] = useState(false)
 
   if (isAuthenticated && user?.role_name) {
@@ -50,7 +52,7 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const response = await login(name, password)
+      const response = await login(name, password, accountType === 'OWNER' ? 'owner' : 'admin')
       toast.success('Welcome back')
       const roleName =
         response?.data?.user?.role_name ||
@@ -79,12 +81,12 @@ export default function LoginPage() {
       <div className="relative hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-700 text-white overflow-hidden">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_30%_20%,#fff_1px,transparent_1px)] [background-size:24px_24px]" />
         <div className="relative z-10 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-amber-300 text-slate-900">
-            <Pickaxe className="h-6 w-6" />
+          <div className="flex h-11 w-16 items-center justify-center overflow-hidden rounded-lg bg-white p-1">
+            <img src="/logo.png" alt="C.M.K Gatsibo" className="h-full w-full object-contain" />
           </div>
           <div>
-            <div className="font-display text-xl font-semibold">MineOps</div>
-            <div className="text-xs uppercase tracking-widest text-white/70">Operations Suite</div>
+            <div className="font-display text-xl font-semibold">C.M.K Gatsibo</div>
+            <div className="text-xs uppercase tracking-widest text-white/70">Mining Operations System</div>
           </div>
         </div>
         <div className="relative z-10 space-y-6 max-w-md">
@@ -115,10 +117,10 @@ export default function LoginPage() {
       <div className="flex items-center justify-center p-6 lg:p-12 bg-slate-50">
         <div className="w-full max-w-md space-y-8">
           <div className="lg:hidden flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-300 text-slate-900">
-              <Pickaxe className="h-5 w-5" />
+            <div className="flex h-9 w-12 items-center justify-center overflow-hidden rounded-lg bg-white p-1 shadow-sm">
+              <img src="/logo.png" alt="C.M.K Gatsibo" className="h-full w-full object-contain" />
             </div>
-            <span className="font-display text-lg font-semibold">MineOps</span>
+            <span className="font-display text-lg font-semibold">C.M.K Gatsibo</span>
           </div>
           <div className="space-y-2">
             <h2 className="font-display text-3xl font-semibold tracking-tight text-slate-900">Sign in</h2>
@@ -126,6 +128,17 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="accountType" className="block text-sm font-medium text-slate-700">Sign in as</label>
+              <select id="accountType" value={accountType} onChange={(e) => setAccountType(e.target.value)} className="w-full rounded-3xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200">
+                <option value="SUPER_ADMIN">Super Admin</option>
+                <option value="OWNER">Owner</option>
+                <option value="MANAGER">Manager</option>
+                <option value="ACCOUNTANT">Accountant</option>
+                <option value="FOOD_SUPPLIER">Food Supplier</option>
+              </select>
+              <p className="text-xs text-slate-500">Use the role assigned to your account. The system verifies the actual role after login.</p>
+            </div>
             <div className="space-y-2">
               <label htmlFor="name" className="block text-sm font-medium text-slate-700">name</label>
               <input
@@ -183,7 +196,7 @@ export default function LoginPage() {
           </div>
 
           <div className="pt-4 text-center text-sm text-slate-500">
-            <p>Are you an Owner? <a href="/owner/login" className="font-semibold text-cyan-500 hover:text-cyan-400">Use the Owner portal</a></p>
+            <p>Owner, Manager, Accountant, Food Supplier, or Super Admin: select your role above, then sign in.</p>
           </div>
         </div>
       </div>

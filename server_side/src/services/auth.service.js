@@ -129,7 +129,8 @@ const login = async ({ username, password }) => {
         .select(`
             *,
             roles(role_name),
-            employees(*)
+            employees(*),
+            food_suppliers!food_suppliers_user_id_fkey(*)
         `)
         .eq("username", username)
         .maybeSingle();
@@ -152,6 +153,9 @@ const login = async ({ username, password }) => {
 
     if (user.employees?.company_id) {
         companyIds.push(user.employees.company_id);
+    }
+    if (user.food_suppliers?.company_id) {
+        companyIds.push(user.food_suppliers.company_id);
     }
 
     if (resolvedRole === "OWNER") {
@@ -189,7 +193,7 @@ const login = async ({ username, password }) => {
         {
             user_id: user.user_id,
             employee_id: user.employee_id,
-            company_id: normalizedCompanyIds[0] || user.employees?.company_id,
+            company_id: normalizedCompanyIds[0] || user.employees?.company_id || user.food_suppliers?.company_id,
             company_ids: normalizedCompanyIds,
             role_name: resolvedRole || user.roles?.role_name
         },

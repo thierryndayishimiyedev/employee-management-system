@@ -14,7 +14,6 @@ import {
   Download,
   UserCog,
   Shield,
-  Pickaxe,
   LogOut,
   ChevronsLeft,
   ChevronsRight,
@@ -35,6 +34,8 @@ const nav = [
   { to: '/positions', label: 'Positions', icon: TrendingUp, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { to: '/attendance', label: 'Attendance', icon: CalendarCheck, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { to: '/production', label: 'Production', icon: Mountain, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+  { to: '/food-supplies', label: 'Food Supplies', icon: BadgeDollarSign, roles: ['OWNER', 'MANAGER', 'FOOD_SUPPLIER'] },
+  { to: '/worker-consumptions', label: 'Worker Items', icon: CreditCard, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { to: '/workers', label: 'Workers', icon: Users, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { to: '/payroll', label: 'Payroll', icon: Wallet, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { to: '/advances', label: 'Advances', icon: BadgeDollarSign, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
@@ -81,13 +82,13 @@ export default function AppSidebar() {
     >
       {/* Brand */}
       <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-4">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-amber-400 to-amber-600">
-          <Pickaxe className="h-5 w-5 text-white" />
+        <div className="flex h-9 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md border border-amber-100 bg-white">
+          <img src="/logo.png" alt="C.M.K Gatsibo" className="h-full w-full object-contain" />
         </div>
         {!collapsed && (
           <div className="flex flex-col leading-tight">
-            <span className="text-base font-semibold tracking-tight text-slate-900">MineWise</span>
-            <span className="text-[10px] uppercase tracking-widest text-slate-400">Operations Suite</span>
+            <span className="text-base font-semibold tracking-tight text-slate-900">C.M.K Gatsibo</span>
+            <span className="text-[10px] uppercase tracking-widest text-slate-400">Mining Operations</span>
           </div>
         )}
       </div>
