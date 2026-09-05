@@ -11,6 +11,7 @@ const period = (item) => item.period_start && item.period_end ? `${item.period_s
 
 export default function OwnerDashboardPage() {
   const [dashboard, setDashboard] = useState(null)
+  const [paymentReadiness, setPaymentReadiness] = useState(null)
   const { managerId, setManagerId, managers } = useOwnerManagerScope()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -19,8 +20,12 @@ export default function OwnerDashboardPage() {
     setLoading(true)
     setError('')
     try {
-      const response = await api.get('/dashboard/owner', { params: selectedManager ? { manager_user_id: selectedManager } : {} })
-      setDashboard(response.data?.data || response.data)
+      const [dashboardResponse, readinessResponse] = await Promise.all([
+        api.get('/dashboard/owner', { params: selectedManager ? { manager_user_id: selectedManager } : {} }),
+        api.get('/payments/readiness')
+      ])
+      setDashboard(dashboardResponse.data?.data || dashboardResponse.data)
+      setPaymentReadiness(readinessResponse.data?.data || readinessResponse.data)
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Unable to load the live owner dashboard.')
     } finally { setLoading(false) }
@@ -39,7 +44,8 @@ export default function OwnerDashboardPage() {
   return <div className="flex min-h-screen bg-slate-50"><AppSidebar /><main className="min-w-0 flex-1 p-4 md:p-8"><div className="mx-auto max-w-7xl space-y-6">
     <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between"><div><p className="text-xs font-semibold uppercase tracking-wider text-amber-600">Owner command center</p><h1 className="mt-2 text-3xl font-bold text-slate-900">Company operations and financial overview</h1><p className="mt-2 text-sm text-slate-500">Every value is calculated from live records for your company and selected management unit.</p></div><label className="text-sm font-medium text-slate-700">Manager<select value={managerId} onChange={(e) => chooseManager(e.target.value)} className="mt-1 block w-64 rounded-lg border border-slate-200 bg-white px-3 py-2"><option value="">All managers</option>{(managers.length ? managers : dashboard?.managers || []).map((m) => <option key={m.user_id} value={m.user_id}>{m.name}</option>)}</select></label></div></header>
     {loading ? <div className="rounded-2xl border bg-white p-6 text-slate-500">Loading live dashboard data…</div> : error ? <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">{error}</div> : <>
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{cards.map(([label, value, Icon]) => <article key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><Icon className="mb-4 h-5 w-5 text-amber-600" /><p className="text-xs font-semibold uppercase text-slate-400">{label}</p><p className="mt-2 text-2xl font-bold text-slate-900">{value ?? 0}</p></article>)}</section>
+      <section className={`rounded-2xl border p-5 shadow-sm ${paymentReadiness?.wallet_balance_available ? 'border-emerald-200 bg-emerald-50/70' : 'border-amber-200 bg-amber-50/70'}`}><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><p className="text-xs font-bold uppercase tracking-wider text-slate-500">Owner-only payment wallet</p><h2 className="mt-1 text-xl font-bold text-slate-900">Company MTN SIM balance</h2><p className="mt-1 text-sm text-slate-600">{paymentReadiness?.wallet_balance_available ? 'Live provider balance, shown only to the Owner.' : 'Balance is not connected yet. The system will never invent or estimate a SIM balance.'}</p></div><div className="rounded-xl border border-white bg-white/90 px-5 py-3 text-right shadow-sm"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Available balance</p><p className="mt-1 text-2xl font-bold text-slate-900">{paymentReadiness?.wallet_balance_available ? money(paymentReadiness.wallet_balance) : 'Not connected'}</p></div></div><p className="mt-3 text-xs text-slate-500">Provider: {paymentReadiness?.provider || 'Checking…'} · {paymentReadiness?.message || 'Payment configuration is being checked.'}</p></section>
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{cards.map(([label, value, Icon]) => <article data-dashboard-card key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><Icon className="mb-4 h-5 w-5 text-amber-600" /><p className="text-xs font-semibold uppercase text-slate-400">{label}</p><p className="mt-2 text-2xl font-bold text-slate-900">{value ?? 0}</p></article>)}</section>
       <section className="grid gap-4 lg:grid-cols-2"><Panel title="Financial overview" rows={[["Payroll paid", money(financial.payroll_paid)], ["Advances paid", money(financial.advances_paid)], ["Materials & expenses paid", money(financial.expenses_paid)], ["Food supplies paid", money(financial.food_paid)], ["Shopkeepers ready to pay", money(financial.shopkeeper_ready_to_pay)], ["Failed payments", money(financial.failed_payments)]]} /><Panel title="Operational overview" rows={[["Present today", counts.present_today], ["Hours worked", operations.attendance_hours], ["Minerals extracted", operations.production_quantity], ["Food supplies recorded", operations.food_supplies], ["Materials recorded", operations.material_purchases], ["Tools / equipment units", operations.equipment_quantity], ["Expense value", money(financial.expenses_total)]]} /></section>
       <section className="grid gap-4 xl:grid-cols-3">
         <TrackingTable title="Approval tracking" description="All pending records, whether waiting for a manager or your final decision." rows={tracking.approvals} managerName={managerName} empty="No approval records are waiting." linkTo="/reports" />

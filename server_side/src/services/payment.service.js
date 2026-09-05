@@ -591,8 +591,10 @@ const getPaymentReportCsv = async (user) => {
 };
 
 const deletePayment = async (id, user) => {
-
-    await getPaymentById(id, user);
+    const payment = await getPaymentById(id, user);
+    if (String(payment.payment_status || "").toUpperCase() === "PAID") {
+        throw new Error("A paid payment is an audit record and cannot be deleted. Use a documented dispute or reversal process instead.");
+    }
 
     const { error } = await supabase
         .from("payments")

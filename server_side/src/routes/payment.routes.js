@@ -16,7 +16,8 @@ const {
     readiness
 } = require("../controllers/payment.controller");
 
-router.get("/readiness", authenticate, authorize("OWNER", "SUPER_ADMIN"), readiness);
+// Wallet readiness and the future live SIM balance are Owner-only financial data.
+router.get("/readiness", authenticate, authorize("OWNER"), readiness);
 router.post("/pay-all", authenticate, authorize("OWNER", "SUPER_ADMIN"), payAll);
 
 router.get("/", authenticate, authorize("OWNER", "SUPER_ADMIN"), fetchPayments);
