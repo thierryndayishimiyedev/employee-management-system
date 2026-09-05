@@ -15,7 +15,8 @@ const {
 
 router.post("/", authenticate, authorize("OWNER", "SUPER_ADMIN"), registerManager);
 
-router.get("/", authenticate, authorize("OWNER", "MANAGER", "SUPER_ADMIN"), fetchManagers);
+// Suppliers need this company-scoped list to choose the manager receiving a delivery.
+router.get("/", authenticate, authorize("OWNER", "MANAGER", "ACCOUNTANT", "FOOD_SUPPLIER", "SUPER_ADMIN"), fetchManagers);
 
 router.get("/:id", authenticate, authorize("OWNER", "MANAGER", "SUPER_ADMIN"), fetchManager);
 

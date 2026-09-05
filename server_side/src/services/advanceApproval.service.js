@@ -3,9 +3,12 @@ const supabase = require("../config/supabase");
 const { isSuperAdmin, scopeByRelatedCompany } = require("../utils/companyScope");
 const { getPaymentProvider } = require("./paymentProviders");
 const { normalizeRwandaPhone } = require("../utils/rwandaPhone");
+const { scopeByManager } = require("../utils/managerScope");
 
 const getScopedAdvance = async (id, user) => {
-    const { data, error } = await scopeByRelatedCompany(supabase.from("salary_advances").select("*, employees!inner(company_id, phone, first_name, last_name, status)").eq("advance_id", id), user).maybeSingle();
+    let query = scopeByRelatedCompany(supabase.from("salary_advances").select("*, employees!inner(company_id, manager_user_id, phone, first_name, last_name, status)").eq("advance_id", id), user);
+    query = scopeByManager(query, user, "employees.manager_user_id");
+    const { data, error } = await query.maybeSingle();
     if (error || !data) throw new Error("Advance not found for your company.");
     return data;
 };
@@ -22,7 +25,9 @@ const reviewAdvance = async (id, decision, reason, user) => {
         if (advance.status !== "PENDING_OWNER") throw new Error("Advance must be manager-approved before owner approval.");
         update = decision === "approve" ? { status: "OWNER_APPROVED", owner_approved_by: user.user_id, owner_approved_at: now, approval_date: now.slice(0, 10) } : { status: "CHANGES_REQUESTED", owner_rejection_reason: reason || null };
     } else throw new Error("Only a manager, owner, or super admin may review an advance.");
-    const { data, error } = await supabase.from("salary_advances").update(update).eq("advance_id", id).select().single();
+    let updateQuery = supabase.from("salary_advances").update(update).eq("advance_id", id);
+    updateQuery = scopeByManager(updateQuery, user);
+    const { data, error } = await updateQuery.select().single();
     if (error) throw error;
     return data;
 };
@@ -45,4 +50,12 @@ const payAdvance = async (id, user) => {
     if (error) throw error;
     return data;
 };
-module.exports = { reviewAdvance, payAdvance };
+const payAllAdvances = async ({ manager_user_id } = {}, user) => {
+    let query = scopeByRelatedCompany(supabase.from("salary_advances").select("advance_id, manager_user_id, status, payment_status, employees!inner(company_id)"), user);
+    if (manager_user_id) query = query.eq("manager_user_id", manager_user_id);
+    const { data, error } = await query; if (error) throw error;
+    const eligible = (data || []).filter((row) => row.status === "OWNER_APPROVED" && row.payment_status !== "PAID"); const failed = []; let paid = 0;
+    for (const row of eligible) { try { await payAdvance(row.advance_id, user); paid += 1; } catch (err) { failed.push({ advance_id: row.advance_id, message: err.message }); } }
+    return { total: eligible.length, paid, failed };
+};
+module.exports = { reviewAdvance, payAdvance, payAllAdvances };

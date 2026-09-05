@@ -1,5 +1,7 @@
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 
 const testRoutes = require("./routes/test.routes");
 const adminRoutes = require("./routes/admin.routes");
@@ -30,11 +32,18 @@ const downloadRoutes = require("./routes/download.routes");
 const foodSupplierRoutes = require("./routes/foodSupplier.routes");
 const foodSupplyRoutes = require("./routes/foodSupply.routes");
 const workerConsumptionRoutes = require("./routes/workerConsumption.routes");
+const shopkeeperRoutes = require("./routes/shopkeeper.routes");
+const operationalExpenseRoutes = require("./routes/operationalExpense.routes");
+const notificationRoutes = require("./routes/notification.routes");
+const settingsRoutes = require("./routes/settings.routes");
+const flexibleWorkRoutes = require("./routes/flexibleWork.routes");
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+app.use(helmet({ crossOriginResourcePolicy: false }));
+app.use(cors(process.env.CORS_ORIGIN ? { origin: process.env.CORS_ORIGIN.split(",").map((value) => value.trim()) } : undefined));
+app.use(express.json({ limit: "1mb" }));
+const paymentLimiter = rateLimit({ windowMs: 60 * 1000, limit: 20, standardHeaders: "draft-8", legacyHeaders: false, message: { success: false, message: "Too many payment requests. Please wait one minute before trying again." } });
 
 app.get("/api/test", (req, res) => {
     res.json({
@@ -60,7 +69,7 @@ app.use("/api/payroll", payrollRoutes);
 app.use("/api/advances",advanceRoutes);
 app.use("/api/advance-approvals", advanceApprovalRoutes);
 app.use("/api/payroll-approvals", payrollApprovalRoutes);
-app.use("/api/payments",paymentRoutes);
+app.use("/api/payments", paymentLimiter, paymentRoutes);
 app.use("/api/departments", departmentRoutes);
 app.use("/api/positions", positionRoutes);
 app.use("/api/roles", roleRoutes);
@@ -72,6 +81,11 @@ app.use("/api/downloads", downloadRoutes);
 app.use("/api/food-suppliers", foodSupplierRoutes);
 app.use("/api/food-supplies", foodSupplyRoutes);
 app.use("/api/worker-consumptions", workerConsumptionRoutes);
+app.use("/api/shopkeepers", shopkeeperRoutes);
+app.use("/api/operational-expenses", operationalExpenseRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/settings", settingsRoutes);
+app.use("/api/flexible-work", flexibleWorkRoutes);
 
 
 

@@ -6,5 +6,6 @@ module.exports = {
     approve: respond((req) => service.reviewFoodSupply(req.params.id, "approve", req.body?.comments, req.user)),
     changes: respond((req) => service.reviewFoodSupply(req.params.id, "changes", req.body?.comments, req.user)),
     pay: respond((req) => service.payFoodSupply(req.params.id, req.user)),
+    payAll: respond((req) => service.payAllFoodSupplies(req.body || {}, req.user)),
     report: async (req, res) => { try { const csv = await service.foodSupplyCsv(req.user); res.setHeader("Content-Type", "text/csv; charset=utf-8"); res.setHeader("Content-Disposition", "attachment; filename=food-supply-report.csv"); res.send(csv); } catch (err) { res.status(400).json({ success: false, message: err.message }); } }
 };

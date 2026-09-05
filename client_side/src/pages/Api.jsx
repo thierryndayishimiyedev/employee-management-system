@@ -15,7 +15,7 @@ function getToken() {
   // Adjust this to however your authStore actually persists the JWT.
   // Common patterns: localStorage.getItem('token'), or reading it off
   // the user object returned by useAuth().
-  return localStorage.getItem('token');
+  return sessionStorage.getItem('token');
 }
 
 async function request(path, { method = 'GET', body, token } = {}) {

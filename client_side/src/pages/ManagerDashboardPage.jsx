@@ -64,31 +64,31 @@ export default function ManagerDashboardPage() {
   const stats = [
     {
       label: 'Workers managed',
-      value: dashboard?.total_workers ?? employees.length,
+      value: dashboard?.counts?.workers ?? employees.length,
       icon: Users,
       tone: 'amber',
       detail: 'Employees available for daily operations',
     },
     {
       label: 'Attendance today',
-      value: attendanceToday.length,
+      value: dashboard?.counts?.attendance_today ?? attendanceToday.length,
       icon: CalendarCheck,
       tone: 'emerald',
       detail: 'Attendance records captured today',
     },
     {
       label: 'Production records',
-      value: dashboard?.production_records ?? production.length,
+      value: production.length,
       icon: Mountain,
       tone: 'cyan',
       detail: `${Number(totalProduction || 0).toLocaleString()} kg recorded`,
     },
     {
       label: 'Open workflows',
-      value: '4',
+      value: dashboard?.counts?.pending_approvals ?? 0,
       icon: ClipboardList,
       tone: 'slate',
-      detail: 'Reports, attendance, production, and workers',
+      detail: `${dashboard?.counts?.reports_waiting ?? 0} reports awaiting your review`,
     },
   ]
 
@@ -125,8 +125,10 @@ export default function ManagerDashboardPage() {
               <MetricList
                 metrics={[
                   { label: 'Attendance captured', value: attendanceToday.length },
-                  { label: 'Production entries', value: production.length },
-                  { label: 'Workers available', value: employees.length },
+                  { label: 'Workers present', value: dashboard?.counts?.present_today ?? 0 },
+                  { label: 'Workers absent', value: dashboard?.counts?.absent_today ?? 0 },
+                  { label: 'Hours / overtime', value: `${dashboard?.operations?.attendance_hours ?? 0} / ${dashboard?.operations?.overtime_hours ?? 0}` },
+                  { label: 'Minerals extracted', value: dashboard?.operations?.production_quantity ?? 0 },
                 ]}
               />
             </SectionCard>

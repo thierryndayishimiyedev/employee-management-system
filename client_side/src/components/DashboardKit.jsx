@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import AppSidebar from '../pages/Appsidebar'
 
 const toneStyles = {
-  amber: { bg: 'bg-amber-50', icon: 'text-amber-600', ring: 'ring-amber-100', dot: 'bg-amber-500' },
+  amber: { bg: 'bg-emerald-50', icon: 'text-emerald-600', ring: 'ring-emerald-100', dot: 'bg-emerald-500' },
   emerald: { bg: 'bg-emerald-50', icon: 'text-emerald-600', ring: 'ring-emerald-100', dot: 'bg-emerald-500' },
   cyan: { bg: 'bg-cyan-50', icon: 'text-cyan-600', ring: 'ring-cyan-100', dot: 'bg-cyan-500' },
   slate: { bg: 'bg-slate-100', icon: 'text-slate-600', ring: 'ring-slate-200', dot: 'bg-slate-500' },
@@ -74,7 +74,7 @@ export function StatCard({ item }) {
   const tone = toneStyles[item.tone] || toneStyles.amber
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <article className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-lg">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{item.label}</p>
@@ -84,7 +84,7 @@ export function StatCard({ item }) {
           <Icon size={20} />
         </div>
       </div>
-      <p className="mt-4 text-sm text-slate-500">{item.detail}</p>
+      <p className="mt-4 border-t border-slate-100 pt-3 text-sm text-slate-500">{item.detail}</p>
     </article>
   )
 }

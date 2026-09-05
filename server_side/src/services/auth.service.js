@@ -129,7 +129,7 @@ const login = async ({ username, password }) => {
         .select(`
             *,
             roles(role_name),
-            employees(*),
+            employees!fk_user_employee(*),
             food_suppliers!food_suppliers_user_id_fkey(*)
         `)
         .eq("username", username)
@@ -189,13 +189,19 @@ const login = async ({ username, password }) => {
     }
 
     const normalizedCompanyIds = [...new Set(companyIds.filter(Boolean))];
+    const managerUserId = resolvedRole === "MANAGER"
+        ? user.user_id
+        : user.employees?.manager_user_id || null;
     const token = jwt.sign(
         {
             user_id: user.user_id,
             employee_id: user.employee_id,
             company_id: normalizedCompanyIds[0] || user.employees?.company_id || user.food_suppliers?.company_id,
             company_ids: normalizedCompanyIds,
-            role_name: resolvedRole || user.roles?.role_name
+            manager_user_id: managerUserId,
+            role_name: resolvedRole || user.roles?.role_name,
+            username: user.username,
+            display_name: [user.employees?.first_name, user.employees?.last_name].filter(Boolean).join(" ") || user.username
         },
         process.env.JWT_SECRET,
         {

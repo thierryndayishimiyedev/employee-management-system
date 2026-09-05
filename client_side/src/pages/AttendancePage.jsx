@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
     Users,
     UserCheck,
@@ -6,7 +6,6 @@ import {
     Clock3,
     CalendarDays,
     Search,
-    Plus,
     RefreshCw
 } from "lucide-react";
 
@@ -25,8 +24,11 @@ import AttendanceStats from "../components/AttendanceStats";
 import AttendanceChart from "../components/AttendanceChart";
 import AttendanceSummary from "../components/AttendanceSummary";
 import AttendanceModal from "../components/AttendanceModal";
+import DailyAttendanceRegister from "../components/DailyAttendanceRegister";
 import { useAuth } from "../context/authStore";
 import AppSidebar from "./Appsidebar";
+import { useOwnerManagerScope } from '../context/OwnerManagerScope';
+import OwnerManagerSelector from '../components/OwnerManagerSelector';
 
 const buildWeeklyChartData = (records = []) => {
     const today = new Date();
@@ -98,6 +100,7 @@ const buildMonthlySummaryData = (records = []) => {
 export default function AttendancePage() {
 
     const { user } = useAuth();
+    const { managerId, managers } = useOwnerManagerScope();
 
     const canManageAttendance = user?.role_name === "ACCOUNTANT";
 
@@ -237,6 +240,33 @@ export default function AttendancePage() {
 
     };
 
+    const scopedAttendances = useMemo(() => user?.role_name === 'OWNER' && managerId
+        ? attendances.filter((attendance) => attendance.manager_user_id === managerId)
+        : attendances, [attendances, managerId, user?.role_name]);
+
+    // Never combine a selected manager's table with company-wide card/chart
+    // values.  All displayed metrics are recalculated from this exact scope.
+    const scopedDashboard = useMemo(() => {
+        const today = new Date().toISOString().split('T')[0];
+        const employeeIds = new Set(scopedAttendances.map((record) => record.employee_id).filter(Boolean));
+        const todayRows = scopedAttendances.filter((record) => record.attendance_date === today);
+        const countStatus = (rows, status) => rows.filter((record) => record.attendance_status === status).length;
+        return {
+            totalEmployees: employeeIds.size,
+            present: countStatus(scopedAttendances, 'PRESENT'),
+            absent: countStatus(scopedAttendances, 'ABSENT'),
+            late: countStatus(scopedAttendances, 'LATE'),
+            leave: countStatus(scopedAttendances, 'LEAVE'),
+            presentToday: countStatus(todayRows, 'PRESENT'),
+            absentToday: countStatus(todayRows, 'ABSENT'),
+            lateToday: countStatus(todayRows, 'LATE'),
+        };
+    }, [scopedAttendances]);
+
+    const scopedWeeklyAttendance = useMemo(() => buildWeeklyChartData(scopedAttendances), [scopedAttendances]);
+
+    const selectedManagerName = managerId ? managers.find((manager) => manager.user_id === managerId)?.name || 'Selected manager' : 'All managers';
+
     if (loading) {
 
         return (
@@ -251,7 +281,7 @@ export default function AttendancePage() {
 
     }
 
-    const filteredAttendance = (attendances || []).filter((attendance) => {
+    const filteredAttendance = (scopedAttendances || []).filter((attendance) => {
 
         const employee =
             `${attendance?.employees?.first_name || ""} ${attendance?.employees?.last_name || ""}`.toLowerCase();
@@ -280,6 +310,14 @@ export default function AttendancePage() {
 
                 {/* Header */}
 
+                {user?.role_name === 'OWNER' && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-slate-700">
+                        <span><strong>Manager scope:</strong> {selectedManagerName}</span>
+                        <OwnerManagerSelector compact />
+                        <span><strong>Attendance records:</strong> {scopedAttendances.length}</span>
+                    </div>
+                )}
+
                 <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
 
                 <div className="flex flex-wrap items-end justify-between gap-4">
@@ -300,7 +338,7 @@ export default function AttendancePage() {
 
                         <p className="mt-2 max-w-2xl text-slate-500">
 
-                            {canManageAttendance ? "Record daily attendance and review attendance history." : "View company attendance records and today's attendance status."}
+                            {canManageAttendance ? "Use the daily worker register for fast attendance, or record a manual exception for an unusual shift." : "View company attendance records and today's attendance status."}
 
                         </p>
 
@@ -322,33 +360,17 @@ export default function AttendancePage() {
 
                         </button>
 
-                        {canManageAttendance && (
-                        <button
-
-                            onClick={() => {
-
-                                setSelectedAttendance(null);
-
-                                setShowModal(true);
-
-                            }}
-
-                            className="inline-flex items-center gap-2 rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
-
-                        >
-
-                            <Plus size={18} />
-
-                            Record Attendance
-
-                        </button>
-                        )}
-
                     </div>
 
                 </div>
 
                 </header>
+
+                <DailyAttendanceRegister
+                    enabled={canManageAttendance}
+                    todayRecords={todayAttendance}
+                    onChanged={refreshDashboard}
+                />
 
 
                           {/* Statistics */}
@@ -361,7 +383,7 @@ export default function AttendancePage() {
 
                             title: "Total Employees",
 
-                            value: dashboard.totalEmployees,
+                            value: scopedDashboard.totalEmployees,
 
                             icon: Users,
 
@@ -373,7 +395,7 @@ export default function AttendancePage() {
 
                             title: "Present",
 
-                            value: dashboard.present ?? dashboard.presentToday,
+                            value: scopedDashboard.present,
 
                             icon: UserCheck,
 
@@ -385,7 +407,7 @@ export default function AttendancePage() {
 
                             title: "Absent",
 
-                            value: dashboard.absent ?? dashboard.absentToday,
+                            value: scopedDashboard.absent,
 
                             icon: UserX,
 
@@ -397,7 +419,7 @@ export default function AttendancePage() {
 
                             title: "Late",
 
-                            value: dashboard.late ?? dashboard.lateToday,
+                            value: scopedDashboard.late,
 
                             icon: Clock3,
 
@@ -409,7 +431,7 @@ export default function AttendancePage() {
 
                             title: "Leave",
 
-                            value: dashboard.leave ?? 0,
+                            value: scopedDashboard.leave,
 
                             icon: CalendarDays,
 
@@ -454,7 +476,7 @@ export default function AttendancePage() {
 
                     <AttendanceChart
 
-                        data={weeklyAttendance}
+                            data={scopedWeeklyAttendance}
 
                     />
 
@@ -875,7 +897,7 @@ export default function AttendancePage() {
 
                                 <span className="text-xl font-bold text-slate-900">
 
-                                    {dashboard.totalEmployees}
+                                    {scopedDashboard.totalEmployees}
 
                                 </span>
 
@@ -891,7 +913,7 @@ export default function AttendancePage() {
 
                                 <span className="font-semibold text-emerald-600">
 
-                                    {dashboard.presentToday}
+                                    {scopedDashboard.presentToday}
 
                                 </span>
 
@@ -907,7 +929,7 @@ export default function AttendancePage() {
 
                                 <span className="font-semibold text-red-600">
 
-                                    {dashboard.absentToday}
+                                    {scopedDashboard.absentToday}
 
                                 </span>
 
@@ -923,7 +945,7 @@ export default function AttendancePage() {
 
                                 <span className="font-semibold text-amber-600">
 
-                                    {dashboard.late ?? dashboard.lateToday}
+                                    {scopedDashboard.late}
 
                                 </span>
 
@@ -939,7 +961,7 @@ export default function AttendancePage() {
 
                                 <span className="font-semibold text-slate-600">
 
-                                    {dashboard.leave ?? 0}
+                                    {scopedDashboard.leave}
 
                                 </span>
 
@@ -957,17 +979,17 @@ export default function AttendancePage() {
 
                                     {
 
-                                        dashboard.totalEmployees === 0
+                                        scopedDashboard.totalEmployees === 0
 
                                             ? "0%"
 
                                             : `${Math.round(
 
-                                                  dashboard.presentToday *
+                                                  scopedDashboard.presentToday *
 
                                                       100 /
 
-                                                      dashboard.totalEmployees
+                                                      scopedDashboard.totalEmployees
 
                                               )}%`
 

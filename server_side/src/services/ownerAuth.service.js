@@ -9,7 +9,7 @@ const ownerLogin = async ({ username, password }) => {
         .select(` 
             *,
             roles(role_name),
-            employees(*)
+            employees!fk_user_employee(*)
         `)
         .eq("username", username)
         .maybeSingle();
@@ -66,7 +66,9 @@ const ownerLogin = async ({ username, password }) => {
             employee_id: user.employee_id,
             company_id: normalizedCompanyIds[0] || user.employees?.company_id,
             company_ids: normalizedCompanyIds,
-            role_name: "OWNER"
+            role_name: "OWNER",
+            username: user.username,
+            display_name: [user.employees?.first_name, user.employees?.last_name].filter(Boolean).join(" ") || user.username
         },
         process.env.JWT_SECRET,
         { expiresIn: "1d" }

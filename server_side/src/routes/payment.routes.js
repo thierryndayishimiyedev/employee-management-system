@@ -10,15 +10,19 @@ const {
     fetchPayments,
     fetchPayment,
     fetchPaymentReport,
+    workerProof,
     downloadPaymentReport,
-    removePayment
+    removePayment,
+    readiness
 } = require("../controllers/payment.controller");
 
+router.get("/readiness", authenticate, authorize("OWNER", "SUPER_ADMIN"), readiness);
 router.post("/pay-all", authenticate, authorize("OWNER", "SUPER_ADMIN"), payAll);
 
 router.get("/", authenticate, authorize("OWNER", "SUPER_ADMIN"), fetchPayments);
 
 router.get("/report", authenticate, authorize("OWNER", "SUPER_ADMIN"), fetchPaymentReport);
+router.get("/worker-proof", authenticate, authorize("OWNER", "SUPER_ADMIN"), workerProof);
 
 router.get("/report/download", authenticate, authorize("OWNER", "SUPER_ADMIN"), downloadPaymentReport);
 

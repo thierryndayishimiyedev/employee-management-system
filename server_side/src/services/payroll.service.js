@@ -2,6 +2,7 @@ const supabase = require("../config/supabase");
 const { isSuperAdmin, requireCompanyIds, scopeByRelatedCompany } = require("../utils/companyScope");
 const { applyPayrollAdvanceDeductions } = require("./advanceDeduction.service");
 const { applyPayrollConsumptionDeductions } = require("./workerConsumptionDeduction.service");
+const { scopeByManager, assertEmployeeManager } = require("../utils/managerScope");
 
 const isPayrollStatusConstraintError = (error) => {
 
@@ -83,6 +84,26 @@ const generatePayroll = async (payload, user) => {
 
     if (employeeError || !employee)
         throw new Error("Employee not found.");
+    assertEmployeeManager(employee, user);
+    if (!employee.manager_user_id) throw new Error("Employee is not assigned to a manager.");
+
+    // An attendance day may only be settled once. Exact-period uniqueness is
+    // insufficient because periods such as 7–20 overlap a prior 1–14 period.
+    if (period.frequency === "BIWEEKLY") {
+        const { data: overlapping, error: overlapError } = await supabase
+            .from("payroll")
+            .select("payroll_id, payroll_period_start, payroll_period_end")
+            .eq("employee_id", employee_id)
+            .eq("payroll_frequency", "BIWEEKLY")
+            .lte("payroll_period_start", period.endDate)
+            .gte("payroll_period_end", period.startDate)
+            .limit(1);
+        if (overlapError) throw overlapError;
+        if (overlapping?.length) {
+            const prior = overlapping[0];
+            throw new Error(`Payroll cannot overlap paid/calculated attendance. ${prior.payroll_period_start} to ${prior.payroll_period_end} was already calculated; start after ${prior.payroll_period_end}.`);
+        }
+    }
 
     const { data: attendance, error: attendanceError } = await supabase
         .from("attendance")
@@ -94,16 +115,26 @@ const generatePayroll = async (payload, user) => {
     if (attendanceError)
         throw attendanceError;
 
-    const daysWorked = attendance.filter(
-        a => a.attendance_status === "PRESENT"
-    ).length;
+    // Sunday records are excluded even if legacy data contains them. Sunday is
+    // a company rest day and cannot increase a worker's paid days.
+    const daysWorked = attendance.filter((record) => (
+        record.attendance_status === "PRESENT" && new Date(`${record.attendance_date}T00:00:00Z`).getUTCDay() !== 0
+    )).length;
 
     const overtimeHours = attendance.reduce(
         (sum, a) => sum + Number(a.overtime_hours || 0),
         0
     );
 
-    const basicSalary = daysWorked * Number(employee.daily_rate);
+    let flexibleEntries = [];
+    if (employee.payment_type === "FLEXIBLE_DAILY") {
+        let entryQuery = supabase.from("flexible_work_entries").select("*").eq("employee_id", employee_id).gte("work_date", period.startDate).lte("work_date", period.endDate).is("payroll_id", null);
+        const { data, error } = await entryQuery; if (error) throw error;
+        flexibleEntries = data || [];
+        if (!flexibleEntries.length) throw new Error("No unpaid flexible-work entries exist for this payroll period.");
+    }
+    const paidDays = employee.payment_type === "FLEXIBLE_DAILY" ? flexibleEntries.length : daysWorked;
+    const basicSalary = employee.payment_type === "FLEXIBLE_DAILY" ? flexibleEntries.reduce((sum, row) => sum + Number(row.agreed_daily_rate || 0), 0) : daysWorked * Number(employee.daily_rate);
 
     const overtimePay = overtimeHours * (Number(employee.daily_rate) / 8);
 
@@ -113,12 +144,13 @@ const generatePayroll = async (payload, user) => {
     const payrollData = {
         employee_id,
         company_id: employee.company_id,
+        manager_user_id: employee.manager_user_id,
         payroll_month: period.payroll_month,
         payroll_year: period.payroll_year,
         payroll_period_start: period.frequency === "BIWEEKLY" ? period.startDate : null,
         payroll_period_end: period.frequency === "BIWEEKLY" ? period.endDate : null,
         payroll_frequency: period.frequency,
-        days_worked: daysWorked,
+        days_worked: paidDays,
         overtime_hours: overtimeHours,
         basic_salary: basicSalary,
         overtime_pay: overtimePay,
@@ -161,6 +193,10 @@ const generatePayroll = async (payload, user) => {
         net_salary: Math.max(0, basicSalary + overtimePay + allowances - deductions - advanceDeduction - consumptionDeduction)
     }).eq("payroll_id", payroll.payroll_id).select().single();
     if (finalizeError) throw finalizeError;
+    if (flexibleEntries.length) {
+        const { error: markError } = await supabase.from("flexible_work_entries").update({ payroll_id: payroll.payroll_id }).in("flexible_work_id", flexibleEntries.map((row) => row.flexible_work_id));
+        if (markError) throw markError;
+    }
     return finalized;
 
 };
@@ -175,6 +211,7 @@ const getPayrolls = async (user) => {
                 employee_code,
                 first_name,
                 last_name,
+                daily_rate,
                 company_id
             )
         `)
@@ -183,6 +220,7 @@ const getPayrolls = async (user) => {
         });
 
     query = scopeByRelatedCompany(query, user);
+    query = scopeByManager(query, user, "employees.manager_user_id");
 
     const { data, error } = await query;
 
@@ -246,6 +284,7 @@ const getPayrollById = async (id, user) => {
         .eq("payroll_id", id);
 
     query = scopeByRelatedCompany(query, user);
+    query = scopeByManager(query, user, "employees.manager_user_id");
 
     const { data, error } = await query.single();
 

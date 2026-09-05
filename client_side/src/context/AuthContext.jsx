@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "../api/api";
 import { AuthContext } from "./authStore";
 import { normalizeUser } from "./authUtils";
@@ -7,7 +7,9 @@ export function AuthProvider({ children }) {
 
     const [user, setUser] = useState(() => {
 
-        const saved = localStorage.getItem("user");
+        // Authentication lives only for this browser session. Closing the app
+        // removes it; preferences such as language remain in local storage.
+        const saved = sessionStorage.getItem("user");
 
         if (!saved) {
             return null;
@@ -18,15 +20,15 @@ export function AuthProvider({ children }) {
             const normalized = normalizeUser(parsed);
 
             if (!normalized?.role_name) {
-                localStorage.removeItem("user");
-                localStorage.removeItem("token");
+                sessionStorage.removeItem("user");
+                sessionStorage.removeItem("token");
                 return null;
             }
 
             return normalized;
         } catch {
-            localStorage.removeItem("user");
-            localStorage.removeItem("token");
+            sessionStorage.removeItem("user");
+            sessionStorage.removeItem("token");
             return null;
         }
 
@@ -51,8 +53,8 @@ export function AuthProvider({ children }) {
         const token = response.data.data.token;
         const loggedUser = normalizeUser(response.data.data.user);
 
-        localStorage.setItem("token", token);
-        localStorage.setItem(
+        sessionStorage.setItem("token", token);
+        sessionStorage.setItem(
             "user",
             JSON.stringify(loggedUser)
         );
@@ -65,12 +67,25 @@ export function AuthProvider({ children }) {
 
     const logout = () => {
 
+        sessionStorage.removeItem("token");
+        sessionStorage.removeItem("user");
+        // Remove old persistent credentials from earlier app versions.
         localStorage.removeItem("token");
         localStorage.removeItem("user");
 
         setUser(null);
 
     };
+
+    useEffect(() => {
+        if (!user) return undefined;
+        const idleMs = 30 * 60 * 1000;
+        let timeout;
+        const reset = () => { clearTimeout(timeout); timeout = setTimeout(logout, idleMs); };
+        ["pointerdown", "keydown", "scroll", "touchstart"].forEach((event) => window.addEventListener(event, reset, { passive: true }));
+        reset();
+        return () => { clearTimeout(timeout); ["pointerdown", "keydown", "scroll", "touchstart"].forEach((event) => window.removeEventListener(event, reset)); };
+    }, [user]);
 
     const value = useMemo(() => ({
 

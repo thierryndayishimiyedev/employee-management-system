@@ -9,7 +9,7 @@ const managerLogin = async ({ username, password }) => {
         .select(`
             *,
             roles(role_name),
-            employees(*)
+            employees!fk_user_employee(*)
         `)
         .eq("username", username)
         .single();
@@ -30,7 +30,10 @@ const managerLogin = async ({ username, password }) => {
             user_id: user.user_id,
             employee_id: user.employee_id,
             company_id: user.employees.company_id,
-            role_name: "MANAGER"
+            manager_user_id: user.user_id,
+            role_name: "MANAGER",
+            username: user.username,
+            display_name: [user.employees?.first_name, user.employees?.last_name].filter(Boolean).join(" ") || user.username
         },
         process.env.JWT_SECRET,
         { expiresIn: "1d" }

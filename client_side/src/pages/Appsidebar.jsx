@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../context/authStore'
 import { useLanguage } from '../context/LanguageContext'
+import { useOwnerManagerScope } from '../context/OwnerManagerScope'
 
 const nav = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['SUPER_ADMIN'] },
@@ -36,15 +37,20 @@ const nav = [
   { to: '/production', label: 'Production', icon: Mountain, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { to: '/food-supplies', label: 'Food Supplies', icon: BadgeDollarSign, roles: ['OWNER', 'MANAGER', 'FOOD_SUPPLIER'] },
   { to: '/worker-consumptions', label: 'Worker Items', icon: CreditCard, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+  { to: '/expenses', label: 'Expenses & Materials', icon: BadgeDollarSign, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { to: '/workers', label: 'Workers', icon: Users, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+  { to: '/flexible-work', label: 'Flexible Work', icon: Wallet, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { to: '/payroll', label: 'Payroll', icon: Wallet, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { to: '/advances', label: 'Advances', icon: BadgeDollarSign, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { to: '/payments', label: 'Payments', icon: CreditCard, roles: ['OWNER'] },
+  { to: '/payment-proof', label: 'Payment Proof', icon: Shield, roles: ['OWNER'] },
+  { to: '/notifications', label: 'Notifications', icon: FileText, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { to: '/reports', label: 'Reports', icon: FileText, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { to: '/downloads', label: 'Downloads', icon: Download, roles: ['SUPER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTANT'] },
+  { to: '/downloads', label: 'Downloads', icon: Download, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT', 'FOOD_SUPPLIER'] },
   { to: '/managers', label: 'Managers', icon: UserCog, roles: ['OWNER'] },
   { to: '/accountants', label: 'Accountants', icon: Users, roles: ['OWNER'] },
   { to: '/roles', label: 'Roles', icon: Shield, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+  { to: '/settings', label: 'Settings', icon: Shield, roles: ['SUPER_ADMIN', 'OWNER'] },
 ]
 
 export default function AppSidebar() {
@@ -53,6 +59,7 @@ export default function AppSidebar() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const { language, setLanguage, t } = useLanguage()
+  const { managerId, managers, setManagerId } = useOwnerManagerScope()
 
   if (!user) return null
 
@@ -95,6 +102,14 @@ export default function AppSidebar() {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
+        {user.role_name === 'OWNER' && !collapsed && (
+          <label className="mb-4 block px-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Manager scope
+            <select value={managerId} onChange={(event) => setManagerId(event.target.value)} className="mt-2 w-full rounded-md border border-slate-200 bg-white px-2 py-2 text-sm normal-case text-slate-700">
+              <option value="">All managers</option>
+              {managers.map((manager) => <option key={manager.user_id} value={manager.user_id}>{manager.name}</option>)}
+            </select>
+          </label>
+        )}
         {!collapsed && (
           <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
             {t('Workspace')}

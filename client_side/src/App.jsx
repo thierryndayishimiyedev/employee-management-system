@@ -17,14 +17,20 @@ import ManagementPage from "./pages/ManagementPage";
 import DownloadCenterPage from "./pages/DownloadCenterPage";
 import FoodSupplyPage from "./pages/FoodSupplyPage";
 import WorkerConsumptionsPage from "./pages/WorkerConsumptionsPage";
+import OperationalExpensesPage from "./pages/OperationalExpensesPage";
+import PaymentProofPage from "./pages/PaymentProofPage";
+import NotificationCenterPage from "./pages/NotificationCenterPage";
+import SettingsPage from "./pages/SettingsPage";
+import FlexibleWorkPage from "./pages/FlexibleWorkPage";
 
 import "./App.css";
+import { OwnerManagerScopeProvider } from './context/OwnerManagerScope';
 
 function App() {
 
     return (
 
-        <Routes>
+        <OwnerManagerScopeProvider><Routes>
 
             <Route
                 path="/"
@@ -97,6 +103,14 @@ function App() {
                 path="/worker-consumptions"
                 element={<ProtectedRoute allowedRoles={["OWNER", "MANAGER", "ACCOUNTANT"]} redirectTo="/login"><WorkerConsumptionsPage /></ProtectedRoute>}
             />
+            <Route
+                path="/expenses"
+                element={<ProtectedRoute allowedRoles={["OWNER", "MANAGER", "ACCOUNTANT"]} redirectTo="/login"><OperationalExpensesPage /></ProtectedRoute>}
+            />
+            <Route path="/payment-proof" element={<ProtectedRoute allowedRoles={["OWNER"]} redirectTo="/owner/login"><PaymentProofPage /></ProtectedRoute>} />
+            <Route path="/notifications" element={<ProtectedRoute allowedRoles={["OWNER", "MANAGER", "ACCOUNTANT"]} redirectTo="/login"><NotificationCenterPage /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "OWNER"]} redirectTo="/login"><SettingsPage /></ProtectedRoute>} />
+            <Route path="/flexible-work" element={<ProtectedRoute allowedRoles={["OWNER", "MANAGER", "ACCOUNTANT"]} redirectTo="/login"><FlexibleWorkPage /></ProtectedRoute>} />
             <Route
                 path="/mines"
                 element={
@@ -277,7 +291,7 @@ function App() {
                 path="/downloads"
                 element={
                     <ProtectedRoute
-                        allowedRoles={["SUPER_ADMIN", "OWNER", "ACCOUNTANT", "MANAGER"]}
+                        allowedRoles={["OWNER", "ACCOUNTANT", "MANAGER", "FOOD_SUPPLIER"]}
                         redirectTo="/login"
                     >
                         <DownloadCenterPage />
@@ -289,7 +303,7 @@ function App() {
                 element={<Navigate to="/login" replace />}
             />
 
-        </Routes>
+        </Routes></OwnerManagerScopeProvider>
 
 
     );

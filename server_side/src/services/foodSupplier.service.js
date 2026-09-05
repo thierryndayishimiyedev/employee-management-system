@@ -9,6 +9,16 @@ const createFoodSupplier = async (payload, user) => {
         throw new Error("Supplier name, username, and password are required.");
     }
     if (String(payload.password).length < 8) throw new Error("Supplier password must contain at least 8 characters.");
+    const { data: currentSupplier, error: supplierLookupError } = await supabase
+        .from("food_suppliers")
+        .select("supplier_id, supplier_name")
+        .eq("company_id", company_id)
+        .eq("active", true)
+        .maybeSingle();
+    if (supplierLookupError) throw supplierLookupError;
+    if (currentSupplier) {
+        throw new Error(`This company already has the active food supplier account: ${currentSupplier.supplier_name}.`);
+    }
     const { data: role, error: roleError } = await supabase.from("roles").select("role_id").eq("role_name", "FOOD_SUPPLIER").single();
     if (roleError || !role) throw new Error("FOOD_SUPPLIER role is missing. Run the food migration first.");
     const { data: existing } = await supabase.from("users").select("user_id").eq("username", payload.username.trim()).maybeSingle();

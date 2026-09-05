@@ -2,6 +2,7 @@ const { randomUUID } = require("crypto");
 const supabase = require("../config/supabase");
 const { isSuperAdmin, requireCompanyIds, scopeByCompany } = require("../utils/companyScope");
 const { getPaymentProvider } = require("./paymentProviders");
+const { scopeByManager, assertManagerInCompany } = require("../utils/managerScope");
 
 const totalOf = (items) => items.reduce((sum, item) => sum + Number(item.quantity) * Number(item.unit_price), 0);
 const validItems = (items) => Array.isArray(items) && items.length && items.every((i) => i.food_name?.trim() && Number(i.quantity) > 0 && Number(i.unit_price) >= 0 && i.unit?.trim());
@@ -12,12 +13,14 @@ const supplierForUser = async (user) => {
     return data;
 };
 
-const createFoodSupply = async ({ supply_date, notes, items }, user) => {
+const createFoodSupply = async ({ supply_date, notes, items, manager_user_id }, user) => {
     const supplier = await supplierForUser(user);
+    if (!manager_user_id) throw new Error("Select the manager receiving this supply.");
+    await assertManagerInCompany(manager_user_id, supplier.company_id);
     if (!supply_date || Number.isNaN(Date.parse(supply_date))) throw new Error("A valid supply date is required.");
     if (!validItems(items)) throw new Error("Each food item needs a name, positive quantity, unit, and valid unit price.");
     const { data: supply, error } = await supabase.from("food_supplies").insert([{
-        company_id: supplier.company_id, supplier_id: supplier.supplier_id, supply_date, notes: notes || null, status: "PENDING_MANAGER"
+        company_id: supplier.company_id, supplier_id: supplier.supplier_id, manager_user_id, supply_date, notes: notes || null, status: "PENDING_MANAGER"
     }]).select().single();
     if (error) throw error;
     const rows = items.map((item) => ({ food_supply_id: supply.food_supply_id, food_name: item.food_name.trim(), quantity: Number(item.quantity), unit: item.unit.trim(), unit_price: Number(item.unit_price) }));
@@ -31,6 +34,7 @@ const listFoodSupplies = async (user) => {
     if (user.role_name === "FOOD_SUPPLIER") {
         const supplier = await supplierForUser(user); query = query.eq("supplier_id", supplier.supplier_id);
     } else if (!isSuperAdmin(user)) query = query.in("company_id", requireCompanyIds(user));
+    query = scopeByManager(query, user);
     const { data, error } = await query; if (error) throw error;
     return (data || []).map((supply) => ({ ...supply, total_amount: totalOf(supply.food_supply_items || []) }));
 };
@@ -50,7 +54,9 @@ const reviewFoodSupply = async (id, decision, comments, user) => {
         if (supply.status !== "PENDING_OWNER") throw new Error("Food supply must be manager-verified before owner approval.");
         update = decision === "approve" ? { status: "OWNER_APPROVED", owner_approved_by: user.user_id, owner_approved_at: now, owner_comments: comments || null } : { status: "CHANGES_REQUESTED", owner_comments: comments || "Changes requested" };
     } else throw new Error("Only a manager or owner can review food supplies.");
-    const { data, error } = await supabase.from("food_supplies").update({ ...update, updated_at: now }).eq("food_supply_id", id).select().single(); if (error) throw error; return data;
+    let updateQuery = supabase.from("food_supplies").update({ ...update, updated_at: now }).eq("food_supply_id", id);
+    updateQuery = scopeByManager(updateQuery, user);
+    const { data, error } = await updateQuery.select().single(); if (error) throw error; return data;
 };
 
 const payFoodSupply = async (id, user) => {
@@ -64,6 +70,14 @@ const payFoodSupply = async (id, user) => {
     const { error: paymentError } = await supabase.from("food_supply_payments").insert([{ food_supply_id: id, company_id: supply.company_id, supplier_id: supply.supplier_id, amount, payment_status: "PAID", provider_name: "INTERNAL_TEST", transaction_reference: transaction.reference_id || reference, provider_response: transaction, paid_by: user.user_id || null, paid_at: now }]);
     if (paymentError) throw paymentError;
     const { data, error } = await supabase.from("food_supplies").update({ status: "PAID", payment_status: "PAID", payment_reference: transaction.reference_id || reference, payment_provider: "INTERNAL_TEST", paid_by: user.user_id || null, paid_at: now, updated_at: now }).eq("food_supply_id", id).select().single(); if (error) throw error; return data;
+};
+
+const payAllFoodSupplies = async ({ manager_user_id } = {}, user) => {
+    if (!isSuperAdmin(user) && user.role_name !== "OWNER") throw new Error("Only an owner may pay food supplies.");
+    const eligible = (await listFoodSupplies(user)).filter((row) => row.status === "OWNER_APPROVED" && row.payment_status !== "PAID" && (!manager_user_id || row.manager_user_id === manager_user_id));
+    const failed = []; let paid = 0;
+    for (const row of eligible) { try { await payFoodSupply(row.food_supply_id, user); paid += 1; } catch (error) { failed.push({ food_supply_id: row.food_supply_id, message: error.message }); } }
+    return { total: eligible.length, paid, failed };
 };
 
 const foodSupplyCsv = async (user) => {
@@ -85,4 +99,4 @@ const foodSupplyCsv = async (user) => {
     return lines.join("\n");
 };
 
-module.exports = { createFoodSupply, listFoodSupplies, reviewFoodSupply, payFoodSupply, foodSupplyCsv };
+module.exports = { createFoodSupply, listFoodSupplies, reviewFoodSupply, payFoodSupply, payAllFoodSupplies, foodSupplyCsv };

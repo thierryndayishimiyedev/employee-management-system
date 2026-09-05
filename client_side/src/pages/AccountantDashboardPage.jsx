@@ -18,6 +18,7 @@ const quickActions = [
   { to: '/production', label: 'Record production', icon: Mountain },
   { to: '/reports', label: 'Create daily report', icon: FileText },
   { to: '/payroll', label: 'Generate payroll', icon: Wallet },
+  { to: '/expenses', label: 'Record expense or material', icon: BadgeDollarSign },
 ]
 
 export default function AccountantDashboardPage() {
@@ -96,17 +97,24 @@ export default function AccountantDashboardPage() {
     },
     {
       label: 'Pending payrolls',
-      value: dashboard?.pending_payrolls ?? pendingPayrolls,
+      value: dashboard?.counts?.pending_approvals ?? pendingPayrolls,
       icon: Wallet,
       tone: 'amber',
       detail: 'Payroll records awaiting approval or payment',
     },
     {
       label: 'Pending advances',
-      value: dashboard?.pending_advances ?? pendingAdvances,
+      value: Number(dashboard?.financial?.advances_pending || pendingAdvances),
       icon: BadgeDollarSign,
       tone: 'cyan',
       detail: 'Advance requests still open',
+    },
+    {
+      label: 'Expense value awaiting review',
+      value: Number(dashboard?.financial?.expenses_pending || 0),
+      icon: BadgeDollarSign,
+      tone: 'amber',
+      detail: 'Materials and expenses recorded for your manager',
     },
     {
       label: 'Submitted reports',
@@ -157,9 +165,11 @@ export default function AccountantDashboardPage() {
               <MetricList
                 metrics={[
                   { label: 'Attendance today', value: attendanceToday.length },
-                  { label: 'Production records', value: production.length },
+                  { label: 'Minerals extracted', value: dashboard?.operations?.production_quantity ?? 0 },
                   { label: 'Payroll records', value: payrolls.length },
-                  { label: 'Reports prepared', value: reports.length },
+                  { label: 'Materials recorded', value: dashboard?.operations?.material_purchases ?? 0 },
+                  { label: 'Expenses paid', value: `${Number(dashboard?.financial?.expenses_paid || 0).toLocaleString()} RWF` },
+                  { label: 'Reports awaiting review', value: dashboard?.counts?.reports_waiting ?? 0 },
                 ]}
               />
             </SectionCard>

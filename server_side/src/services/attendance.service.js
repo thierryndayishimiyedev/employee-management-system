@@ -143,6 +143,7 @@
 
 const supabase = require("../config/supabase");
 const { isSuperAdmin, requireCompanyIds, scopeByCompany } = require("../utils/companyScope");
+const { scopeByManager, assertEmployeeManager } = require("../utils/managerScope");
 
 const calculateHours = (checkIn, checkOut) => {
     if (!checkIn || !checkOut) return null;
@@ -197,9 +198,18 @@ const recordAttendance = async (attendanceData, user) => {
         remarks
     } = attendanceData;
 
+    if (!attendance_date || Number.isNaN(Date.parse(`${attendance_date}T00:00:00Z`))) {
+        throw new Error("A valid attendance date is required.");
+    }
+    // Operations run Monday through Saturday. Sunday is a rest day and must
+    // never enter the payroll attendance ledger.
+    if (new Date(`${attendance_date}T00:00:00Z`).getUTCDay() === 0) {
+        throw new Error("Attendance cannot be recorded on Sunday. Sunday is a non-working day.");
+    }
+
     let employeeQuery = supabase
         .from("employees")
-        .select("company_id")
+        .select("company_id, manager_user_id")
         .eq("employee_id", employee_id);
 
     if (!isSuperAdmin(user)) {
@@ -210,30 +220,23 @@ const recordAttendance = async (attendanceData, user) => {
 
     if (employeeError || !employee)
         throw new Error("Employee not found.");
+    assertEmployeeManager(employee, user);
+    if (!employee.manager_user_id) throw new Error("Employee is not assigned to a manager.");
 
-    const { data: existing } = await scopeByCompany(supabase
+    let existingQuery = scopeByCompany(supabase
         .from("attendance")
         .select("attendance_id")
         .eq("employee_id", employee_id)
-        .eq("attendance_date", attendance_date), user)
-        .maybeSingle();
+        .eq("attendance_date", attendance_date), user);
+    existingQuery = scopeByManager(existingQuery, user);
+    const { data: existing } = await existingQuery.maybeSingle();
 
     if (existing)
         throw new Error("Attendance already recorded for this employee.");
 
-    if (!attendance_date || Number.isNaN(Date.parse(attendance_date))) {
-        throw new Error("A valid attendance date is required.");
-    }
-    // Normal hours are never supplied by the client. An accountant may record
-    // approved extra/overtime hours explicitly; otherwise excess over 8 is used.
-    // A present worker is checked in first.  Check-out is deliberately a
-    // separate operation so the client cannot complete a shift on arrival.
-    if (attendance_status === "PRESENT" && check_out) {
-        throw new Error("Record check-in first. Check-out is only allowed through the dedicated check-out action.");
-    }
-    if (attendance_status === "PRESENT" && overtime_hours !== undefined && overtime_hours !== null && overtime_hours !== "") {
-        throw new Error("Overtime can only be recorded when the worker is checked out.");
-    }
+    // Standard attendance is saved as a completed shift by the daily register
+    // (07:00–17:00). An accountant can use the manual exception form to enter
+    // a genuine early departure or another non-standard time.
     const calculated = buildAttendanceValues({ check_in, check_out, overtime_hours, attendance_status }, { allowOpenCheckIn: true });
 
     const { data: attendance, error: attendanceError } = await supabase
@@ -241,6 +244,7 @@ const recordAttendance = async (attendanceData, user) => {
         .insert([{
             employee_id,
             company_id: employee.company_id,
+            manager_user_id: employee.manager_user_id,
             attendance_date,
             check_in,
             check_out,
@@ -274,7 +278,7 @@ const checkOutAttendance = async (id, attendanceData, user) => {
         overtime_hours: attendanceData.overtime_hours,
         attendance_status: "PRESENT"
     });
-    const query = scopeByCompany(supabase
+    let query = scopeByCompany(supabase
         .from("attendance")
         .update({
             check_out: attendanceData.check_out,
@@ -285,6 +289,7 @@ const checkOutAttendance = async (id, attendanceData, user) => {
         .eq("attendance_id", id)
         .is("check_out", null)
         .select(), user);
+    query = scopeByManager(query, user);
     const { data, error } = await query.single();
     if (error) throw error;
     return data;
@@ -292,7 +297,7 @@ const checkOutAttendance = async (id, attendanceData, user) => {
 
 const getAttendances = async (user) => {
 
-    const query = scopeByCompany(supabase
+    let query = scopeByCompany(supabase
         .from("attendance")
         .select(`
             *,
@@ -305,6 +310,7 @@ const getAttendances = async (user) => {
         .order("attendance_date", {
             ascending: false
         }), user);
+    query = scopeByManager(query, user);
 
     const { data, error } = await query;
 
@@ -317,7 +323,7 @@ const getAttendances = async (user) => {
 
 const getAttendanceById = async (id, user) => {
 
-    const query = scopeByCompany(supabase
+    let query = scopeByCompany(supabase
         .from("attendance")
         .select(`
             *,
@@ -328,6 +334,7 @@ const getAttendanceById = async (id, user) => {
             )
         `)
         .eq("attendance_id", id), user);
+    query = scopeByManager(query, user);
 
     const { data, error } = await query.single();
 
@@ -358,7 +365,7 @@ const updateAttendance = async (id, attendanceData, user) => {
         throw new Error("A valid attendance date is required.");
     }
     const calculated = buildAttendanceValues(safeData, { allowOpenCheckIn: true });
-    const query = scopeByCompany(supabase
+    let query = scopeByCompany(supabase
         .from("attendance")
         .update({
             attendance_date: safeData.attendance_date,
@@ -371,6 +378,7 @@ const updateAttendance = async (id, attendanceData, user) => {
         })
         .eq("attendance_id", id)
         .select(), user);
+    query = scopeByManager(query, user);
 
     const { data, error } = await query.single();
 
@@ -383,10 +391,11 @@ const updateAttendance = async (id, attendanceData, user) => {
 
 const deleteAttendance = async (id, user) => {
 
-    const query = scopeByCompany(supabase
+    let query = scopeByCompany(supabase
         .from("attendance")
         .delete()
         .eq("attendance_id", id), user);
+    query = scopeByManager(query, user);
 
     const { error } = await query;
 
@@ -403,17 +412,22 @@ const getAttendanceDashboard = async (user) => {
 
     const today = new Date().toISOString().split("T")[0];
 
-    const { count: totalEmployees } = await scopeByCompany(supabase
+    let employeeCountQuery = scopeByCompany(supabase
         .from("employees")
         .select("*", {
             count: "exact",
             head: true
         }), user);
+    employeeCountQuery = scopeByManager(employeeCountQuery, user);
+    const { count: totalEmployees, error: employeeCountError } = await employeeCountQuery;
+    if (employeeCountError) throw employeeCountError;
 
-    const { data: todayRecords, error: todayError } = await scopeByCompany(supabase
+    let todayQuery = scopeByCompany(supabase
         .from("attendance")
         .select("attendance_status,hours_worked,overtime_hours")
         .eq("attendance_date", today), user);
+    todayQuery = scopeByManager(todayQuery, user);
+    const { data: todayRecords, error: todayError } = await todayQuery;
     if (todayError) throw todayError;
     const records = todayRecords || [];
     const presentToday = records.filter((record) => record.attendance_status === "PRESENT").length;
@@ -442,7 +456,7 @@ const getWeeklyAttendance = async (user) => {
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
     const toDate = (value) => value.toISOString().slice(0, 10);
-    const query = scopeByCompany(supabase
+    let query = scopeByCompany(supabase
         .from("attendance")
         .select(`
             attendance_date,
@@ -452,6 +466,7 @@ const getWeeklyAttendance = async (user) => {
         `)
         .gte("attendance_date", toDate(start))
         .lte("attendance_date", toDate(end)), user);
+    query = scopeByManager(query, user);
 
     const { data, error } = await query;
 
@@ -466,7 +481,7 @@ const getTodayAttendance = async (user) => {
 
     const today = new Date().toISOString().split("T")[0];
 
-    const query = scopeByCompany(supabase
+    let query = scopeByCompany(supabase
         .from("attendance")
         .select(`
             *,
@@ -477,6 +492,7 @@ const getTodayAttendance = async (user) => {
             )
         `)
         .eq("attendance_date", today), user);
+    query = scopeByManager(query, user);
 
     const { data, error } = await query;
 
@@ -489,13 +505,14 @@ const getTodayAttendance = async (user) => {
 
 const getEmployeeAttendance = async (employeeId, user) => {
 
-    const query = scopeByCompany(supabase
+    let query = scopeByCompany(supabase
         .from("attendance")
         .select("*")
         .eq("employee_id", employeeId)
         .order("attendance_date", {
             ascending: false
         }), user);
+    query = scopeByManager(query, user);
 
     const { data, error } = await query;
 
@@ -511,13 +528,14 @@ const getMonthlyAttendanceSummary = async (user) => {
     const month = new Date().getMonth() + 1;
     const year = new Date().getFullYear();
 
-    const query = scopeByCompany(supabase
+    let query = scopeByCompany(supabase
         .from("attendance")
         .select(`
             attendance_status,
             attendance_date,
             company_id
         `), user);
+    query = scopeByManager(query, user);
 
     const { data, error } = await query;
 

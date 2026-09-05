@@ -8,9 +8,7 @@ const ownerDashboard = async (req, res) => {
 
     try {
 
-        const data = await getOwnerDashboard(
-            req.user.company_id
-        );
+        const data = await getOwnerDashboard(req.user, req.query);
 
         res.json({
             success: true,
@@ -32,9 +30,7 @@ const accountantDashboard = async (req, res) => {
 
     try {
 
-        const data = await getAccountantDashboard(
-            req.user.company_id
-        );
+        const data = await getAccountantDashboard(req.user);
 
         res.json({
             success: true,
@@ -56,9 +52,7 @@ const managerDashboard = async (req, res) => {
 
     try {
 
-        const data = await getManagerDashboard(
-            req.user.company_id
-        );
+        const data = await getManagerDashboard(req.user);
 
         res.json({
             success: true,

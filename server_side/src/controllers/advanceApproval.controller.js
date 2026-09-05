@@ -1,4 +1,4 @@
-const { reviewAdvance, payAdvance } = require("../services/advanceApproval.service");
+const { reviewAdvance, payAdvance, payAllAdvances } = require("../services/advanceApproval.service");
 
 const approve = async (req, res) => {
 
@@ -31,5 +31,6 @@ const pay = async (req, res) => {
     try { res.json({ success: true, message: "Internal/test advance payment processed.", data: await payAdvance(req.params.id, req.user) }); }
     catch (err) { res.status(400).json({ success: false, message: err.message }); }
 };
+const payAll = async (req, res) => { try { res.json({ success: true, data: await payAllAdvances(req.body || {}, req.user) }); } catch (err) { res.status(400).json({ success: false, message: err.message }); } };
 
-module.exports = { approve, reject, pay };
+module.exports = { approve, reject, pay, payAll };

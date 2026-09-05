@@ -13,7 +13,9 @@ const {
     removeAccountant
 } = require("../controllers/accountant.controller");
 
-router.post("/", authenticate, authorize("OWNER", "MANAGER", "SUPER_ADMIN"), registerAccountant);
+// Accountant assignment is an owner-controlled company decision.  Managers
+// can view their assigned accountant, but cannot create another one.
+router.post("/", authenticate, authorize("OWNER", "SUPER_ADMIN"), registerAccountant);
 
 router.get("/", authenticate, authorize("OWNER", "MANAGER", "ACCOUNTANT", "SUPER_ADMIN"), fetchAccountants);
 

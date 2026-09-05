@@ -1,6 +1,7 @@
 const bcrypt = require("bcrypt");
 const supabase = require("../config/supabase");
 const { isSuperAdmin, requireCompanyIds, resolveAuthorizedCompanyId, scopeByRelatedCompany } = require("../utils/companyScope");
+const { requireManagerUserId } = require("../utils/managerScope");
 
 const createManager = async (data, userScope) => {
 
@@ -92,6 +93,14 @@ const createManager = async (data, userScope) => {
     if (userError)
         throw userError;
 
+    const { error: managerScopeError } = await supabase
+        .from("employees")
+        .update({ manager_user_id: user.user_id })
+        .eq("employee_id", employee.employee_id);
+
+    if (managerScopeError)
+        throw managerScopeError;
+
     delete user.password;
 
     return {
@@ -108,7 +117,7 @@ const getManagers = async (userScope) => {
         .select(`
             *,
             roles(role_name),
-            employees!inner(*)
+            employees!fk_user_employee!inner(*)
         `);
 
     if (!isSuperAdmin(userScope)) {
@@ -120,10 +129,14 @@ const getManagers = async (userScope) => {
     if (error)
         throw error;
 
-    return data.filter(user =>
-        user.roles &&
-        user.roles.role_name === "MANAGER"
-    );
+    const managerUsers = data.filter(user => user.roles && user.roles.role_name === "MANAGER");
+    // Accountants can only register workers in the management unit to which
+    // their own employee account is assigned.
+    if (userScope?.role_name === "ACCOUNTANT") {
+        const assignedManagerId = requireManagerUserId(userScope);
+        return managerUsers.filter((manager) => manager.user_id === assignedManagerId);
+    }
+    return managerUsers;
 
 };
 
@@ -134,7 +147,7 @@ const getManagerById = async (id, userScope) => {
         .select(`
             *,
             roles(role_name),
-            employees!inner(*)
+            employees!fk_user_employee!inner(*)
         `)
         .eq("user_id", id);
 
@@ -248,7 +261,7 @@ const getManagerOverviews = async (userScope) => {
         .select(`
             *,
             roles(role_name),
-            employees!inner(*)
+            employees!fk_user_employee!inner(*)
         `);
 
     if (!isSuperAdmin(userScope)) {

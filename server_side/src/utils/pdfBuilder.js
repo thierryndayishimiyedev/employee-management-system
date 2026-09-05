@@ -23,7 +23,7 @@ const fit = (value, length) => {
     return text.length > length ? `${text.slice(0, Math.max(0, length - 3))}...` : text;
 };
 
-const buildTextLines = ({ title, reportNumber, company, generatedBy, preparedBy, reviewedBy, approvedBy, summary = [], columns = [], rows = [] }) => {
+const buildTextLines = ({ title, reportNumber, company, generatedBy, preparedBy, reviewedBy, approvedBy, summary = [], insights = [], columns = [], rows = [] }) => {
     const generated = formatDateTime();
     const companyName = company?.company_name || "Mining Company";
     const companyInfo = [
@@ -32,11 +32,10 @@ const buildTextLines = ({ title, reportNumber, company, generatedBy, preparedBy,
         company?.email
     ].filter(Boolean).join(" | ");
     const lines = [
-        BRAND_NAME,
         companyName,
         companyInfo || "Company information",
         "",
-        title,
+        "REPORT DETAILS",
         `Report Number: ${reportNumber}`,
         `Generated Date: ${generated.date}`,
         `Generated Time: ${generated.time}`,
@@ -49,6 +48,10 @@ const buildTextLines = ({ title, reportNumber, company, generatedBy, preparedBy,
     ].filter((line) => line !== null);
 
     summary.forEach((item) => lines.push(`${item.label}: ${item.value}`));
+    if (insights.length) {
+        lines.push("", "MANAGEMENT INSIGHTS");
+        insights.forEach((item) => lines.push(`- ${item}`));
+    }
     lines.push("");
 
     if (columns.length) {
@@ -62,7 +65,7 @@ const buildTextLines = ({ title, reportNumber, company, generatedBy, preparedBy,
     }
 
     lines.push("");
-    lines.push(`Footer: ${BRAND_NAME} - Confidential company report`);
+    lines.push(`End of report | ${BRAND_NAME} | Data generated from live system records`);
     return lines;
 };
 
@@ -136,18 +139,55 @@ const readLogo = () => {
     }
 };
 
-const createPdfBuffer = (options) => {
-    const lines = buildTextLines(options);
-    const pageWidth = 612;
-    const pageHeight = 792;
-    const marginX = 42;
-    const startY = 690;
-    const lineHeight = 13;
-    const maxLinesPerPage = 50;
-    const pages = [];
+const pdfText = (value) => escapePdf(String(value ?? "-").replace(/[\u2013\u2014]/g, "-").replace(/[^\x20-\x7E]/g, ""));
+const wrapCell = (value, width, fontSize) => {
+    const text = String(value ?? "-").replace(/\s+/g, " ").trim() || "-";
+    const maxChars = Math.max(4, Math.floor(width / (fontSize * 0.53)));
+    const words = text.split(" "); const lines = []; let line = "";
+    words.forEach((word) => {
+        if (!line) line = word;
+        else if (`${line} ${word}`.length <= maxChars) line += ` ${word}`;
+        else { lines.push(line); line = word; }
+    });
+    if (line) lines.push(line);
+    return lines.flatMap((line) => line.length <= maxChars ? [line] : Array.from({ length: Math.ceil(line.length / maxChars) }, (_, i) => line.slice(i * maxChars, (i + 1) * maxChars)));
+};
 
-    for (let index = 0; index < lines.length; index += maxLinesPerPage) {
-        pages.push(lines.slice(index, index + maxLinesPerPage));
+const createPdfBuffer = (options) => {
+    const columns = options.columns || [];
+    const rows = options.rows || [];
+    const landscape = columns.length > 7;
+    const pageWidth = landscape ? 792 : 612;
+    const pageHeight = landscape ? 612 : 792;
+    const marginX = 30;
+    const usableWidth = pageWidth - (marginX * 2);
+    const pageBottom = 42;
+    const headerHeight = 82;
+    const fontSize = columns.length > 9 ? 5.6 : columns.length > 7 ? 6.3 : 7.2;
+    const headerFontSize = Math.max(fontSize, 6.5);
+    const weightTotal = columns.reduce((sum, column) => sum + Number(column.width || 12), 0) || 1;
+    const widths = columns.map((column) => usableWidth * (Number(column.width || 12) / weightTotal));
+    const generated = formatDateTime();
+    const companyName = options.company?.company_name || "Mining Company";
+    const companyInfo = [options.company?.address, options.company?.phone, options.company?.email].filter(Boolean).join(" | ");
+    const pages = [];
+    let rowIndex = 0;
+    let firstPage = true;
+    while (firstPage || rowIndex < rows.length) {
+        const tableTop = firstPage ? pageHeight - 222 : pageHeight - 116;
+        const tableHeaderHeight = 22;
+        let cursorY = tableTop - tableHeaderHeight;
+        const pageRows = [];
+        while (rowIndex < rows.length) {
+            const cellLines = columns.map((column, columnIndex) => wrapCell(rows[rowIndex][column.key], widths[columnIndex] - 8, fontSize));
+            const rowHeight = Math.max(19, Math.min(54, Math.max(...cellLines.map((lines) => lines.length)) * (fontSize + 2) + 8));
+            if (cursorY - rowHeight < pageBottom && pageRows.length) break;
+            if (cursorY - rowHeight < pageBottom && !pageRows.length) { pageRows.push({ row: rows[rowIndex], cellLines, rowHeight: Math.max(19, pageBottom - 4) }); rowIndex += 1; break; }
+            pageRows.push({ row: rows[rowIndex], cellLines, rowHeight }); cursorY -= rowHeight; rowIndex += 1;
+        }
+        pages.push({ firstPage, tableTop, pageRows });
+        firstPage = false;
+        if (!rows.length) break;
     }
 
     const objects = [];
@@ -176,23 +216,46 @@ const createPdfBuffer = (options) => {
     const fontId = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
     const pageIds = [];
 
-    pages.forEach((pageLines, pageIndex) => {
+    pages.forEach((page, pageIndex) => {
         const textCommands = [
-            ...(logoId ? ["q", "170 0 0 38 42 738 cm", "/Logo Do", "Q"] : []),
-            "BT",
-            "/F1 9 Tf",
-            `${marginX} ${startY} Td`
+            `q 0.96 0.98 0.98 rg 0 0 ${pageWidth} ${pageHeight - headerHeight} re f Q`,
+            `q 0.10 0.24 0.20 rg 0 ${pageHeight - headerHeight} ${pageWidth} ${headerHeight} re f Q`,
+            ...(logoId ? ["q", `85 0 0 25 ${marginX} ${pageHeight - 55} cm`, "/Logo Do", "Q"] : []),
+            `BT /F1 20 Tf 1 1 1 rg ${logoId ? 132 : marginX} ${pageHeight - 35} Td (${pdfText(options.title || "Operations Report")}) Tj ET`,
+            `BT /F1 9 Tf 0.86 0.94 0.90 rg ${logoId ? 132 : marginX} ${pageHeight - 54} Td (${pdfText(BRAND_NAME + " | Printable operational report")}) Tj ET`
         ];
+        const drawText = (text, x, y, size = fontSize, colour = "0.10 0.16 0.19") => textCommands.push(`BT /F1 ${size} Tf ${colour} rg ${x.toFixed(2)} ${y.toFixed(2)} Td (${pdfText(text)}) Tj ET`);
+        const drawBox = (x, y, w, h, fill, stroke = "0.72 0.77 0.76") => {
+            if (fill) textCommands.push(`q ${fill} rg ${x.toFixed(2)} ${y.toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re f Q`);
+            textCommands.push(`q ${stroke} RG 0.45 w ${x.toFixed(2)} ${y.toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re S Q`);
+        };
 
-        pageLines.forEach((line, lineIndex) => {
-            if (lineIndex > 0) textCommands.push(`0 -${lineHeight} Td`);
-            textCommands.push(`(${escapePdf(line)}) Tj`);
+        if (page.firstPage) {
+            drawText(companyName, marginX, pageHeight - 102, 11, "0.10 0.16 0.19");
+            drawText(companyInfo || "Company information", marginX, pageHeight - 116, 7);
+            drawText(`Report No: ${options.reportNumber || "-"}`, marginX, pageHeight - 136, 7);
+            drawText(`Generated: ${generated.date} ${generated.time}`, marginX, pageHeight - 148, 7);
+            drawText(`Generated by: ${options.generatedBy || "-"}`, marginX, pageHeight - 160, 7);
+            const summaries = options.summary || [];
+            summaries.slice(0, 6).forEach((item, index) => {
+                const col = index % 3; const row = Math.floor(index / 3);
+                const x = marginX + col * (usableWidth / 3); const y = pageHeight - 188 - row * 18;
+                drawBox(x, y, usableWidth / 3 - 7, 15, "0.88 0.94 0.91");
+                drawText(`${item.label}: ${item.value}`, x + 4, y + 5, 6.5, "0.10 0.25 0.20");
+            });
+        } else drawText(`Continued: ${options.title || "Operations Report"}`, marginX, pageHeight - 101, 8, "0.10 0.25 0.20");
+
+        // Real table: cells are drawn independently, so data remains aligned
+        // regardless of name length, currency value, or a wrapped remark.
+        let x = marginX;
+        columns.forEach((column, index) => { drawBox(x, page.tableTop - 22, widths[index], 22, "0.10 0.24 0.20", "0.10 0.24 0.20"); wrapCell(column.label, widths[index] - 7, headerFontSize).slice(0, 2).forEach((line, lineIndex) => drawText(line, x + 4, page.tableTop - 10 - lineIndex * (headerFontSize + 1), headerFontSize, "1 1 1")); x += widths[index]; });
+        let y = page.tableTop - 22;
+        page.pageRows.forEach(({ cellLines, rowHeight }, rowIndex) => {
+            y -= rowHeight; x = marginX;
+            columns.forEach((column, columnIndex) => { drawBox(x, y, widths[columnIndex], rowHeight, rowIndex % 2 ? "0.97 0.99 0.98" : "1 1 1"); cellLines[columnIndex].slice(0, 5).forEach((line, lineIndex) => drawText(line, x + 4, y + rowHeight - 10 - lineIndex * (fontSize + 2), fontSize)); x += widths[columnIndex]; });
         });
-
-        textCommands.push("ET");
-        textCommands.push("BT /F1 8 Tf 270 24 Td");
-        textCommands.push(`(Page ${pageIndex + 1} of ${pages.length}) Tj`);
-        textCommands.push("ET");
+        if (!page.pageRows.length) { drawBox(marginX, page.tableTop - 48, usableWidth, 26, "1 1 1"); drawText("No records available for the selected filters.", marginX + 6, page.tableTop - 38, 8); }
+        drawText(`Page ${pageIndex + 1} of ${pages.length} | ${BRAND_NAME} | Live system data`, pageWidth / 2 - 110, 22, 7, "0.30 0.37 0.35");
 
         const stream = textCommands.join("\n");
         const contentId = addObject(`<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`);

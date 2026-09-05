@@ -6,15 +6,17 @@ import { useAuth } from '../context/authStore'
 import AppSidebar from './Appsidebar'
 
 const reports = [
-  { type: 'attendance', title: 'Attendance', roles: ['SUPER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { type: 'production', title: 'Production', roles: ['SUPER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTANT'] },
+  { type: 'attendance', title: 'Attendance', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+  { type: 'production', title: 'Production', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { type: 'reports', title: 'Automatic Operations Reports', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { type: 'payroll', title: 'Payroll', roles: ['SUPER_ADMIN', 'OWNER', 'ACCOUNTANT'] },
-  { type: 'payments', title: 'Payments', roles: ['SUPER_ADMIN', 'OWNER'] },
-  { type: 'advances', title: 'Advances', roles: ['SUPER_ADMIN', 'OWNER', 'ACCOUNTANT'] },
-  { type: 'employees', title: 'Employees', roles: ['SUPER_ADMIN', 'OWNER', 'MANAGER'] },
-  { type: 'departments', title: 'Departments', roles: ['SUPER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { type: 'positions', title: 'Positions', roles: ['SUPER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTANT'] },
+  { type: 'payroll', title: 'Payroll', roles: ['OWNER', 'ACCOUNTANT'] },
+  { type: 'payments', title: 'Payments', roles: ['OWNER'] },
+  { type: 'advances', title: 'Advances', roles: ['OWNER', 'ACCOUNTANT'] },
+  { type: 'expenses', title: 'Expenses & Materials', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+  { type: 'food-supplies', title: 'My Food Supplies & Payments', roles: ['FOOD_SUPPLIER'] },
+  { type: 'employees', title: 'Employees', roles: ['OWNER', 'MANAGER'] },
+  { type: 'departments', title: 'Departments', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+  { type: 'positions', title: 'Positions', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
 ]
 
 export default function DownloadCenterPage() {
@@ -66,7 +68,7 @@ export default function DownloadCenterPage() {
           <header className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Reports</p>
             <h1 className="mt-2 text-2xl font-bold text-slate-900">Download Center</h1>
-            <p className="mt-1 text-sm text-slate-500">Download company-scoped PDF reports generated from live database records.</p>
+            <p className="mt-1 text-sm text-slate-500">Download live, company-scoped PDF reports with structured table rows and columns.</p>
           </header>
 
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -116,18 +118,10 @@ export default function DownloadCenterPage() {
                   <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-amber-50 text-amber-700 ring-1 ring-amber-100">
                     <FileText size={20} />
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => downloadReport(report.type)}
-                    disabled={downloading === report.type}
-                    className="rounded-md p-2 text-slate-400 transition hover:bg-amber-50 hover:text-amber-700 disabled:opacity-50"
-                    title="Download PDF"
-                  >
-                    <Download size={18} />
-                  </button>
+                  <button type="button" onClick={() => downloadReport(report.type)} disabled={downloading === report.type} className="rounded-md p-2 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-50" title="Download PDF"><Download size={18} /></button>
                 </div>
                 <h2 className="mt-4 text-lg font-semibold text-slate-900">{report.title}</h2>
-                <p className="mt-1 text-sm text-slate-500">Professional PDF export with summary and table data.</p>
+                <p className="mt-1 text-sm text-slate-500">Professional PDF with aligned table cells, row lines, column borders, and totals.</p>
               </article>
             ))}
           </section>

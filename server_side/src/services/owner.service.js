@@ -302,7 +302,7 @@ const getOwners = async () => {
         .select(`
             *,
             roles(role_name),
-            employees(*)
+            employees!fk_user_employee(*)
         `);
 
     if (error)
@@ -322,7 +322,7 @@ const getOwnerById = async (id) => {
         .select(`
             *,
             roles(role_name),
-            employees(*)
+            employees!fk_user_employee(*)
         `)
         .eq("user_id", id)
         .single();

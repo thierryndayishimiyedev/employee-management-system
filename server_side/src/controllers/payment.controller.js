@@ -4,8 +4,12 @@ const {
     getPaymentById,
     getPaymentReport,
     getPaymentReportCsv,
+    getWorkerPaymentProof,
     deletePayment
 } = require("../services/payment.service");
+const { getPaymentReadiness } = require("../services/paymentProviders");
+
+const readiness = async (_req, res) => res.json({ success: true, data: getPaymentReadiness() });
 
 const payAll = async (req, res) => {
 
@@ -139,11 +143,18 @@ const removePayment = async (req, res) => {
 
 };
 
+const workerProof = async (req, res) => {
+    try { res.json({ success: true, data: await getWorkerPaymentProof(req.query, req.user) }); }
+    catch (err) { res.status(400).json({ success: false, message: err.message }); }
+};
+
 module.exports = {
     payAll,
     fetchPayments,
     fetchPayment,
     fetchPaymentReport,
+    workerProof,
     downloadPaymentReport,
-    removePayment
+    removePayment,
+    readiness
 };

@@ -1,6 +1,7 @@
 const bcrypt = require("bcrypt");
 const supabase = require("../config/supabase");
 const { isSuperAdmin, requireCompanyIds, resolveAuthorizedCompanyId, scopeByRelatedCompany } = require("../utils/companyScope");
+const { requireManagerUserId, resolveManagerForWrite } = require("../utils/managerScope");
 
 const createAccountant = async (data, userScope) => {
 
@@ -24,6 +25,34 @@ const createAccountant = async (data, userScope) => {
         password
     } = data;
     const scopedCompanyId = resolveAuthorizedCompanyId(userScope, company_id);
+    const manager_user_id = resolveManagerForWrite(userScope, data.manager_user_id);
+    if (!manager_user_id) throw new Error("A manager must be selected for this accountant.");
+
+    const { data: manager, error: managerError } = await supabase
+        .from("users")
+        .select("user_id, employees!fk_user_employee!inner(company_id), roles!inner(role_name)")
+        .eq("user_id", manager_user_id)
+        .eq("employees.company_id", scopedCompanyId)
+        .eq("roles.role_name", "MANAGER")
+        .maybeSingle();
+    if (managerError || !manager) throw new Error("Selected manager was not found in this company.");
+
+    // A manager has one active accountant.  Checking this before creating the
+    // employee/user pair keeps an accountant's operational data unambiguously
+    // tied to one manager.
+    const { data: existingAccountant, error: existingAccountantError } = await supabase
+        .from("users")
+        .select("user_id, employees!fk_user_employee!inner(company_id, manager_user_id), roles!inner(role_name)")
+        .eq("is_active", true)
+        .eq("employees.company_id", scopedCompanyId)
+        .eq("employees.manager_user_id", manager_user_id)
+        .eq("roles.role_name", "ACCOUNTANT")
+        .maybeSingle();
+
+    if (existingAccountantError) throw existingAccountantError;
+    if (existingAccountant) {
+        throw new Error("This manager already has an active accountant. Deactivate or reassign that accountant before creating another one.");
+    }
 
     const { data: position, error: positionError } = await supabase
         .from("positions")
@@ -47,6 +76,7 @@ const createAccountant = async (data, userScope) => {
         .from("employees")
         .insert([{
             company_id: scopedCompanyId,
+            manager_user_id,
             position_id,
             employee_code,
             first_name,
@@ -100,11 +130,14 @@ const getAccountants = async (userScope) => {
         .select(`
             *,
             roles(role_name),
-            employees!inner(*)
+            employees!fk_user_employee!inner(*)
         `);
 
     if (!isSuperAdmin(userScope)) {
         query = scopeByRelatedCompany(query, userScope);
+    }
+    if (["MANAGER", "ACCOUNTANT"].includes(userScope?.role_name)) {
+        query = query.eq("employees.manager_user_id", requireManagerUserId(userScope));
     }
 
     const { data, error } = await query;
@@ -125,12 +158,15 @@ const getAccountantById = async (id, userScope) => {
         .select(`
             *,
             roles(role_name),
-            employees!inner(*)
+            employees!fk_user_employee!inner(*)
         `)
         .eq("user_id", id);
 
     if (!isSuperAdmin(userScope)) {
         query = scopeByRelatedCompany(query, userScope);
+    }
+    if (["MANAGER", "ACCOUNTANT"].includes(userScope?.role_name)) {
+        query = query.eq("employees.manager_user_id", requireManagerUserId(userScope));
     }
 
     const { data, error } = await query.single();

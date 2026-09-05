@@ -11,20 +11,18 @@ const {
     fetchProduction,
     editProduction,
     removeProduction,
-    createExpense,
     replaceWorkers
 } = require("../controllers/production.controller");
 
-router.post("/", authenticate, authorize("OWNER", "MANAGER", "ACCOUNTANT", "SUPER_ADMIN"), createProduction);
+router.post("/", authenticate, authorize("ACCOUNTANT", "SUPER_ADMIN"), createProduction);
 
 router.get("/", authenticate, authorize("OWNER", "MANAGER", "ACCOUNTANT", "SUPER_ADMIN"), fetchProductions);
 
 router.get("/:id", authenticate, authorize("OWNER", "MANAGER", "ACCOUNTANT", "SUPER_ADMIN"), fetchProduction);
 
-router.post("/:id/expenses", authenticate, authorize("ACCOUNTANT", "SUPER_ADMIN"), createExpense);
 router.put("/:id/workers", authenticate, authorize("ACCOUNTANT", "SUPER_ADMIN"), replaceWorkers);
 
-router.put("/:id", authenticate, authorize("OWNER", "MANAGER", "ACCOUNTANT", "SUPER_ADMIN"), editProduction);
+router.put("/:id", authenticate, authorize("ACCOUNTANT", "SUPER_ADMIN"), editProduction);
 
 router.delete("/:id", authenticate, authorize("OWNER", "MANAGER", "SUPER_ADMIN"), removeProduction);
 

@@ -1,34 +1,32 @@
 const supabase = require("../config/supabase");
 const { isSuperAdmin, requireCompanyIds, scopeByRelatedCompany } = require("../utils/companyScope");
+const { scopeByManager, assertEmployeeManager } = require("../utils/managerScope");
 
 const assertEmployee = async (employeeId, user) => {
-    let query = supabase.from("employees").select("employee_id, company_id").eq("employee_id", employeeId);
+    let query = supabase.from("employees").select("employee_id, company_id, manager_user_id").eq("employee_id", employeeId);
     if (!isSuperAdmin(user)) query = query.in("company_id", requireCompanyIds(user));
     const { data, error } = await query.maybeSingle();
     if (error || !data) throw new Error("Employee not found for your company.");
+    assertEmployeeManager(data, user);
+    if (!data.manager_user_id) throw new Error("Employee is not assigned to a manager.");
     return data;
 };
 
-const productionQuery = (user) => scopeByRelatedCompany(supabase.from("production_records").select(`
+const productionQuery = (user) => scopeByManager(scopeByRelatedCompany(supabase.from("production_records").select(`
     *, employees!inner(employee_code, first_name, last_name, company_id),
     production_expenses(expense_id, amount, expense_date, description),
     production_workers(employee_id, working_hours, employees(employee_code, first_name, last_name))
-`), user);
+`), user), user);
 
-const enrich = (record) => {
-    const gross_value = record.unit_price == null ? null : Number(record.quantity || 0) * Number(record.unit_price);
-    const total_expenses = (record.production_expenses || []).reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
-    return { ...record, gross_value, total_expenses, net_result: gross_value == null ? null : gross_value - total_expenses };
-};
+const enrich = (record) => ({ ...record, unit_price: null, gross_value: null, total_expenses: null, net_result: null });
 
 const recordProduction = async (data, user) => {
-    const { employee_id, production_date, mineral_type, quantity, unit, unit_price, activity_details, working_hours, remarks, workers = [] } = data;
+    const { employee_id, production_date, mineral_type, quantity, unit, activity_details, working_hours, remarks, workers = [] } = data;
     if (!employee_id || !production_date || !mineral_type || Number(quantity) <= 0 || !unit) throw new Error("Employee, date, mineral, positive quantity, and unit are required.");
-    if (unit_price != null && Number(unit_price) < 0) throw new Error("Unit price cannot be negative.");
     if (working_hours != null && Number(working_hours) < 0) throw new Error("Working hours cannot be negative.");
     const employee = await assertEmployee(employee_id, user);
     const { data: production, error } = await supabase.from("production_records").insert([{
-        employee_id, production_date, mineral_type, quantity, unit, unit_price: unit_price ?? null,
+        employee_id, manager_user_id: employee.manager_user_id, production_date, mineral_type, quantity, unit, unit_price: null,
         activity_details: activity_details || null, working_hours: working_hours ?? null, remarks: remarks || null,
         recorded_by: user.user_id || null
     }]).select().single();
@@ -78,10 +76,9 @@ const addProductionExpense = async (productionId, expense, user) => {
 
 const updateProduction = async (id, data, user) => {
     await getProductionById(id, user);
-    const allowed = ["production_date", "mineral_type", "quantity", "unit", "unit_price", "activity_details", "working_hours", "remarks"];
+    const allowed = ["production_date", "mineral_type", "quantity", "unit", "activity_details", "working_hours", "remarks"];
     const update = Object.fromEntries(Object.entries(data).filter(([key]) => allowed.includes(key)));
     if (update.quantity != null && Number(update.quantity) <= 0) throw new Error("Quantity must be positive.");
-    if (update.unit_price != null && Number(update.unit_price) < 0) throw new Error("Unit price cannot be negative.");
     const { error } = await supabase.from("production_records").update(update).eq("production_id", id);
     if (error) throw error;
     if (data.workers) await setProductionWorkers(id, data.workers, user);

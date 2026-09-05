@@ -5,7 +5,7 @@ const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
+  const token = sessionStorage.getItem('token')
   // Ensure headers object exists (some environments may not set it)
   config.headers = config.headers || {}
   if (token) {
@@ -27,6 +27,8 @@ api.interceptors.response.use(
         error.message = message
       }
       if (status === 401) {
+        sessionStorage.removeItem('token')
+        sessionStorage.removeItem('user')
         localStorage.removeItem('token')
         localStorage.removeItem('user')
         // redirect to login if not already there

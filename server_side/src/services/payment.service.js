@@ -2,6 +2,7 @@ const { randomUUID } = require("crypto");
 const supabase = require("../config/supabase");
 const { isSuperAdmin, requireCompanyIds, scopeByRelatedCompany } = require("../utils/companyScope");
 const { getPaymentProvider } = require("./paymentProviders");
+const { scopeByManager } = require("../utils/managerScope");
 
 // The configured development provider is a simulation. Never label its records
 // as MTN payments; a real MTN provider can provide its own method identifier.
@@ -105,6 +106,7 @@ const insertPayment = async (payment) => {
         payroll_id: payment.payroll_id,
         employee_id: payment.employee_id,
         company_id: payment.company_id,
+        manager_user_id: payment.manager_user_id || null,
         amount: payment.amount,
         receiver_phone: payment.receiver_phone,
         receiver_name: payment.receiver_name,
@@ -302,6 +304,7 @@ const createPaymentQueue = async (payrolls, user) => {
             payroll_id: payroll.payroll_id,
             employee_id: payroll.employee_id,
             company_id: employee?.company_id || payroll.company_id,
+            manager_user_id: employee?.manager_user_id || payroll.manager_user_id || null,
             amount: Number(payroll.net_salary || 0),
             receiver_phone: employee?.phone || null,
             receiver_name: employeeName(employee),
@@ -364,8 +367,10 @@ const payAllApprovedPayrolls = async (filters = {}, user = null) => {
     if (!isSuperAdmin(user)) {
         query = query.in("employees.company_id", requireCompanyIds(user));
     }
+    query = scopeByManager(query, user, "employees.manager_user_id");
 
     if (filters.payroll_id) query = query.eq("payroll_id", filters.payroll_id);
+    if (filters.manager_user_id) query = query.eq("employees.manager_user_id", filters.manager_user_id);
     if (filters.payroll_month) query = query.eq("payroll_month", filters.payroll_month);
     if (filters.payroll_year) query = query.eq("payroll_year", filters.payroll_year);
 
@@ -482,6 +487,7 @@ const getPayments = async (user) => {
         });
 
     query = scopeByRelatedCompany(query, user);
+    query = scopeByManager(query, user, "employees.manager_user_id");
 
     const { data, error } = await query;
 
@@ -508,6 +514,7 @@ const getPaymentById = async (id, user) => {
         .eq("payment_id", id);
 
     query = scopeByRelatedCompany(query, user);
+    query = scopeByManager(query, user, "employees.manager_user_id");
 
     const { data, error } = await query.single();
 
@@ -537,6 +544,17 @@ const getPaymentReport = async (user) => {
             time: date ? date.toISOString().split("T")[1].slice(0, 8) : ""
         };
     });
+};
+
+const getWorkerPaymentProof = async ({ search = '', start_date, end_date } = {}, user) => {
+    if (!isSuperAdmin(user) && user?.role_name !== 'OWNER') throw new Error('Only the owner can verify worker payment evidence.');
+    let query = supabase.from('payments').select('*, employees!inner(employee_code,first_name,last_name,company_id,phone)').order('created_at', { ascending: false });
+    query = scopeByRelatedCompany(query, user);
+    if (start_date) query = query.gte('created_at', `${start_date}T00:00:00Z`);
+    if (end_date) query = query.lte('created_at', `${end_date}T23:59:59Z`);
+    const { data, error } = await query; if (error) throw error;
+    const term = String(search).trim().toLowerCase();
+    return (data || []).filter((row) => !term || [row.employees?.employee_code, row.employees?.first_name, row.employees?.last_name, `${row.employees?.first_name || ''} ${row.employees?.last_name || ''}`].some((value) => String(value || '').toLowerCase().includes(term)));
 };
 
 const getPaymentReportCsv = async (user) => {
@@ -594,5 +612,6 @@ module.exports = {
     getPaymentById,
     getPaymentReport,
     getPaymentReportCsv,
+    getWorkerPaymentProof,
     deletePayment
 };
