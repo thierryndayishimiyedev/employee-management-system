@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import api from '../api/api'
 import { useAuth } from '../context/authStore'
-import { DashboardHeader, DashboardShell, MetricList, QuickActionGrid, SectionCard, StatGrid } from '../components/DashboardKit'
+import { DashboardHeader, DashboardShell, LiveTrendChart, MetricList, QuickActionGrid, SectionCard, StatGrid } from '../components/DashboardKit'
 
 const quickActions = [
   { to: '/attendance', label: 'Record attendance', icon: CalendarCheck },
@@ -151,6 +151,11 @@ export default function AccountantDashboardPage() {
       ) : (
         <>
           <StatGrid stats={stats} />
+
+          <section className="grid gap-4 xl:grid-cols-2">
+            <LiveTrendChart title="Attendance trend" description="Present workers recorded by date for your management unit." data={dashboard?.charts?.attendance} dataKey="present" color="#16834a" type="bar" />
+            <LiveTrendChart title="Expense trend" description="Materials and operational expenses recorded by date." data={dashboard?.charts?.expenses} color="#2563eb" valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
+          </section>
 
           <section className="grid gap-4 lg:grid-cols-3">
             <SectionCard eyebrow="Daily workflows" title="Attendance, production, and reports" className="lg:col-span-2">

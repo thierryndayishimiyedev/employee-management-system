@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -17,10 +17,13 @@ import {
   LogOut,
   ChevronsLeft,
   ChevronsRight,
+  Moon,
+  Sun,
 } from 'lucide-react'
 import { useAuth } from '../context/authStore'
 import { useLanguage } from '../context/LanguageContext'
 import { useOwnerManagerScope } from '../context/OwnerManagerScope'
+import { useTheme } from '../context/ThemeContext'
 
 const nav = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['SUPER_ADMIN'] },
@@ -54,12 +57,21 @@ const nav = [
 ]
 
 export default function AppSidebar() {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768)
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const { language, setLanguage, t } = useLanguage()
+  const { theme, toggleTheme } = useTheme()
   const { managerId, managers, setManagerId } = useOwnerManagerScope()
+
+  useEffect(() => {
+    const keepCompactOnMobile = () => {
+      if (window.innerWidth < 768) setCollapsed(true)
+    }
+    window.addEventListener('resize', keepCompactOnMobile)
+    return () => window.removeEventListener('resize', keepCompactOnMobile)
+  }, [])
 
   if (!user) return null
 
@@ -127,7 +139,7 @@ export default function AppSidebar() {
                   title={collapsed ? item.label : undefined}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
                     active
-                      ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-100'
+                      ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 shadow-sm'
                       : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                   }`}
                 >
@@ -143,16 +155,28 @@ export default function AppSidebar() {
       {/* Collapse toggle */}
       <button
         onClick={() => setCollapsed((c) => !c)}
-        className="mx-3 mb-2 flex items-center justify-center gap-2 rounded-lg border border-slate-200 py-2 text-xs font-medium text-slate-500 transition hover:bg-slate-50"
+        className="mx-3 mb-2 flex items-center justify-center gap-2 rounded-lg border border-slate-200 py-2 text-xs font-medium text-slate-500 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
       >
         {collapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
         {!collapsed && <span>{t('Collapse')}</span>}
       </button>
 
+      <button
+        type="button"
+        onClick={toggleTheme}
+        title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        className="mx-3 mb-2 flex items-center justify-center gap-2 rounded-lg border border-slate-200 py-2 text-xs font-medium text-slate-500 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+      >
+        {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+        {!collapsed && <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>}
+      </button>
+
       {!collapsed && (
-        <div className="mx-3 mb-3 flex rounded-lg border border-slate-200 p-1 text-xs font-medium">
+        <div className="mx-3 mb-3 grid grid-cols-3 rounded-lg border border-slate-200 p-1 text-xs font-medium">
           <button onClick={() => setLanguage('en')} className={`flex-1 rounded-md px-2 py-1.5 ${language === 'en' ? 'bg-amber-100 text-amber-800' : 'text-slate-500'}`}>EN</button>
           <button onClick={() => setLanguage('rw')} className={`flex-1 rounded-md px-2 py-1.5 ${language === 'rw' ? 'bg-amber-100 text-amber-800' : 'text-slate-500'}`}>RW</button>
+          <button onClick={() => setLanguage('fr')} className={`flex-1 rounded-md px-2 py-1.5 ${language === 'fr' ? 'bg-amber-100 text-amber-800' : 'text-slate-500'}`}>FR</button>
         </div>
       )}
 

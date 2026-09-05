@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import api from '../api/api'
 import { useAuth } from '../context/authStore'
-import { DashboardHeader, DashboardShell, QuickActionGrid, SectionCard, StatGrid } from '../components/DashboardKit'
+import { DashboardHeader, DashboardShell, LiveTrendChart, QuickActionGrid, SectionCard, StatGrid } from '../components/DashboardKit'
 import RegisterCompanyModal from '../components/RegisterCompanyModal'
 import RegisterOwnerModal from '../components/registerOwnerModal'
 
@@ -77,7 +77,6 @@ export default function DashboardPage() {
 
   const growth = dashboard?.companies_growth?.length ? dashboard.companies_growth : []
   const activities = dashboard?.recent_activities?.length ? dashboard.recent_activities : []
-  const maxTrend = Math.max(...growth.map((item) => Number(item.value) || 0), 1)
 
   const totalCompanies = dashboard?.total_companies ?? 0
   const activeCompanies = dashboard?.active_companies ?? companies.filter((company) => company.status === 'ACTIVE').length
@@ -176,40 +175,7 @@ export default function DashboardPage() {
       <StatGrid stats={stats} />
 
           <section className="grid gap-4 lg:grid-cols-3">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Company growth</p>
-                  <h2 className="mt-2 text-xl font-semibold text-slate-900">Monthly registrations</h2>
-                </div>
-                <span className="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-100">
-                  Real API data
-                </span>
-              </div>
-
-              <div className="mt-6 h-64 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-                {growth.length === 0 ? (
-                  <div className="flex h-full items-center justify-center text-sm text-slate-500">No growth data available.</div>
-                ) : (
-                  <div className="flex h-full items-end gap-3">
-                    {growth.map((point) => (
-                      <div key={point.label} className="flex flex-1 flex-col items-center gap-2">
-                        <div className="flex h-40 w-full items-end justify-center rounded-lg bg-gradient-to-t from-amber-500 to-amber-300/70 p-1">
-                          <div
-                            className="w-full rounded-md bg-amber-600"
-                            style={{ height: `${Math.max((Number(point.value) / maxTrend) * 100, 8)}%` }}
-                          />
-                        </div>
-                        <div className="text-center">
-                          <div className="text-xs font-semibold text-slate-600">{point.label}</div>
-                          <div className="text-[11px] text-slate-400">{point.value}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
+            <LiveTrendChart title="Monthly registrations" description="Company registrations returned by the live system API." data={growth} labelKey="label" color="#16834a" type="bar" />
 
             <SectionCard eyebrow="Quick actions" title="Super Admin workflows">
               <QuickActionGrid actions={quickActions} />

@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import api from '../api/api'
 import { useAuth } from '../context/authStore'
-import { DashboardHeader, DashboardShell, MetricList, QuickActionGrid, SectionCard, StatGrid } from '../components/DashboardKit'
+import { DashboardHeader, DashboardShell, LiveTrendChart, MetricList, QuickActionGrid, SectionCard, StatGrid } from '../components/DashboardKit'
 
 const quickActions = [
   { to: '/reports', label: 'Review reports', icon: ClipboardList },
@@ -111,6 +111,11 @@ export default function ManagerDashboardPage() {
       ) : (
         <>
           <StatGrid stats={stats} />
+
+          <section className="grid gap-4 xl:grid-cols-2">
+            <LiveTrendChart title="Attendance trend" description="Present workers recorded by date." data={dashboard?.charts?.attendance} dataKey="present" color="#16834a" type="bar" />
+            <LiveTrendChart title="Production trend" description="Extraction quantity recorded by date." data={dashboard?.charts?.production} color="#2563eb" type="area" />
+          </section>
 
           <section className="grid gap-4 lg:grid-cols-3">
             <SectionCard eyebrow="Operational focus" title="Daily review center" className="lg:col-span-2">

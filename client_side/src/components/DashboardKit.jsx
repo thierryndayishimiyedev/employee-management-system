@@ -1,11 +1,12 @@
 import { ArrowUpRight, RefreshCw } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import AppSidebar from '../pages/Appsidebar'
 
 const toneStyles = {
   amber: { bg: 'bg-emerald-50', icon: 'text-emerald-600', ring: 'ring-emerald-100', dot: 'bg-emerald-500' },
   emerald: { bg: 'bg-emerald-50', icon: 'text-emerald-600', ring: 'ring-emerald-100', dot: 'bg-emerald-500' },
-  cyan: { bg: 'bg-cyan-50', icon: 'text-cyan-600', ring: 'ring-cyan-100', dot: 'bg-cyan-500' },
+  cyan: { bg: 'bg-blue-50', icon: 'text-blue-600', ring: 'ring-blue-100', dot: 'bg-blue-500' },
   slate: { bg: 'bg-slate-100', icon: 'text-slate-600', ring: 'ring-slate-200', dot: 'bg-slate-500' },
   orange: { bg: 'bg-orange-50', icon: 'text-orange-600', ring: 'ring-orange-100', dot: 'bg-orange-500' },
   red: { bg: 'bg-red-50', icon: 'text-red-600', ring: 'ring-red-100', dot: 'bg-red-500' },
@@ -183,3 +184,50 @@ export function ActivityList({ items }) {
     </div>
   )
 }
+
+export function LiveTrendChart({ title, description, data = [], dataKey = 'value', labelKey = 'date', color = '#16834a', type = 'area', valueFormatter = (value) => Number(value || 0).toLocaleString(), unavailable }) {
+  const chartData = Array.isArray(data) ? data : []
+
+  return (
+    <SectionCard eyebrow="Live database trend" title={title} className="overflow-hidden">
+      <p className="mt-2 text-sm text-slate-500">{description}</p>
+      {unavailable ? (
+        <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50 p-5 text-sm text-blue-800">{unavailable}</div>
+      ) : chartData.length === 0 ? (
+        <div className="mt-5 flex min-h-56 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-5 text-center text-sm text-slate-500">
+          No recorded data is available for this trend yet.
+        </div>
+      ) : (
+        <div className="mt-5 h-60 min-w-0" role="img" aria-label={`${title} chart based on recorded data`}>
+          <ResponsiveContainer width="100%" height="100%">
+            {type === 'bar' ? (
+              <BarChart data={chartData} margin={{ top: 8, right: 4, left: -14, bottom: 0 }}>
+                <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" />
+                <XAxis dataKey={labelKey} tickFormatter={labelKey === 'date' ? shortDate : undefined} tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tickFormatter={valueFormatter} tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} width={48} />
+                <Tooltip labelFormatter={(label) => `Date: ${label}`} formatter={(value) => [valueFormatter(value), title]} contentStyle={tooltipStyle} />
+                <Bar dataKey={dataKey} fill={color} radius={[7, 7, 0, 0]} maxBarSize={42} />
+              </BarChart>
+            ) : (
+              <AreaChart data={chartData} margin={{ top: 8, right: 4, left: -14, bottom: 0 }}>
+                <defs><linearGradient id={`gradient-${dataKey}-${title.replace(/\s+/g, '')}`} x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity={0.35} /><stop offset="100%" stopColor={color} stopOpacity={0.02} /></linearGradient></defs>
+                <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" />
+                <XAxis dataKey={labelKey} tickFormatter={labelKey === 'date' ? shortDate : undefined} tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tickFormatter={valueFormatter} tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} width={48} />
+                <Tooltip labelFormatter={(label) => `Date: ${label}`} formatter={(value) => [valueFormatter(value), title]} contentStyle={tooltipStyle} />
+                <Area type="monotone" dataKey={dataKey} stroke={color} strokeWidth={3} fill={`url(#gradient-${dataKey}-${title.replace(/\s+/g, '')})`} />
+              </AreaChart>
+            )}
+          </ResponsiveContainer>
+        </div>
+      )}
+    </SectionCard>
+  )
+}
+
+const shortDate = (value) => {
+  const parsed = new Date(`${value}T00:00:00`)
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+const tooltipStyle = { borderRadius: 12, border: '1px solid #dbe5df', boxShadow: '0 12px 28px rgba(15, 23, 42, .12)' }

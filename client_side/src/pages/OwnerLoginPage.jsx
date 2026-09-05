@@ -1,11 +1,17 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { ArrowRight, ShieldCheck } from 'lucide-react'
+import { ArrowRight, Moon, ShieldCheck, Sun } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/authStore'
+import { useLanguage } from '../context/LanguageContext'
+import { useTheme } from '../context/ThemeContext'
+
+const headlineWords = ['Access', 'your', 'company', 'operations,', 'production', 'and', 'payroll', 'in', 'one', 'place.']
 
 export default function OwnerLoginPage() {
   const { login, isAuthenticated, user } = useAuth()
+  const { language, setLanguage } = useLanguage()
+  const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -25,7 +31,7 @@ export default function OwnerLoginPage() {
     setLoading(true)
 
     try {
-      const response = await login(username, password, 'owner')
+      const response = await login(username, password, 'owner', 'OWNER')
       toast.success('Welcome back, Owner!')
       const roleName =
         response?.data?.user?.role_name ||
@@ -43,7 +49,10 @@ export default function OwnerLoginPage() {
   }
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
+    <div className="relative min-h-screen grid lg:grid-cols-2">
+      <div className="absolute right-4 top-4 z-20 flex items-center gap-2"><div className="grid grid-cols-3 rounded-xl border border-slate-200 bg-white/95 p-1 text-xs font-bold shadow-sm backdrop-blur">
+        {['en', 'rw', 'fr'].map((item) => <button key={item} type="button" onClick={() => setLanguage(item)} className={`rounded-lg px-2.5 py-2 uppercase transition ${language === item ? 'bg-emerald-700 text-white' : 'text-slate-600 hover:bg-emerald-50'}`}>{item}</button>)}
+      </div><button type="button" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} className="rounded-xl border border-slate-200 bg-white/95 p-2.5 text-emerald-700 shadow-sm transition hover:bg-emerald-50">{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button></div>
       <div className="relative hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-700 text-white overflow-hidden">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_30%_20%,#fff_1px,transparent_1px)] [background-size:24px_24px]" />
         <div className="relative z-10 flex items-center gap-3">
@@ -56,8 +65,8 @@ export default function OwnerLoginPage() {
           </div>
         </div>
         <div className="relative z-10 space-y-6 max-w-md">
-          <h1 className="font-display text-4xl font-semibold leading-tight">
-            Access your company operations, production and payroll in one place.
+          <h1 className="font-display !text-white text-4xl font-bold leading-tight" aria-label="Access your company operations, production and payroll in one place.">
+            {headlineWords.map((word, index) => <span key={`${word}-${index}`} className="login-hero-word" style={{ animationDelay: `${index * 0.2}s` }}>{word}{' '}</span>)}
           </h1>
           <p className="text-white/70 leading-relaxed">
             Sign in with the credentials created by your administrator. Manage your mine, teams, attendance and payroll from a modern owner dashboard.

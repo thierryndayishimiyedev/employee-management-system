@@ -6,13 +6,16 @@ const LanguageContext = createContext(null)
 const shouldSkip = (node) => ['SCRIPT', 'STYLE', 'CODE', 'PRE'].includes(node.parentElement?.tagName) || node.parentElement?.closest('[data-i18n-skip]')
 
 export function LanguageProvider({ children }) {
-  const [language] = useState(() => localStorage.getItem('minewise_language') || 'en')
+  const [language] = useState(() => {
+    const stored = localStorage.getItem('minewise_language')
+    return ['en', 'rw', 'fr'].includes(stored) ? stored : 'en'
+  })
   const originalText = useRef(new WeakMap())
   const originalAttributes = useRef(new WeakMap())
 
   useEffect(() => {
     localStorage.setItem('minewise_language', language)
-    document.documentElement.lang = language === 'rw' ? 'rw' : 'en'
+    document.documentElement.lang = language
     const apply = (root = document.body) => {
       if (!root) return
       const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
@@ -44,6 +47,7 @@ export function LanguageProvider({ children }) {
   // Reloading after a language change restores original React text cleanly,
   // then applies the selected language to every mounted screen.
   const setLanguage = (next) => {
+    if (!['en', 'rw', 'fr'].includes(next)) return
     if (next === language) return
     localStorage.setItem('minewise_language', next)
     window.location.reload()

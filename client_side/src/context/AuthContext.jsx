@@ -34,7 +34,7 @@ export function AuthProvider({ children }) {
 
     });
 
-    const login = async (username, password, portal = "admin") => {
+    const login = async (username, password, portal = "admin", expectedRole = null) => {
 
         const endpoint =
             portal === "owner"
@@ -52,6 +52,13 @@ export function AuthProvider({ children }) {
 
         const token = response.data.data.token;
         const loggedUser = normalizeUser(response.data.data.user);
+
+        // The role picker is a real access check, not merely a dashboard
+        // shortcut. Do this before saving a session so a mismatched account
+        // never becomes authenticated in this browser.
+        if (expectedRole && loggedUser?.role_name !== expectedRole) {
+            throw new Error(`This account is assigned to ${String(loggedUser?.role_name || 'another').replace('_', ' ')}. Select the matching account type and try again.`);
+        }
 
         sessionStorage.setItem("token", token);
         sessionStorage.setItem(

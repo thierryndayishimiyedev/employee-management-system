@@ -6,6 +6,8 @@ export const rw = {
   'Reports': 'Raporo', 'Downloads': 'Ibikururwa', 'Download': 'Kuramo', 'Food Supplies': 'Ibiribwa byatanzwe',
   'Food Supply Control': 'Imicungire y’ibiribwa', 'Worker Items': 'Ibyafashwe n’umukozi', 'Positions': 'Imyanya y’akazi',
   'Departments': 'Amashami', 'Mines': 'Ibirombe', 'Roles': 'Inshingano', 'Workspace': 'Aho ukorera', 'Collapse': 'Guhisha',
+  'Settings': 'Igenamiterere', 'Secure account settings': 'Igenamiterere rinoze rya konti', 'Change login': 'Hindura uko winjira',
+  'Account': 'Konti', 'Full name': 'Amazina yose', 'New password (8+ characters)': 'Ijambo banga rishya (inyuguti 8 cyangwa zirenga)',
   'Sign in': 'Injira', 'Sign out': 'Sohoka', 'Username': 'Izina ukoresha', 'Password': 'Ijambo banga', 'Email': 'Imeyili',
   'Phone': 'Telefoni', 'Address': 'Aho atuye', 'Date': 'Itariki', 'Status': 'Imiterere', 'Actions': 'Ibikorwa',
   'Save': 'Bika', 'Cancel': 'Hagarika', 'Close': 'Funga', 'Delete': 'Siba', 'Edit': 'Hindura', 'View': 'Reba',
@@ -48,12 +50,54 @@ export const rw = {
   'INTERNAL_TEST': 'IKIZAMINI CYA SISITEMU'
 }
 
-const ordered = Object.entries(rw).sort(([a], [b]) => b.length - a.length)
+export const fr = {
+  'Dashboard': 'Tableau de bord', 'Companies': 'Sociétés', 'Company': 'Société', 'Owners': 'Propriétaires', 'Owner': 'Propriétaire',
+  'Managers': 'Responsables', 'Manager': 'Responsable', 'Accountants': 'Comptables', 'Accountant': 'Comptable',
+  'Workers': 'Travailleurs', 'Worker': 'Travailleur', 'Employees': 'Employés', 'Employee': 'Employé', 'Attendance': 'Présence',
+  'Production': 'Production', 'Payroll': 'Paie', 'Advances': 'Avances sur salaire', 'Payments': 'Paiements',
+  'Reports': 'Rapports', 'Downloads': 'Téléchargements', 'Download': 'Télécharger', 'Food Supplies': 'Fournitures alimentaires',
+  'Food Supply Control': 'Gestion des fournitures alimentaires', 'Worker Items': 'Articles des travailleurs', 'Positions': 'Postes',
+  'Departments': 'Départements', 'Mines': 'Mines', 'Roles': 'Rôles', 'Workspace': 'Espace de travail', 'Collapse': 'Réduire',
+  'Settings': 'Paramètres', 'Secure account settings': 'Paramètres sécurisés du compte', 'Change login': 'Modifier les identifiants',
+  'Account': 'Compte', 'Full name': 'Nom complet', 'New password (8+ characters)': 'Nouveau mot de passe (8 caractères ou plus)',
+  'Sign in': 'Se connecter', 'Sign out': 'Se déconnecter', 'Username': 'Nom d’utilisateur', 'Password': 'Mot de passe', 'Email': 'E-mail',
+  'Phone': 'Téléphone', 'Address': 'Adresse', 'Date': 'Date', 'Status': 'Statut', 'Actions': 'Actions',
+  'Save': 'Enregistrer', 'Cancel': 'Annuler', 'Close': 'Fermer', 'Delete': 'Supprimer', 'Edit': 'Modifier', 'View': 'Voir',
+  'Create': 'Créer', 'Add': 'Ajouter', 'Remove': 'Retirer', 'Search': 'Rechercher', 'Refresh': 'Actualiser',
+  'Approve': 'Approuver', 'Final Approve': 'Approbation finale', 'Manager Approve': 'Approbation du responsable', 'Request Changes': 'Demander des modifications',
+  'Pay': 'Payer', 'Pay All Employees': 'Payer tous les employés', 'Payment': 'Paiement', 'Paid': 'Payé', 'Unpaid': 'Non payé',
+  'Pending': 'En attente', 'Pending Manager': 'En attente du responsable', 'Pending Owner': 'En attente du propriétaire',
+  'Generated': 'Généré', 'Approved': 'Approuvé', 'Changes Requested': 'Modifications demandées', 'Failed': 'Échoué',
+  'Present': 'Présent', 'Absent': 'Absent', 'Leave': 'Congé', 'Check In': 'Arrivée', 'Check Out': 'Départ',
+  'Hours worked': 'Heures travaillées', 'Overtime': 'Heures supplémentaires', 'Remarks': 'Remarques',
+  'Record Attendance': 'Enregistrer la présence', 'Attendance Records': 'Registres de présence', 'Today’s Attendance': 'Présence du jour',
+  'Daily': 'Quotidien', 'Weekly': 'Hebdomadaire', 'Monthly': 'Mensuel', 'Yearly': 'Annuel',
+  'Salary Advances': 'Avances sur salaire', 'Request Advance': 'Demander une avance', 'Amount': 'Montant', 'Reason': 'Motif',
+  'Balance': 'Solde', 'Deducted': 'Déduit', 'Deductions': 'Déductions', 'Advance': 'Avance',
+  'Net Salary': 'Salaire net', 'Basic Salary': 'Salaire de base', 'Allowances': 'Indemnités',
+  'Period': 'Période', 'Period start': 'Début de période', 'Period end (14th day)': 'Fin de période (14e jour)', 'Days': 'Jours', 'Frequency': 'Fréquence',
+  'Generate Payroll': 'Générer la paie', 'Food Supplier': 'Fournisseur alimentaire', 'Supplier': 'Fournisseur', 'Items': 'Articles', 'Total': 'Total', 'Total RWF': 'Total RWF',
+  'Verify': 'Vérifier', 'Changes': 'Modifications', 'Record item': 'Enregistrer l’article',
+  'Select Employee': 'Sélectionner un employé', 'Select worker': 'Sélectionner un travailleur', 'Select Company': 'Sélectionner une société',
+  'Select Position': 'Sélectionner un poste', 'Select Department': 'Sélectionner un département', 'Loading...': 'Chargement...',
+  'Saving...': 'Enregistrement...', 'Submitting...': 'Envoi...', 'Something went wrong': 'Un problème est survenu.',
+  'Welcome back': 'Bon retour', 'Sign in to your account': 'Connectez-vous à votre compte',
+  'Employee code': 'Code employé', 'First name': 'Prénom', 'Last name': 'Nom', 'Daily rate': 'Taux journalier', 'Monthly salary': 'Salaire mensuel',
+  'Active': 'Actif', 'Inactive': 'Inactif', 'Unit price': 'Prix unitaire', 'Quantity': 'Quantité', 'Unit': 'Unité',
+  'Notes / delivery reference': 'Notes / référence de livraison', 'Worker items and consumptions': 'Articles et consommations des travailleurs',
+  'Outstanding and deducted items': 'Articles en attente et déduits', 'No food supply records yet.': 'Aucun enregistrement de fourniture alimentaire.',
+  'No worker items have been recorded.': 'Aucun article de travailleur enregistré.', 'No Attendance Records': 'Aucun registre de présence.',
+  'No employee attendance has been recorded yet.': 'Aucune présence d’employé enregistrée.',
+  'INTERNAL_TEST': 'TEST INTERNE'
+}
+
+const dictionaries = { rw, fr }
+const ordered = Object.fromEntries(Object.entries(dictionaries).map(([language, dictionary]) => [language, Object.entries(dictionary).sort(([a], [b]) => b.length - a.length)]))
 export const translate = (value, language) => {
-  if (language !== 'rw' || typeof value !== 'string') return value
+  if (!dictionaries[language] || typeof value !== 'string') return value
   let result = value
-  for (const [english, kinyarwanda] of ordered) {
-    result = result.replace(new RegExp(english.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), kinyarwanda)
+  for (const [english, translation] of ordered[language]) {
+    result = result.replace(new RegExp(english.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), translation)
   }
   return result
 }

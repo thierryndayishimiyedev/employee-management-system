@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { ArrowRight, ShieldCheck } from 'lucide-react'
+import { ArrowRight, Moon, ShieldCheck, Sun } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/authStore'
+import { useLanguage } from '../context/LanguageContext'
+import { useTheme } from '../context/ThemeContext'
 
 const demoAccounts = [
   { role: 'Owner', name: 'owner@miningops.rw', password: 'owner123' },
@@ -21,6 +23,8 @@ const destinationForRole = (roleName) => {
 
 export default function LoginPage() {
   const { login, isAuthenticated, user } = useAuth()
+  const { language, setLanguage } = useLanguage()
+  const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
@@ -52,7 +56,7 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const response = await login(name, password, accountType === 'OWNER' ? 'owner' : 'admin')
+      const response = await login(name, password, accountType === 'OWNER' ? 'owner' : 'admin', accountType)
       toast.success('Welcome back')
       const roleName =
         response?.data?.user?.role_name ||
@@ -77,7 +81,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
+    <div className="relative min-h-screen grid lg:grid-cols-2">
+      <LanguagePicker language={language} setLanguage={setLanguage} theme={theme} toggleTheme={toggleTheme} />
       <div className="relative hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-700 text-white overflow-hidden">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_30%_20%,#fff_1px,transparent_1px)] [background-size:24px_24px]" />
         <div className="relative z-10 flex items-center gap-3">
@@ -90,7 +95,7 @@ export default function LoginPage() {
           </div>
         </div>
         <div className="relative z-10 space-y-6 max-w-md">
-          <h1 className="font-display text-white-100 text-4xl font-semibold leading-tight">
+          <h1 className="font-display !text-white text-4xl font-bold leading-tight">
             Run every mine site from a single command center.
           </h1>
           <p className="text-white/70 leading-relaxed">
@@ -191,4 +196,10 @@ export default function LoginPage() {
       </div>
     </div>
   )
+}
+
+function LanguagePicker({ language, setLanguage, theme, toggleTheme }) {
+  return <div className="absolute right-4 top-4 z-20 flex items-center gap-2"><div className="grid grid-cols-3 rounded-xl border border-slate-200 bg-white/95 p-1 text-xs font-bold shadow-sm backdrop-blur">
+    {['en', 'rw', 'fr'].map((item) => <button key={item} type="button" onClick={() => setLanguage(item)} className={`rounded-lg px-2.5 py-2 uppercase transition ${language === item ? 'bg-emerald-700 text-white' : 'text-slate-600 hover:bg-emerald-50'}`}>{item}</button>)}
+  </div><button type="button" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} className="rounded-xl border border-slate-200 bg-white/95 p-2.5 text-emerald-700 shadow-sm transition hover:bg-emerald-50">{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button></div>
 }
