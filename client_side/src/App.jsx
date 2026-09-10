@@ -173,7 +173,7 @@ function App() {
                         allowedRoles={["OWNER", "MANAGER", "ACCOUNTANT"]}
                         redirectTo="/owner/login"
                     >
-                        <ManagementPage resource="payrolls" />
+                        <ManagementPage key="payrolls" resource="payrolls" />
                     </ProtectedRoute>
                 }
             />
@@ -261,7 +261,7 @@ function App() {
                         allowedRoles={["OWNER", "MANAGER", "ACCOUNTANT"]}
                         redirectTo="/owner/login"
                     >
-                        <ManagementPage resource="advances" />
+                        <ManagementPage key="advances" resource="advances" />
                     </ProtectedRoute>
                 }
             />

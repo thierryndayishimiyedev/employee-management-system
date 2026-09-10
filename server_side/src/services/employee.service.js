@@ -3,12 +3,13 @@ const { scopeByCompany } = require("../utils/companyScope");
 const { scopeByManager } = require("../utils/managerScope");
 
 const getEmployeesForAttendance = async (user) => {
-    // Workers no longer require login accounts; is_worker is the explicit
-    // operational marker for the attendance, payroll, and item selectors.
+    // Flexible workers use their own daily-rate ledger and must never be
+    // offered by the fixed attendance register or bulk "all present" action.
     let query = supabase
         .from("employees")
-        .select("employee_id, employee_code, first_name, last_name, company_id, manager_user_id")
+        .select("employee_id, employee_code, first_name, last_name, company_id, manager_user_id, payment_type")
         .eq("is_worker", true)
+        .eq("payment_type", "FIXED_DAILY")
         .order("first_name", { ascending: true });
     query = scopeByCompany(query, user);
     // The attendance worker picker must never offer an accountant or manager

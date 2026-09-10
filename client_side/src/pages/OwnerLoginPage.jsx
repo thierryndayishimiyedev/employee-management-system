@@ -53,7 +53,7 @@ export default function OwnerLoginPage() {
       <div className="absolute right-4 top-4 z-20 flex items-center gap-2"><div className="grid grid-cols-3 rounded-xl border border-slate-200 bg-white/95 p-1 text-xs font-bold shadow-sm backdrop-blur">
         {['en', 'rw', 'fr'].map((item) => <button key={item} type="button" onClick={() => setLanguage(item)} className={`rounded-lg px-2.5 py-2 uppercase transition ${language === item ? 'bg-emerald-700 text-white' : 'text-slate-600 hover:bg-emerald-50'}`}>{item}</button>)}
       </div><button type="button" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} className="rounded-xl border border-slate-200 bg-white/95 p-2.5 text-emerald-700 shadow-sm transition hover:bg-emerald-50">{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button></div>
-      <div className="relative hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-700 text-white overflow-hidden">
+      <div className="relative hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-blue-950 via-blue-900 to-blue-700 text-white overflow-hidden">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_30%_20%,#fff_1px,transparent_1px)] [background-size:24px_24px]" />
         <div className="relative z-10 flex items-center gap-3">
           <div className="flex h-11 w-16 items-center justify-center overflow-hidden rounded-lg bg-white p-1">

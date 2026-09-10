@@ -44,10 +44,18 @@ const buildWeeklyChartData = (records = []) => {
         const presentCount = dayRecords.filter(
             (record) => record.attendance_status === "PRESENT"
         ).length;
+        const absentCount = dayRecords.filter((record) => record.attendance_status === "ABSENT").length;
+        const lateCount = dayRecords.filter((record) => record.attendance_status === "LATE").length;
+        const leaveCount = dayRecords.filter((record) => record.attendance_status === "LEAVE").length;
 
         chartData.push({
             label: date.toLocaleDateString("en", { weekday: "short" }),
-            total: presentCount
+            total: presentCount,
+            present: presentCount,
+            absent: absentCount,
+            late: lateCount,
+            leave: leaveCount,
+            hours: dayRecords.reduce((sum, record) => sum + Number(record.hours_worked || 0), 0)
         });
     }
 
@@ -232,6 +240,13 @@ export default function AttendancePage() {
 
     }, []);
 
+    // Attendance charts and totals refresh from the scoped database records,
+    // even when the page remains open while another accountant saves a row.
+    useEffect(() => {
+        const refreshTimer = window.setInterval(loadDashboard, 30000);
+        return () => window.clearInterval(refreshTimer);
+    }, []);
+
     const refreshDashboard = () => {
 
         setLoading(true);
@@ -368,7 +383,7 @@ export default function AttendancePage() {
 
                 <DailyAttendanceRegister
                     enabled={canManageAttendance}
-                    todayRecords={todayAttendance}
+                    attendanceRecords={scopedAttendances}
                     onChanged={refreshDashboard}
                 />
 

@@ -1,5 +1,6 @@
 const {
     requestAdvance,
+    requestAdvancesForAllEligibleWorkers,
     getAdvanceEligibility,
     getAdvances,
     getAdvanceById,
@@ -36,6 +37,19 @@ const createAdvance = async (req, res) => {
 
     }
 
+};
+
+const createAdvancesForAll = async (req, res) => {
+    try {
+        const result = await requestAdvancesForAllEligibleWorkers(req.body, req.user);
+        res.status(201).json({
+            success: true,
+            message: `${result.requested.length} advance request(s) created. ${result.skipped.length} worker(s) are not eligible yet. ${result.failed.length} failed.`,
+            data: result
+        });
+    } catch (err) {
+        res.status(400).json({ success: false, message: err.message });
+    }
 };
 
 const fetchAdvances = async (req, res) => {
@@ -133,6 +147,7 @@ const removeAdvance = async (req, res) => {
 
 module.exports = {
     createAdvance,
+    createAdvancesForAll,
     fetchAdvanceEligibility,
     fetchAdvances,
     fetchAdvance,

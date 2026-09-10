@@ -7,6 +7,7 @@ const authorize = require("../middleware/authorize.middleware");
 
 const {
     createAdvance,
+    createAdvancesForAll,
     fetchAdvanceEligibility,
     fetchAdvances,
     fetchAdvance,
@@ -15,6 +16,7 @@ const {
 } = require("../controllers/advance.controller");
 
 router.post("/", authenticate, authorize("ACCOUNTANT", "OWNER", "SUPER_ADMIN"), createAdvance);
+router.post("/generate-all", authenticate, authorize("ACCOUNTANT", "SUPER_ADMIN"), createAdvancesForAll);
 
 router.get("/", authenticate, authorize("OWNER", "MANAGER", "ACCOUNTANT", "SUPER_ADMIN"), fetchAdvances);
 

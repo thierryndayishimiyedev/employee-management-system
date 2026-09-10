@@ -1,5 +1,7 @@
 const {
     generatePayroll,
+    generatePayrollForAll,
+    getPayrollDateGuidance,
     getPayrolls,
     getPayrollSummary,
     getPayrollById,
@@ -27,6 +29,27 @@ const createPayroll = async (req, res) => {
 
     }
 
+};
+
+const createPayrollForAll = async (req, res) => {
+    try {
+        const result = await generatePayrollForAll(req.body, req.user);
+        res.status(201).json({
+            success: true,
+            message: `${result.generated.length} payroll record(s) generated. ${result.skipped.length} already-calculated worker(s) skipped. ${result.failed.length} worker(s) need attention.`,
+            data: result
+        });
+    } catch (err) {
+        res.status(400).json({ success: false, message: err.message });
+    }
+};
+
+const fetchPayrollDateGuidance = async (req, res) => {
+    try {
+        res.json({ success: true, data: await getPayrollDateGuidance(req.user) });
+    } catch (err) {
+        res.status(400).json({ success: false, message: err.message });
+    }
 };
 
 const fetchPayrolls = async (req, res) => {
@@ -119,6 +142,8 @@ const removePayroll = async (req, res) => {
 
 module.exports = {
     createPayroll,
+    createPayrollForAll,
+    fetchPayrollDateGuidance,
     fetchPayrolls,
     fetchPayrollSummary,
     fetchPayroll,

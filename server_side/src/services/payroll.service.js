@@ -42,6 +42,13 @@ const parseDate = (value, label) => {
     return new Date(`${value}T00:00:00Z`);
 };
 
+const isoDate = (date) => date.toISOString().slice(0, 10);
+const addCalendarDays = (value, days) => {
+    const date = parseDate(value, "payroll date");
+    date.setUTCDate(date.getUTCDate() + days);
+    return isoDate(date);
+};
+
 const resolvePayrollPeriod = ({ payroll_month, payroll_year, payroll_period_start, payroll_period_end, payroll_frequency }) => {
     const frequency = payroll_frequency || (payroll_period_start || payroll_period_end ? "BIWEEKLY" : "MONTHLY");
     if (!["MONTHLY", "BIWEEKLY"].includes(frequency)) throw new Error("Payroll frequency must be MONTHLY or BIWEEKLY.");
@@ -118,7 +125,7 @@ const generatePayroll = async (payload, user) => {
     // Sunday records are excluded even if legacy data contains them. Sunday is
     // a company rest day and cannot increase a worker's paid days.
     const daysWorked = attendance.filter((record) => (
-        record.attendance_status === "PRESENT" && new Date(`${record.attendance_date}T00:00:00Z`).getUTCDay() !== 0
+        ["PRESENT", "LATE"].includes(record.attendance_status) && new Date(`${record.attendance_date}T00:00:00Z`).getUTCDay() !== 0
     )).length;
 
     const overtimeHours = attendance.reduce(
@@ -135,8 +142,13 @@ const generatePayroll = async (payload, user) => {
     }
     const paidDays = employee.payment_type === "FLEXIBLE_DAILY" ? flexibleEntries.length : daysWorked;
     const basicSalary = employee.payment_type === "FLEXIBLE_DAILY" ? flexibleEntries.reduce((sum, row) => sum + Number(row.agreed_daily_rate || 0), 0) : daysWorked * Number(employee.daily_rate);
+    if (employee.payment_type !== "FLEXIBLE_DAILY" && paidDays === 0) {
+        throw new Error("No recorded worked attendance exists for this payroll period.");
+    }
 
-    const overtimePay = overtimeHours * (Number(employee.daily_rate) / 8);
+    // The agreed biweekly formula is paid days × daily rate, less advances
+    // and worker consumptions. Overtime remains visible for reporting only.
+    const overtimePay = 0;
 
     const allowances = 0;
     const deductions = 0;
@@ -201,6 +213,90 @@ const generatePayroll = async (payload, user) => {
 
 };
 
+// The batch path deliberately delegates every worker to generatePayroll. This
+// keeps the same scope checks, deductions, flexible-work calculation, and
+// duplicate-period protection as the individual payroll action.
+const generatePayrollForAll = async (payload, user) => {
+    const period = resolvePayrollPeriod(payload);
+    let workersQuery = supabase
+        .from("employees")
+        .select("employee_id, employee_code, first_name, last_name, company_id, manager_user_id, payment_type")
+        .eq("is_worker", true)
+        .order("first_name", { ascending: true })
+        .order("last_name", { ascending: true });
+
+    if (!isSuperAdmin(user)) workersQuery = workersQuery.in("company_id", requireCompanyIds(user));
+    workersQuery = scopeByManager(workersQuery, user);
+
+    const { data: workers, error } = await workersQuery;
+    if (error) throw error;
+    if (!workers?.length) throw new Error("No workers are available in your manager scope.");
+
+    const result = {
+        period: { frequency: period.frequency, start_date: period.startDate, end_date: period.endDate },
+        workers_considered: workers.length,
+        generated: [],
+        skipped: [],
+        failed: []
+    };
+
+    for (const worker of workers) {
+        const employee_name = `${worker.first_name || ""} ${worker.last_name || ""}`.trim() || worker.employee_code;
+        try {
+            const payroll = await generatePayroll({ ...payload, employee_id: worker.employee_id }, user);
+            result.generated.push({ payroll_id: payroll.payroll_id, employee_id: worker.employee_id, employee_code: worker.employee_code, employee_name, days_worked: payroll.days_worked, net_salary: payroll.net_salary });
+        } catch (workerError) {
+            const reason = workerError.message || "Could not calculate payroll.";
+            const row = { employee_id: worker.employee_id, employee_code: worker.employee_code, employee_name, reason };
+            // A protected overlap is intentionally skipped: no second payroll
+            // can ever be created for days already calculated or paid.
+            if (/cannot overlap|already calculated|already exists|no recorded worked attendance|no unpaid flexible-work/i.test(reason)) result.skipped.push(row);
+            else result.failed.push(row);
+        }
+    }
+    return result;
+};
+
+// Gives accountants a real calendar reminder. Any calculated payroll closes
+// its complete 14-day calendar window, even before it is approved or paid.
+const getPayrollDateGuidance = async (user) => {
+    const payrolls = await getPayrolls(user);
+    const prior = payrolls
+        .filter((row) => row.payroll_frequency === "BIWEEKLY" && row.payroll_period_end)
+        .sort((a, b) => String(b.payroll_period_end).localeCompare(String(a.payroll_period_end)))[0];
+
+    if (prior) {
+        const startDate = addCalendarDays(prior.payroll_period_end, 1);
+        return {
+            last_calculated_period: { start_date: prior.payroll_period_start, end_date: prior.payroll_period_end },
+            suggested_period: { start_date: startDate, end_date: addCalendarDays(startDate, 13) },
+            message: `Last payroll was ${prior.payroll_period_start} to ${prior.payroll_period_end}. The next valid 14-day period is ${startDate} to ${addCalendarDays(startDate, 13)}.`
+        };
+    }
+
+    let workersQuery = supabase.from("employees").select("employee_id").eq("is_worker", true);
+    if (!isSuperAdmin(user)) workersQuery = workersQuery.in("company_id", requireCompanyIds(user));
+    workersQuery = scopeByManager(workersQuery, user);
+    const { data: workers, error: workersError } = await workersQuery;
+    if (workersError) throw workersError;
+    const workerIds = (workers || []).map((worker) => worker.employee_id);
+    if (!workerIds.length) return { last_calculated_period: null, suggested_period: null, message: "No workers are available in this scope yet." };
+
+    const [attendanceResult, flexibleResult] = await Promise.all([
+        supabase.from("attendance").select("attendance_date").in("employee_id", workerIds).order("attendance_date", { ascending: true }).limit(1),
+        supabase.from("flexible_work_entries").select("work_date").in("employee_id", workerIds).order("work_date", { ascending: true }).limit(1)
+    ]);
+    if (attendanceResult.error) throw attendanceResult.error;
+    if (flexibleResult.error) throw flexibleResult.error;
+    const firstWorkedDate = [attendanceResult.data?.[0]?.attendance_date, flexibleResult.data?.[0]?.work_date].filter(Boolean).sort()[0];
+    if (!firstWorkedDate) return { last_calculated_period: null, suggested_period: null, message: "Record attendance or flexible work before calculating the first payroll." };
+    return {
+        last_calculated_period: null,
+        suggested_period: { start_date: firstWorkedDate, end_date: addCalendarDays(firstWorkedDate, 13) },
+        message: `No prior payroll exists. The first recorded work date is ${firstWorkedDate}; use this 14-day period when it is complete.`
+    };
+};
+
 const getPayrolls = async (user) => {
 
     let query = supabase
@@ -213,7 +309,8 @@ const getPayrolls = async (user) => {
                 last_name,
                 daily_rate,
                 company_id
-            )
+            ),
+            payments(payment_status, failure_reason, payment_date, created_at)
         `)
         .order("generated_at", {
             ascending: false
@@ -227,7 +324,12 @@ const getPayrolls = async (user) => {
     if (error)
         throw error;
 
-    return data;
+    return (data || []).map((payroll) => {
+        const failedPayment = (payroll.payments || [])
+            .filter((payment) => String(payment.payment_status || "").startsWith("FAILED"))
+            .sort((a, b) => String(b.payment_date || b.created_at || "").localeCompare(String(a.payment_date || a.created_at || "")))[0];
+        return { ...payroll, failure_reason: failedPayment?.failure_reason || null, payments: undefined };
+    });
 
 };
 
@@ -313,6 +415,8 @@ const deletePayroll = async (id, user) => {
 
 module.exports = {
     generatePayroll,
+    generatePayrollForAll,
+    getPayrollDateGuidance,
     getPayrolls,
     getPayrollSummary,
     getPayrollById,

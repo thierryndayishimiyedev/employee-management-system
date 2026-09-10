@@ -83,7 +83,7 @@ export default function LoginPage() {
   return (
     <div className="relative min-h-screen grid lg:grid-cols-2">
       <LanguagePicker language={language} setLanguage={setLanguage} theme={theme} toggleTheme={toggleTheme} />
-      <div className="relative hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-700 text-white overflow-hidden">
+      <div className="relative hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-blue-950 via-blue-900 to-blue-700 text-white overflow-hidden">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_30%_20%,#fff_1px,transparent_1px)] [background-size:24px_24px]" />
         <div className="relative z-10 flex items-center gap-3">
           <div className="flex h-11 w-16 items-center justify-center overflow-hidden rounded-lg bg-white p-1">

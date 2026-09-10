@@ -82,6 +82,11 @@ table td { vertical-align: middle; }
   83.33%, 100% { transform: translateY(0) rotate(0); }
 }
 [data-dashboard-card] { animation: rise-in .42s ease both, dashboard-card-drift 30s ease-in-out 20s infinite; will-change: transform; }
+@keyframes attendance-chart-heartbeat {
+  0%, 100% { filter: drop-shadow(0 0 0 rgba(37,99,235,0)); }
+  50% { filter: drop-shadow(0 0 10px rgba(37,99,235,.22)); }
+}
+.attendance-live-chart { animation: attendance-chart-heartbeat 2.8s ease-in-out infinite; }
 @media (max-width: 767px) {
   main { padding: 1rem !important; }
   h1 { font-size: 1.75rem !important; line-height: 1.15; }
@@ -138,7 +143,16 @@ html.dark .shadow-sm { box-shadow: 0 10px 26px rgba(0,0,0,.28) !important; }
 html.dark .bg-emerald-50, html.dark .bg-amber-50 { background-color: #20233a !important; }
 html.dark .bg-blue-50 { background-color: #122e50 !important; }
 html.dark .bg-red-50 { background-color: #481b1b !important; }
+/* Blue information panels need light copy in dark mode.  Blue-on-navy is not
+   readable, particularly on payroll guidance and batch-payment cards. */
+html.dark .bg-blue-50, html.dark .bg-blue-50\/60 { color: #ffffff !important; }
+html.dark .bg-blue-50 .text-blue-950, html.dark .bg-blue-50\/60 .text-blue-950,
+html.dark .text-blue-950 { color: #ffffff !important; }
+html.dark .bg-blue-50 .text-blue-900, html.dark .bg-blue-50 .text-blue-800,
+html.dark .bg-blue-50\/60 .text-blue-900, html.dark .bg-blue-50\/60 .text-blue-800,
+html.dark .text-blue-800 { color: #dbeafe !important; }
+html.dark .bg-blue-50 .text-blue-700, html.dark .bg-blue-50\/60 .text-blue-700 { color: #bfdbfe !important; }
 /* The desktop login hero becomes blue at night, while the normal light-mode
    green identity remains unchanged. */
-html.dark .bg-gradient-to-br.from-emerald-950 { background-image: linear-gradient(135deg, #071a33 0%, #102f58 54%, #1d4f83 100%) !important; }
-html.dark .bg-gradient-to-br.from-emerald-950 .text-white\/70, html.dark .bg-gradient-to-br.from-emerald-950 .text-white\/60 { color: #dbeafe !important; }
+html.dark .bg-gradient-to-br.from-blue-950 { background-image: linear-gradient(135deg, #050b18 0%, #0b2545 54%, #164275 100%) !important; }
+html.dark .bg-gradient-to-br.from-blue-950 .text-white\/70, html.dark .bg-gradient-to-br.from-blue-950 .text-white\/60 { color: #dbeafe !important; }

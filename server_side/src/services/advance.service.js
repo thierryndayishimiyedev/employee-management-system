@@ -2,7 +2,7 @@ const supabase = require("../config/supabase");
 const { isSuperAdmin, requireCompanyId } = require("../utils/companyScope");
 const { assertEmployeeManager, scopeByManager } = require("../utils/managerScope");
 
-const WORKED_STATUSES = ["PRESENT"];
+const WORKED_STATUSES = ["PRESENT", "LATE"];
 const FIRST_WEEK_WORK_DAYS = 6;
 
 const payrollPeriodEnd = (payroll) => {
@@ -13,19 +13,21 @@ const payrollPeriodEnd = (payroll) => {
     return null;
 };
 
-const getLastPaidThroughDate = async (employeeId) => {
+// A payroll period is closed as soon as it is calculated. Waiting for the
+// payment click would let the same attendance days incorrectly create another
+// advance while that payroll is in approval.
+const getLastCalculatedThroughDate = async (employeeId) => {
     const { data, error } = await supabase
         .from("payroll")
         .select("payroll_frequency, payroll_period_end, payroll_month, payroll_year")
-        .eq("employee_id", employeeId)
-        .eq("payment_status", "PAID");
+        .eq("employee_id", employeeId);
     if (error) throw error;
     return (data || []).map(payrollPeriodEnd).filter(Boolean).sort().at(-1) || null;
 };
 
 const getFirstWeekEarnings = async (employeeId, dailyRate, paymentType = "FIXED_DAILY") => {
     const today = new Date().toISOString().slice(0, 10);
-    const paidThroughDate = await getLastPaidThroughDate(employeeId);
+    const paidThroughDate = await getLastCalculatedThroughDate(employeeId);
     if (paymentType === "FLEXIBLE_DAILY") {
         let workQuery = supabase.from("flexible_work_entries").select("work_date,agreed_daily_rate").eq("employee_id", employeeId).is("payroll_id", null).lte("work_date", today).order("work_date", { ascending: true });
         if (paidThroughDate) workQuery = workQuery.gt("work_date", paidThroughDate);
@@ -40,8 +42,8 @@ const getFirstWeekEarnings = async (employeeId, dailyRate, paymentType = "FIXED_
         .eq("employee_id", employeeId)
         .lte("attendance_date", today)
         .order("attendance_date", { ascending: true });
-    // A paid payroll closes all attendance through its ending date. Only new
-    // attendance after that date can build the next week's advance.
+    // A calculated payroll closes all attendance through its ending date. Only
+    // new attendance after that date can build the next week's advance.
     if (paidThroughDate) attendanceQuery = attendanceQuery.gt("attendance_date", paidThroughDate);
     const { data: attendance, error } = await attendanceQuery;
     if (error) throw error;
@@ -107,8 +109,8 @@ const requestAdvance = async (data, user) => {
         .select("amount, request_date")
         .eq("employee_id", employee_id)
         .in("status", ["PENDING", "PENDING_MANAGER", "PENDING_OWNER", "CHANGES_REQUESTED", "OWNER_APPROVED"]);
-    // An advance from a completed, paid payroll cycle is historic. An advance
-    // requested after the latest paid payroll belongs to this new work cycle.
+    // An advance from a calculated payroll cycle is historic. An advance
+    // requested after the latest calculated payroll belongs to a new cycle.
     if (eligibility.paid_through_date) advancesQuery = advancesQuery.gt("request_date", eligibility.paid_through_date);
     const { data: advances, error: advancesError } = await advancesQuery;
     if (advancesError) throw advancesError;
@@ -167,14 +169,64 @@ const getAdvanceEligibility = async (employeeId, user) => {
     if (eligibility.paid_through_date) advancesQuery = advancesQuery.gt("request_date", eligibility.paid_through_date);
     const { data: advances, error: advancesError } = await advancesQuery;
     if (advancesError) throw advancesError;
+    const { data: advanceHistory, error: historyError } = await supabase.from("salary_advances")
+        .select("advance_id, amount, request_date, payment_date, status, payment_status, created_at")
+        .eq("employee_id", employeeId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+    if (historyError) throw historyError;
     const requested_amount = (advances || []).reduce((sum, advance) => sum + Number(advance.amount || 0), 0);
+    const advance_already_requested = requested_amount > 0;
+    const worked_days_remaining = Math.max(0, FIRST_WEEK_WORK_DAYS - eligibility.worked_days);
+    const next_advance = advance_already_requested
+        ? { available_now: false, message: "An advance is already in this payroll cycle. The worker must receive payroll, then record six new worked days." }
+        : worked_days_remaining === 0
+            ? { available_now: true, message: "Available now: the first six worked days have been recorded." }
+            : { available_now: false, message: `Available after ${worked_days_remaining} more recorded worked day(s).` };
     return {
         ...eligibility,
+        payment_type: employee.payment_type || "FIXED_DAILY",
+        last_advance: advanceHistory?.[0] || null,
         requested_amount,
         remaining_allowed_advance: Math.max(0, eligibility.allowed_advance - requested_amount),
-        eligible: eligibility.worked_days >= FIRST_WEEK_WORK_DAYS && requested_amount === 0,
-        advance_already_requested: requested_amount > 0
+        eligible: eligibility.worked_days >= FIRST_WEEK_WORK_DAYS && !advance_already_requested,
+        advance_already_requested,
+        worked_days_remaining,
+        next_advance
     };
+};
+
+const requestAdvancesForAllEligibleWorkers = async (data, user) => {
+    let workersQuery = supabase.from("employees")
+        .select("employee_id, employee_code, first_name, last_name")
+        .eq("is_worker", true)
+        .eq("company_id", requireCompanyId(user))
+        .order("first_name", { ascending: true });
+    workersQuery = scopeByManager(workersQuery, user);
+    const { data: workers, error } = await workersQuery;
+    if (error) throw error;
+    if (!workers?.length) throw new Error("No workers are available in your manager scope.");
+
+    const result = { workers_considered: workers.length, requested: [], skipped: [], failed: [] };
+    for (const worker of workers) {
+        const employee_name = `${worker.first_name || ""} ${worker.last_name || ""}`.trim() || worker.employee_code;
+        try {
+            const eligibility = await getAdvanceEligibility(worker.employee_id, user);
+            if (!eligibility.eligible || Number(eligibility.remaining_allowed_advance) <= 0) {
+                result.skipped.push({ employee_id: worker.employee_id, employee_code: worker.employee_code, employee_name, reason: eligibility.next_advance?.message || "Not eligible for an advance yet." });
+                continue;
+            }
+            const advance = await requestAdvance({
+                employee_id: worker.employee_id,
+                amount: eligibility.remaining_allowed_advance,
+                reason: data?.reason?.trim() || "Automatic first-week advance based on recorded work."
+            }, user);
+            result.requested.push({ employee_id: worker.employee_id, employee_code: worker.employee_code, employee_name, advance_id: advance.advance_id, amount: advance.amount });
+        } catch (workerError) {
+            result.failed.push({ employee_id: worker.employee_id, employee_code: worker.employee_code, employee_name, reason: workerError.message || "Could not request advance." });
+        }
+    }
+    return result;
 };
 
 const getAdvances = async (user) => {
@@ -273,6 +325,7 @@ const deleteAdvance = async (id, user) => {
 
 module.exports = {
     requestAdvance,
+    requestAdvancesForAllEligibleWorkers,
     getAdvanceEligibility,
     getAdvances,
     getAdvanceById,

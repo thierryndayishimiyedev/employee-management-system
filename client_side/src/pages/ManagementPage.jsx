@@ -437,6 +437,7 @@ const resourceConfig = {
       ['Net Salary', (item) => <span className="rounded bg-cyan-50 px-2 py-1 font-bold text-cyan-800">={Number(item.net_salary || 0).toLocaleString()} RWF</span>],
       ['Approval', (item) => statusBadge(item.approval_status || 'GENERATED')],
       ['Payment', (item) => statusBadge(item.payment_status || 'GENERATED')],
+      ['Failure reason', (item) => item.failure_reason ? <span className="max-w-48 whitespace-normal text-xs font-medium text-red-700">{item.failure_reason}</span> : <span className="text-xs text-slate-400">—</span>],
     ],
     actions: [
       {
@@ -563,6 +564,11 @@ export default function ManagementPage({ resource }) {
   const [editing, setEditing] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [batchSaving, setBatchSaving] = useState(false)
+  const [batchResult, setBatchResult] = useState(null)
+  const [advanceBatchSaving, setAdvanceBatchSaving] = useState(false)
+  const [advanceBatchResult, setAdvanceBatchResult] = useState(null)
+  const [payrollGuidance, setPayrollGuidance] = useState(null)
   const [advanceEligibility, setAdvanceEligibility] = useState(null)
   const [search, setSearch] = useState('')
   const [reportDetail, setReportDetail] = useState(null)
@@ -577,7 +583,9 @@ export default function ManagementPage({ resource }) {
       relatedKeys.forEach((key) => {
         if (key === 'companies') requests.push(api.get('/companies'))
         if (key === 'positions') requests.push(api.get('/positions'))
-        if (key === 'employees') requests.push(api.get('/employees'))
+        // /employees is intentionally the fixed-attendance selector. Payroll
+        // and advances need every scoped worker, including flexible workers.
+        if (key === 'employees') requests.push(api.get('/workers'))
         if (key === 'managers') requests.push(api.get('/managers'))
       })
 
@@ -629,6 +637,29 @@ export default function ManagementPage({ resource }) {
     return () => { active = false }
   }, [config.endpoint, editing, form.employee_id])
 
+  useEffect(() => {
+    if (config.endpoint !== '/payroll') {
+      setPayrollGuidance(null)
+      return
+    }
+    let active = true
+    api.get('/payroll/guidance')
+      .then((response) => {
+        if (!active) return
+        const guidance = response.data?.data || null
+        setPayrollGuidance(guidance)
+        if (guidance?.suggested_period) {
+          setForm((current) => ({
+            ...current,
+            payroll_period_start: current.payroll_period_start || guidance.suggested_period.start_date,
+            payroll_period_end: current.payroll_period_end || guidance.suggested_period.end_date,
+          }))
+        }
+      })
+      .catch((error) => { if (active) setPayrollGuidance({ error: error.response?.data?.message || 'Could not load payroll date guidance.' }) })
+    return () => { active = false }
+  }, [config.endpoint, resource])
+
   const managerScopedItems = useMemo(() => {
     if (user?.role_name !== 'OWNER' || !managerId) return items
     return items.filter((item) => (item.manager_user_id || item.employees?.manager_user_id) === managerId)
@@ -641,7 +672,6 @@ export default function ManagementPage({ resource }) {
 
   const managerScopeName = managerId ? managers.find((manager) => manager.user_id === managerId)?.name || 'Selected manager' : 'All managers'
   const scopedAmount = useMemo(() => managerScopedItems.reduce((total, item) => total + Number(item.net_salary ?? item.amount ?? item.total_amount ?? 0), 0), [managerScopedItems])
-
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize))
   const pagedItems = useMemo(() => {
     const start = (page - 1) * pageSize
@@ -711,6 +741,42 @@ export default function ManagementPage({ resource }) {
       toast.error(error.response?.data?.message || 'Save failed')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const generatePayrollForAll = async () => {
+    if (!form.payroll_period_start || !form.payroll_period_end) {
+      toast.error('Choose the 14-day payroll start and end dates first.')
+      return
+    }
+    if (!window.confirm(`Generate payroll for every eligible worker from ${form.payroll_period_start} to ${form.payroll_period_end}? Existing or overlapping payroll periods will be skipped.`)) return
+    setBatchSaving(true)
+    setBatchResult(null)
+    try {
+      const response = await api.post('/payroll/generate-all', payload())
+      setBatchResult(response.data?.data || {})
+      toast.success(response.data?.message || 'Payroll batch completed.')
+      loadData()
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Payroll batch failed')
+    } finally {
+      setBatchSaving(false)
+    }
+  }
+
+  const generateAdvancesForAll = async () => {
+    if (!window.confirm('Create the allowed first-week advance for every eligible worker in your manager scope? Workers without six new workdays or with an advance already requested will be skipped.')) return
+    setAdvanceBatchSaving(true)
+    setAdvanceBatchResult(null)
+    try {
+      const response = await api.post('/advances/generate-all', { reason: form.reason || 'Automatic first-week advance based on recorded work.' })
+      setAdvanceBatchResult(response.data?.data || {})
+      toast.success(response.data?.message || 'Advance batch completed.')
+      loadData()
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Advance batch failed')
+    } finally {
+      setAdvanceBatchSaving(false)
     }
   }
 
@@ -837,6 +903,18 @@ export default function ManagementPage({ resource }) {
                 </p>
               )}
 
+              {config.endpoint === '/payroll' && !editing && (
+                <div className={`mt-4 rounded-md border p-4 text-sm ${payrollGuidance?.error ? 'border-red-200 bg-red-50 text-red-800' : 'border-blue-200 bg-blue-50 text-blue-950'}`}>
+                  {payrollGuidance?.error ? <p>{payrollGuidance.error}</p> : !payrollGuidance ? <p>Checking recorded attendance and the last calculated payroll period…</p> : <>
+                    <p className="font-semibold">Payroll date reminder</p>
+                    <p className="mt-1">{payrollGuidance.message}</p>
+                    {payrollGuidance.last_calculated_period && <p className="mt-2 font-medium">Last calculated: {payrollGuidance.last_calculated_period.start_date} to {payrollGuidance.last_calculated_period.end_date}</p>}
+                    {payrollGuidance.suggested_period && <p className="mt-1 font-medium">Next valid period: {payrollGuidance.suggested_period.start_date} to {payrollGuidance.suggested_period.end_date} (14 calendar days; Sundays are not paid).</p>}
+                    <p className="mt-2 text-xs">Payroll formula: worked days × daily rate − advances − worker consumptions. A full 14-day period has a maximum of 12 paid workdays.</p>
+                  </>}
+                </div>
+              )}
+
               {config.endpoint === '/advances' && form.employee_id && !editing && (
                 <div className="mt-4 rounded-md border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-950">
                   {advanceEligibility?.error ? (
@@ -845,17 +923,18 @@ export default function ManagementPage({ resource }) {
                     <p>Calculating attendance-based advance eligibility…</p>
                   ) : (
                     <>
-                      <p className="font-semibold">Attendance-based advance balance</p>
+                      <p className="font-semibold">{advanceEligibility.payment_type === 'FLEXIBLE_DAILY' ? 'Flexible-work advance balance' : 'Attendance-based advance balance'}</p>
                       <div className="mt-2 grid grid-cols-2 gap-2 text-cyan-900">
                         <span>Worked days: {advanceEligibility.worked_days}</span>
                         <span>Earned: {Number(advanceEligibility.earned_amount || 0).toLocaleString()} RWF</span>
                         <span>Allowed (50%): {Number(advanceEligibility.allowed_advance || 0).toLocaleString()} RWF</span>
                         <span>Still available: {Number(advanceEligibility.remaining_allowed_advance || 0).toLocaleString()} RWF</span>
-                        {advanceEligibility.paid_through_date && <span className="col-span-2">Previous payroll paid through: {advanceEligibility.paid_through_date}</span>}
+                        {advanceEligibility.paid_through_date && <span className="col-span-2">Previous payroll calculated through: {advanceEligibility.paid_through_date}</span>}
                       </div>
-                      {advanceEligibility.advance_already_requested
-                        ? <p className="mt-2 font-medium text-amber-800">An advance is already requested for this payroll cycle. The worker must finish and receive the 12-workday payroll, then work six new days.</p>
-                        : !advanceEligibility.eligible && <p className="mt-2 font-medium">Available after six new recorded worked days (Monday to Saturday) following the last paid payroll.</p>}
+                      <div className="mt-3 rounded border border-cyan-200 bg-white/70 p-3 text-xs">
+                        <p><strong>Last advance:</strong> {advanceEligibility.last_advance ? `${formatDate(advanceEligibility.last_advance.request_date || advanceEligibility.last_advance.created_at)} · ${Number(advanceEligibility.last_advance.amount || 0).toLocaleString()} RWF · ${advanceEligibility.last_advance.payment_status || advanceEligibility.last_advance.status}` : 'No previous advance recorded.'}</p>
+                        <p className={`mt-1 font-semibold ${advanceEligibility.next_advance?.available_now ? 'text-emerald-700' : 'text-amber-800'}`}><strong>Next advance:</strong> {advanceEligibility.next_advance?.message || `Available after ${advanceEligibility.worked_days_remaining || 0} more worked day(s).`}</p>
+                      </div>
                     </>
                   )}
                 </div>
@@ -869,6 +948,30 @@ export default function ManagementPage({ resource }) {
                 {editing ? <Save size={16} /> : <Plus size={16} />}
                 {saving ? 'Saving...' : editing ? 'Save Changes' : config.createLabel}
               </button>
+
+              {config.endpoint === '/advances' && !editing && (
+                <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                  <p className="text-sm font-semibold text-blue-950">Generate allowed advances for all workers</p>
+                  <p className="mt-1 text-xs text-blue-800">Creates only each eligible worker’s allowed 50% first-week advance. Flexible workers use their recorded flexible-work daily rates. Others are skipped with a reason.</p>
+                  <button type="button" disabled={advanceBatchSaving || saving} onClick={generateAdvancesForAll} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md border border-blue-700 bg-white px-4 py-2.5 text-sm font-semibold text-blue-800 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60">
+                    <Users size={16} />
+                    {advanceBatchSaving ? 'Checking worker eligibility…' : 'Generate advances for all eligible workers'}
+                  </button>
+                  {advanceBatchResult && <div className="mt-3 space-y-2 text-xs"><p className="font-semibold text-blue-950">Requested: {advanceBatchResult.requested?.length || 0} · Not eligible: {advanceBatchResult.skipped?.length || 0} · Failed: {advanceBatchResult.failed?.length || 0}</p>{(advanceBatchResult.skipped?.length > 0 || advanceBatchResult.failed?.length > 0) && <ul className="max-h-32 space-y-1 overflow-y-auto rounded border border-amber-200 bg-amber-50 p-2 text-amber-900">{[...(advanceBatchResult.skipped || []), ...(advanceBatchResult.failed || [])].map((row) => <li key={row.employee_id}><strong>{row.employee_code} {row.employee_name}:</strong> {row.reason}</li>)}</ul>}</div>}
+                </div>
+              )}
+
+              {config.endpoint === '/payroll' && !editing && form.payroll_frequency === 'BIWEEKLY' && (
+                <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                  <p className="text-sm font-semibold text-blue-950">Batch payroll for all eligible workers</p>
+                  <p className="mt-1 text-xs text-blue-800">Use the selected 14-day dates above. Fixed workers need attendance; flexible workers need unpaid flexible-work entries. Existing or overlapping periods are skipped.</p>
+                  <button type="button" disabled={batchSaving || saving} onClick={generatePayrollForAll} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md border border-blue-700 bg-white px-4 py-2.5 text-sm font-semibold text-blue-800 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60">
+                    <Users size={16} />
+                    {batchSaving ? 'Calculating all workers…' : 'Generate payroll for all workers'}
+                  </button>
+                  {batchResult && <div className="mt-3 space-y-2 text-xs"><p className="font-semibold text-blue-950">Generated: {batchResult.generated?.length || 0} · Already calculated / no work: {batchResult.skipped?.length || 0} · Needs attention: {batchResult.failed?.length || 0}</p>{batchResult.failed?.length > 0 && <ul className="max-h-32 space-y-1 overflow-y-auto rounded border border-red-200 bg-red-50 p-2 text-red-800">{batchResult.failed.map((row) => <li key={row.employee_id}><strong>{row.employee_code} {row.employee_name}:</strong> {row.reason}</li>)}</ul>}</div>}
+                </div>
+              )}
             </form>
           )}
 
@@ -891,6 +994,15 @@ export default function ManagementPage({ resource }) {
                 <p className="p-5 text-sm text-slate-500">Loading...</p>
               ) : filteredItems.length === 0 ? (
                 <p className="p-5 text-sm text-slate-500">No records available.</p>
+              ) : resource === 'payrolls' ? (
+                <PayrollPeriodTables
+                  items={filteredItems}
+                  config={config}
+                  user={user}
+                  runAction={runAction}
+                  deleteItem={deleteItem}
+                  canCreateResource={canCreateResource}
+                />
               ) : (
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-400">
@@ -955,7 +1067,7 @@ export default function ManagementPage({ resource }) {
               )}
             </div>
 
-            {!loading && filteredItems.length > pageSize && (
+            {!loading && resource !== 'payrolls' && filteredItems.length > pageSize && (
               <div className="flex flex-col gap-3 border-t border-slate-200 p-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
                 <span>
                   Page {page} of {totalPages}
@@ -1155,6 +1267,39 @@ async function downloadPaymentReport() {
   link.click()
   link.remove()
   window.URL.revokeObjectURL(url)
+}
+
+function PayrollPeriodTables({ items, config, user, runAction, deleteItem, canCreateResource }) {
+  const groups = Object.values(items.reduce((all, payroll) => {
+    const period = payroll.payroll_frequency === 'BIWEEKLY'
+      ? `${payroll.payroll_period_start} to ${payroll.payroll_period_end}`
+      : `${payroll.payroll_month}/${payroll.payroll_year}`
+    const key = `${payroll.payroll_frequency || 'MONTHLY'}-${period}`
+    if (!all[key]) all[key] = { key, period, rows: [] }
+    all[key].rows.push(payroll)
+    return all
+  }, {})).sort((a, b) => String(b.rows[0]?.payroll_period_end || b.rows[0]?.generated_at || '').localeCompare(String(a.rows[0]?.payroll_period_end || a.rows[0]?.generated_at || '')))
+
+  const totals = (rows) => rows.reduce((sum, row) => ({
+    days: sum.days + Number(row.days_worked || 0),
+    gross: sum.gross + Number(row.basic_salary || 0),
+    advances: sum.advances + Number(row.advance_deduction || 0),
+    consumptions: sum.consumptions + Number(row.consumption_deduction || 0),
+    net: sum.net + Number(row.net_salary || 0),
+  }), { days: 0, gross: 0, advances: 0, consumptions: 0, net: 0 })
+
+  return <div className="space-y-6 p-5">
+    {groups.map((group) => {
+      const total = totals(group.rows)
+      return <section key={group.key} className="overflow-hidden rounded-xl border border-blue-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-blue-100 bg-blue-50 px-5 py-4">
+          <div><p className="text-xs font-bold uppercase tracking-wider text-blue-700">Payroll period</p><h3 className="mt-1 text-lg font-bold text-slate-900">{group.period}</h3></div>
+          <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-blue-800 ring-1 ring-blue-200">{group.rows.length} worker{group.rows.length === 1 ? '' : 's'}</span>
+        </div>
+        <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-400"><tr>{config.columns.map(([label]) => <th key={label} className="px-4 py-3 font-semibold">{label}</th>)}<th className="px-4 py-3 text-right font-semibold">Actions</th></tr></thead><tbody className="divide-y divide-slate-100">{group.rows.map((item, index) => <tr key={rowKey(item, config.idKey, index)} className="transition hover:bg-slate-50/70">{config.columns.map(([label, render]) => <td key={label} className="px-4 py-3 text-slate-700">{render(item)}</td>)}<td className="px-4 py-3"><div className="flex justify-end gap-2">{(config.actions || []).filter((action) => !action.roles || action.roles.includes(user?.role_name)).filter((action) => !action.show || action.show(item)).map((action) => { const ActionIcon = action.icon; return <button key={action.label} type="button" onClick={() => runAction(action, item)} title={action.label} className="rounded-md p-2 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-700"><ActionIcon size={16} /></button> })}{canCreateResource && <button type="button" onClick={() => deleteItem(item)} className="rounded-md p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600" aria-label="Remove payroll"><Trash2 size={16} /></button>}</div></td></tr>)}</tbody><tfoot className="border-t-2 border-blue-200 bg-blue-50 text-sm font-bold text-blue-950"><tr><td className="px-4 py-3">Period total</td><td className="px-4 py-3">{group.period}</td><td className="px-4 py-3">{total.days} days</td><td className="px-4 py-3">—</td><td className="px-4 py-3">{total.gross.toLocaleString()} RWF</td><td className="px-4 py-3 text-red-700">−{total.advances.toLocaleString()} RWF</td><td className="px-4 py-3 text-amber-700">−{total.consumptions.toLocaleString()} RWF</td><td className="px-4 py-3 text-cyan-800">{total.net.toLocaleString()} RWF</td><td className="px-4 py-3">—</td><td className="px-4 py-3">—</td><td className="px-4 py-3">—</td><td className="px-4 py-3">—</td></tr></tfoot></table></div>
+      </section>
+    })}
+  </div>
 }
 
 function ActivityTable({ title, headers, rows }) {

@@ -1,61 +1,19 @@
+import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+
 export default function AttendanceChart({ data = [] }) {
-
-    const maxValue = Math.max(
-        ...data.map((item) => item.total || item.value || 0),
-        1
-    );
-
-    return (
-
-        <div>
-
-            <div className="flex items-end gap-4 h-64">
-
-                {data.map((item, index) => {
-
-                    const value = item.total ?? item.value ?? 0;
-
-                    const label = item.day ?? item.label ?? "";
-
-                    return (
-
-                        <div
-                            key={index}
-                            className="flex flex-col items-center flex-1"
-                        >
-
-                            <span className="mb-2 text-xs font-semibold text-slate-500">
-
-                                {value}
-
-                            </span>
-
-                            <div
-                                className="w-full rounded-t-xl bg-gradient-to-t from-amber-600 to-amber-300/70 transition-all duration-300 hover:opacity-80"
-                                style={{
-                                    height: `${Math.max(
-                                        (value / maxValue) * 200,
-                                        8
-                                    )}px`
-                                }}
-                            />
-
-                            <span className="mt-3 text-sm text-slate-500">
-
-                                {label}
-
-                            </span>
-
-                        </div>
-
-                    );
-
-                })}
-
-            </div>
-
-        </div>
-
-    );
-
+    const chartData = Array.isArray(data) ? data : []
+    if (!chartData.length) return <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-blue-200 bg-blue-50/40 text-sm text-slate-500">No attendance records are available for this week.</div>
+    return <div className="attendance-live-chart h-72" role="img" aria-label="Live weekly attendance bar and line chart">
+        <ResponsiveContainer width="100%" height="100%"><ComposedChart data={chartData} margin={{ top: 12, right: 10, left: -12, bottom: 0 }}>
+            <CartesianGrid vertical={false} stroke="#dbeafe" strokeDasharray="3 3" />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+            <YAxis yAxisId="people" allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
+            <YAxis yAxisId="hours" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
+            <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #bfdbfe', boxShadow: '0 12px 28px rgba(30,64,175,.14)' }} />
+            <Legend wrapperStyle={{ paddingTop: 14 }} />
+            <Bar yAxisId="people" dataKey="present" name="Present" fill="#2563eb" radius={[7, 7, 0, 0]} maxBarSize={34} />
+            <Bar yAxisId="people" dataKey="absent" name="Absent" fill="#ef4444" radius={[7, 7, 0, 0]} maxBarSize={34} />
+            <Line yAxisId="hours" type="monotone" dataKey="hours" name="Hours worked" stroke="#f59e0b" strokeWidth={3} dot={{ r: 4, fill: '#f59e0b' }} activeDot={{ r: 6 }} />
+        </ComposedChart></ResponsiveContainer>
+    </div>
 }

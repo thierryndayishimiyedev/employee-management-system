@@ -160,15 +160,13 @@ const calculateHours = (checkIn, checkOut) => {
     return Number(((end - start) / 60).toFixed(2));
 };
 
-// The live attendance_status enum currently supports PRESENT, ABSENT and LEAVE.
-// Do not send UI-only values such as LATE/SICK/HOLIDAY to Supabase.
-const VALID_ATTENDANCE_STATUSES = ["PRESENT", "ABSENT", "LEAVE"];
-const isWorkedStatus = (status) => status === "PRESENT";
+const VALID_ATTENDANCE_STATUSES = ["PRESENT", "ABSENT", "LEAVE", "LATE"];
+const isWorkedStatus = (status) => ["PRESENT", "LATE"].includes(status);
 
 const buildAttendanceValues = (attendanceData, { allowOpenCheckIn = false } = {}) => {
     const { check_in, check_out, overtime_hours, attendance_status } = attendanceData;
     if (!VALID_ATTENDANCE_STATUSES.includes(attendance_status)) {
-        throw new Error("Attendance status must be PRESENT, ABSENT, or LEAVE.");
+        throw new Error("Attendance status must be PRESENT, ABSENT, LEAVE, or LATE.");
     }
     if (isWorkedStatus(attendance_status) && !check_in) {
         throw new Error("Check-in is required for worked attendance.");
@@ -437,9 +435,7 @@ const getAttendanceDashboard = async (user) => {
         totalEmployees,
         presentToday,
         absentToday,
-        // LATE is not an available value in the current live enum. Keep the
-        // response shape stable without querying it as a supported workflow.
-        lateToday: 0,
+        lateToday: records.filter((record) => record.attendance_status === "LATE").length,
         totalHours: records.reduce((sum, record) => sum + Number(record.hours_worked || 0), 0),
         overtimeHours: records.reduce((sum, record) => sum + Number(record.overtime_hours || 0), 0),
         attendancePercentage: totalEmployees ? Number(((presentToday / totalEmployees) * 100).toFixed(2)) : 0
