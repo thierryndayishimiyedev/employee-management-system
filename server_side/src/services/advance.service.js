@@ -80,7 +80,7 @@ const requestAdvance = async (data, user) => {
 
     let employeeQuery = supabase
         .from("employees")
-        .select("employee_id, company_id, manager_user_id")
+        .select("employee_id, company_id, manager_user_id, payment_type")
         .eq("employee_id", employee_id);
 
     if (!isSuperAdmin(user)) {
@@ -93,6 +93,7 @@ const requestAdvance = async (data, user) => {
         throw new Error("Employee not found for your company.");
     assertEmployeeManager(employee, user);
     if (!employee.manager_user_id) throw new Error("Employee is not assigned to a manager.");
+    if (employee.payment_type === "FLEXIBLE_DAILY") throw new Error("Flexible workers do not receive advances. They are paid from their weekly flexible-work payroll.");
 
     const { data: employeeRate, error: rateError } = await supabase
         .from("employees")
@@ -160,7 +161,8 @@ const getAdvanceEligibility = async (employeeId, user) => {
     const { data: employee, error } = await employeeQuery.single();
     if (error || !employee) throw new Error("Employee not found for your company.");
     assertEmployeeManager(employee, user);
-    if (employee.payment_type !== "FLEXIBLE_DAILY" && Number(employee.daily_rate || 0) <= 0) throw new Error("Worker must have a valid daily rate before requesting an advance.");
+    if (employee.payment_type === "FLEXIBLE_DAILY") throw new Error("Flexible workers do not receive advances. They are paid weekly from flexible-work entries.");
+    if (Number(employee.daily_rate || 0) <= 0) throw new Error("Worker must have a valid daily rate before requesting an advance.");
     const eligibility = await getFirstWeekEarnings(employeeId, employee.daily_rate, employee.payment_type);
     let advancesQuery = supabase.from("salary_advances")
         .select("amount, request_date")
@@ -200,6 +202,7 @@ const requestAdvancesForAllEligibleWorkers = async (data, user) => {
     let workersQuery = supabase.from("employees")
         .select("employee_id, employee_code, first_name, last_name")
         .eq("is_worker", true)
+        .eq("payment_type", "FIXED_DAILY")
         .eq("company_id", requireCompanyId(user))
         .order("first_name", { ascending: true });
     workersQuery = scopeByManager(workersQuery, user);

@@ -566,6 +566,7 @@ export default function ManagementPage({ resource }) {
   const [saving, setSaving] = useState(false)
   const [batchSaving, setBatchSaving] = useState(false)
   const [batchResult, setBatchResult] = useState(null)
+  const [flexiblePayrollPeriod, setFlexiblePayrollPeriod] = useState({ start: '', end: '' })
   const [advanceBatchSaving, setAdvanceBatchSaving] = useState(false)
   const [advanceBatchResult, setAdvanceBatchResult] = useState(null)
   const [payrollGuidance, setPayrollGuidance] = useState(null)
@@ -583,8 +584,8 @@ export default function ManagementPage({ resource }) {
       relatedKeys.forEach((key) => {
         if (key === 'companies') requests.push(api.get('/companies'))
         if (key === 'positions') requests.push(api.get('/positions'))
-        // /employees is intentionally the fixed-attendance selector. Payroll
-        // and advances need every scoped worker, including flexible workers.
+        // /employees is intentionally the fixed-attendance selector. Use the
+        // scoped worker directory, then apply each workflow's worker type.
         if (key === 'employees') requests.push(api.get('/workers'))
         if (key === 'managers') requests.push(api.get('/managers'))
       })
@@ -597,7 +598,9 @@ export default function ManagementPage({ resource }) {
         const list = asArray(responses[index + 1])
         nextRelated[key] = key === 'companies'
           ? list.filter(isAllowedCompany)
-          : list
+          : key === 'employees' && ['advances', 'payrolls'].includes(resource)
+            ? list.filter((worker) => worker.payment_type !== 'FLEXIBLE_DAILY')
+            : list
       })
       setRelated(nextRelated)
     } catch (error) {
@@ -759,6 +762,26 @@ export default function ManagementPage({ resource }) {
       loadData()
     } catch (error) {
       toast.error(error.response?.data?.message || 'Payroll batch failed')
+    } finally {
+      setBatchSaving(false)
+    }
+  }
+
+  const generateFlexibleWeeklyPayroll = async () => {
+    if (!flexiblePayrollPeriod.start || !flexiblePayrollPeriod.end) {
+      toast.error('Choose the 7-calendar-day flexible payroll start and end dates first.')
+      return
+    }
+    if (!window.confirm(`Generate weekly payroll for flexible workers from ${flexiblePayrollPeriod.start} to ${flexiblePayrollPeriod.end}? Their actual flexible-work entries determine their pay.`)) return
+    setBatchSaving(true)
+    setBatchResult(null)
+    try {
+      const response = await api.post('/payroll/generate-flexible-weekly', { payroll_frequency: 'WEEKLY', payroll_period_start: flexiblePayrollPeriod.start, payroll_period_end: flexiblePayrollPeriod.end })
+      setBatchResult(response.data?.data || {})
+      toast.success(response.data?.message || 'Flexible weekly payroll completed.')
+      loadData()
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Flexible weekly payroll failed')
     } finally {
       setBatchSaving(false)
     }
@@ -952,7 +975,7 @@ export default function ManagementPage({ resource }) {
               {config.endpoint === '/advances' && !editing && (
                 <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
                   <p className="text-sm font-semibold text-blue-950">Generate allowed advances for all workers</p>
-                  <p className="mt-1 text-xs text-blue-800">Creates only each eligible worker’s allowed 50% first-week advance. Flexible workers use their recorded flexible-work daily rates. Others are skipped with a reason.</p>
+                  <p className="mt-1 text-xs text-blue-800">Creates only each eligible fixed worker’s allowed 50% first-week advance. Flexible workers are paid through their separate weekly payroll.</p>
                   <button type="button" disabled={advanceBatchSaving || saving} onClick={generateAdvancesForAll} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md border border-blue-700 bg-white px-4 py-2.5 text-sm font-semibold text-blue-800 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60">
                     <Users size={16} />
                     {advanceBatchSaving ? 'Checking worker eligibility…' : 'Generate advances for all eligible workers'}
@@ -964,12 +987,21 @@ export default function ManagementPage({ resource }) {
               {config.endpoint === '/payroll' && !editing && form.payroll_frequency === 'BIWEEKLY' && (
                 <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
                   <p className="text-sm font-semibold text-blue-950">Batch payroll for all eligible workers</p>
-                  <p className="mt-1 text-xs text-blue-800">Use the selected 14-day dates above. Fixed workers need attendance; flexible workers need unpaid flexible-work entries. Existing or overlapping periods are skipped.</p>
+                  <p className="mt-1 text-xs text-blue-800">Use the selected 14-day dates above. This payroll is for fixed workers with recorded attendance only. Existing or overlapping periods are skipped.</p>
                   <button type="button" disabled={batchSaving || saving} onClick={generatePayrollForAll} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md border border-blue-700 bg-white px-4 py-2.5 text-sm font-semibold text-blue-800 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60">
                     <Users size={16} />
                     {batchSaving ? 'Calculating all workers…' : 'Generate payroll for all workers'}
                   </button>
                   {batchResult && <div className="mt-3 space-y-2 text-xs"><p className="font-semibold text-blue-950">Generated: {batchResult.generated?.length || 0} · Already calculated / no work: {batchResult.skipped?.length || 0} · Needs attention: {batchResult.failed?.length || 0}</p>{batchResult.failed?.length > 0 && <ul className="max-h-32 space-y-1 overflow-y-auto rounded border border-red-200 bg-red-50 p-2 text-red-800">{batchResult.failed.map((row) => <li key={row.employee_id}><strong>{row.employee_code} {row.employee_name}:</strong> {row.reason}</li>)}</ul>}</div>}
+                </div>
+              )}
+
+              {config.endpoint === '/payroll' && !editing && form.payroll_frequency === 'BIWEEKLY' && (
+                <div className="mt-3 rounded-lg border border-cyan-200 bg-cyan-50 p-3">
+                  <p className="text-sm font-semibold text-cyan-950">Flexible workers — weekly payroll only</p>
+                  <p className="mt-1 text-xs text-cyan-800">Flexible workers have no advances and are paid from the real daily rates saved in their flexible-work entries (up to six worked days in the week).</p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2"><label className="text-xs font-semibold text-cyan-900">Weekly start<input required type="date" value={flexiblePayrollPeriod.start} onChange={(event) => setFlexiblePayrollPeriod((current) => ({ ...current, start: event.target.value }))} className="mt-1 w-full rounded-md border border-cyan-200 bg-white px-3 py-2 text-sm text-slate-900" /></label><label className="text-xs font-semibold text-cyan-900">Weekly end (7th day)<input required type="date" value={flexiblePayrollPeriod.end} onChange={(event) => setFlexiblePayrollPeriod((current) => ({ ...current, end: event.target.value }))} className="mt-1 w-full rounded-md border border-cyan-200 bg-white px-3 py-2 text-sm text-slate-900" /></label></div>
+                  <button type="button" disabled={batchSaving || saving} onClick={generateFlexibleWeeklyPayroll} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md border border-cyan-700 bg-white px-4 py-2.5 text-sm font-semibold text-cyan-800 transition hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"><Users size={16} />{batchSaving ? 'Calculating flexible payroll…' : 'Generate weekly payroll for flexible workers'}</button>
                 </div>
               )}
             </form>

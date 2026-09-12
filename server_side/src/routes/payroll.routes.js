@@ -8,6 +8,7 @@ const authorize = require("../middleware/authorize.middleware");
 const {
     createPayroll,
     createPayrollForAll,
+    createFlexibleWeeklyPayrollForAll,
     fetchPayrollDateGuidance,
     fetchPayrolls,
     fetchPayrollSummary,
@@ -17,6 +18,7 @@ const {
 
 router.post("/generate", authenticate, authorize("ACCOUNTANT", "SUPER_ADMIN"), createPayroll);
 router.post("/generate-all", authenticate, authorize("ACCOUNTANT", "SUPER_ADMIN"), createPayrollForAll);
+router.post("/generate-flexible-weekly", authenticate, authorize("ACCOUNTANT", "SUPER_ADMIN"), createFlexibleWeeklyPayrollForAll);
 router.get("/guidance", authenticate, authorize("OWNER", "MANAGER", "ACCOUNTANT", "SUPER_ADMIN"), fetchPayrollDateGuidance);
 
 router.get("/", authenticate, authorize("OWNER", "MANAGER", "ACCOUNTANT", "SUPER_ADMIN"), fetchPayrolls);

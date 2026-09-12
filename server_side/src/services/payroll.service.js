@@ -51,12 +51,12 @@ const addCalendarDays = (value, days) => {
 
 const resolvePayrollPeriod = ({ payroll_month, payroll_year, payroll_period_start, payroll_period_end, payroll_frequency }) => {
     const frequency = payroll_frequency || (payroll_period_start || payroll_period_end ? "BIWEEKLY" : "MONTHLY");
-    if (!["MONTHLY", "BIWEEKLY"].includes(frequency)) throw new Error("Payroll frequency must be MONTHLY or BIWEEKLY.");
-    if (frequency === "BIWEEKLY") {
+    if (!["MONTHLY", "BIWEEKLY", "WEEKLY"].includes(frequency)) throw new Error("Payroll frequency must be MONTHLY, BIWEEKLY, or WEEKLY.");
+    if (["BIWEEKLY", "WEEKLY"].includes(frequency)) {
         const start = parseDate(payroll_period_start, "payroll period start");
         const end = parseDate(payroll_period_end, "payroll period end");
         const days = Math.round((end - start) / 86400000) + 1;
-        if (days !== 14) throw new Error("A biweekly payroll period must contain exactly 14 days, inclusive.");
+        if (days !== (frequency === "WEEKLY" ? 7 : 14)) throw new Error(`${frequency === "WEEKLY" ? "A flexible weekly" : "A biweekly"} payroll period must contain exactly ${frequency === "WEEKLY" ? 7 : 14} calendar days, inclusive.`);
         return {
             frequency,
             startDate: payroll_period_start,
@@ -93,15 +93,17 @@ const generatePayroll = async (payload, user) => {
         throw new Error("Employee not found.");
     assertEmployeeManager(employee, user);
     if (!employee.manager_user_id) throw new Error("Employee is not assigned to a manager.");
+    if (employee.payment_type === "FLEXIBLE_DAILY" && period.frequency !== "WEEKLY") throw new Error("Flexible workers use the separate weekly payroll (7 calendar days / up to 6 workdays).");
+    if (employee.payment_type !== "FLEXIBLE_DAILY" && period.frequency === "WEEKLY") throw new Error("Weekly payroll is only for flexible workers. Use the 14-day payroll for fixed workers.");
 
     // An attendance day may only be settled once. Exact-period uniqueness is
     // insufficient because periods such as 7–20 overlap a prior 1–14 period.
-    if (period.frequency === "BIWEEKLY") {
+    if (["BIWEEKLY", "WEEKLY"].includes(period.frequency)) {
         const { data: overlapping, error: overlapError } = await supabase
             .from("payroll")
             .select("payroll_id, payroll_period_start, payroll_period_end")
             .eq("employee_id", employee_id)
-            .eq("payroll_frequency", "BIWEEKLY")
+        .eq("payroll_frequency", period.frequency)
             .lte("payroll_period_start", period.endDate)
             .gte("payroll_period_end", period.startDate)
             .limit(1);
@@ -159,8 +161,8 @@ const generatePayroll = async (payload, user) => {
         manager_user_id: employee.manager_user_id,
         payroll_month: period.payroll_month,
         payroll_year: period.payroll_year,
-        payroll_period_start: period.frequency === "BIWEEKLY" ? period.startDate : null,
-        payroll_period_end: period.frequency === "BIWEEKLY" ? period.endDate : null,
+        payroll_period_start: ["BIWEEKLY", "WEEKLY"].includes(period.frequency) ? period.startDate : null,
+        payroll_period_end: ["BIWEEKLY", "WEEKLY"].includes(period.frequency) ? period.endDate : null,
         payroll_frequency: period.frequency,
         days_worked: paidDays,
         overtime_hours: overtimeHours,
@@ -176,8 +178,8 @@ const generatePayroll = async (payload, user) => {
     };
 
     let existingQuery = supabase.from("payroll").select("payroll_id").eq("employee_id", employee_id);
-    if (period.frequency === "BIWEEKLY") {
-        existingQuery = existingQuery.eq("payroll_frequency", "BIWEEKLY")
+    if (["BIWEEKLY", "WEEKLY"].includes(period.frequency)) {
+        existingQuery = existingQuery.eq("payroll_frequency", period.frequency)
             .eq("payroll_period_start", period.startDate)
             .eq("payroll_period_end", period.endDate);
     } else {
@@ -222,6 +224,7 @@ const generatePayrollForAll = async (payload, user) => {
         .from("employees")
         .select("employee_id, employee_code, first_name, last_name, company_id, manager_user_id, payment_type")
         .eq("is_worker", true)
+        .eq("payment_type", "FIXED_DAILY")
         .order("first_name", { ascending: true })
         .order("last_name", { ascending: true });
 
@@ -253,6 +256,24 @@ const generatePayrollForAll = async (payload, user) => {
             if (/cannot overlap|already calculated|already exists|no recorded worked attendance|no unpaid flexible-work/i.test(reason)) result.skipped.push(row);
             else result.failed.push(row);
         }
+    }
+    return result;
+};
+
+const generateFlexibleWeeklyPayrollForAll = async (payload, user) => {
+    const period = resolvePayrollPeriod({ ...payload, payroll_frequency: "WEEKLY" });
+    let workersQuery = supabase.from("employees").select("employee_id, employee_code, first_name, last_name, company_id, manager_user_id")
+        .eq("is_worker", true).eq("payment_type", "FLEXIBLE_DAILY").order("first_name", { ascending: true });
+    if (!isSuperAdmin(user)) workersQuery = workersQuery.in("company_id", requireCompanyIds(user));
+    workersQuery = scopeByManager(workersQuery, user);
+    const { data: workers, error } = await workersQuery;
+    if (error) throw error;
+    if (!workers?.length) throw new Error("No flexible workers are available in your manager scope.");
+    const result = { period: { frequency: "WEEKLY", start_date: period.startDate, end_date: period.endDate }, workers_considered: workers.length, generated: [], skipped: [], failed: [] };
+    for (const worker of workers) {
+        const employee_name = `${worker.first_name || ""} ${worker.last_name || ""}`.trim() || worker.employee_code;
+        try { const payroll = await generatePayroll({ ...payload, employee_id: worker.employee_id, payroll_frequency: "WEEKLY" }, user); result.generated.push({ payroll_id: payroll.payroll_id, employee_id: worker.employee_id, employee_code: worker.employee_code, employee_name, days_worked: payroll.days_worked, net_salary: payroll.net_salary }); }
+        catch (workerError) { const reason = workerError.message || "Could not calculate weekly payroll."; const row = { employee_id: worker.employee_id, employee_code: worker.employee_code, employee_name, reason }; if (/cannot overlap|already calculated|no unpaid flexible-work/i.test(reason)) result.skipped.push(row); else result.failed.push(row); }
     }
     return result;
 };
@@ -416,6 +437,7 @@ const deletePayroll = async (id, user) => {
 module.exports = {
     generatePayroll,
     generatePayrollForAll,
+    generateFlexibleWeeklyPayrollForAll,
     getPayrollDateGuidance,
     getPayrolls,
     getPayrollSummary,

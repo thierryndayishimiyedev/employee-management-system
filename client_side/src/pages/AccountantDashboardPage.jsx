@@ -10,7 +10,8 @@ import {
 } from 'lucide-react'
 import api from '../api/api'
 import { useAuth } from '../context/authStore'
-import { DashboardHeader, DashboardShell, LiveTrendChart, MetricList, QuickActionGrid, SectionCard, StatGrid } from '../components/DashboardKit'
+import { CombinedOperationsChart, DashboardHeader, DashboardShell, DistributionChart, LiveTrendChart, MetricList, QuickActionGrid, SectionCard, StatGrid } from '../components/DashboardKit'
+import PeriodOperationsCards from '../components/PeriodOperationsCards'
 
 const quickActions = [
   { to: '/attendance', label: 'Record attendance', icon: CalendarCheck },
@@ -151,10 +152,23 @@ export default function AccountantDashboardPage() {
       ) : (
         <>
           <StatGrid stats={stats} />
+          <PeriodOperationsCards periods={dashboard?.periods} title="Your manager unit — payroll, costs, and pending work" />
+
+          <section className="grid gap-4 xl:grid-cols-3">
+            <CombinedOperationsChart title="Attendance and shift hours" description="Bars show present and absent workers; the line shows recorded hours." data={dashboard?.charts?.attendance} bars={[{ key: 'present', label: 'Present', color: '#2563eb' }, { key: 'absent', label: 'Absent', color: '#ef4444' }]} line={{ key: 'hours', label: 'Hours worked', color: '#f59e0b' }} />
+            <CombinedOperationsChart title="Payroll commitments" description="Bars show gross payroll, advances, and expenses; the line shows net payroll." data={dashboard?.charts?.payroll_commitments} bars={[{ key: 'gross_payroll', label: 'Gross payroll', color: '#2563eb' }, { key: 'advances', label: 'Advances', color: '#f59e0b' }, { key: 'expenses', label: 'Expenses', color: '#ef4444' }]} line={{ key: 'net_payroll', label: 'Net payroll', color: '#16a34a' }} valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
+            <CombinedOperationsChart title="Operational cash movement" description="Bars show food and worker consumptions; the line shows completed payments." data={dashboard?.charts?.payment_cashflow} bars={[{ key: 'food_supplies', label: 'Food supplies', color: '#f59e0b' }, { key: 'worker_consumptions', label: 'Worker consumptions', color: '#7c3aed' }]} line={{ key: 'completed_payments', label: 'Completed payments', color: '#16a34a' }} valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
+          </section>
 
           <section className="grid gap-4 xl:grid-cols-2">
             <LiveTrendChart title="Attendance trend" description="Present workers recorded by date for your management unit." data={dashboard?.charts?.attendance} dataKey="present" color="#16834a" type="bar" />
-            <LiveTrendChart title="Expense trend" description="Materials and operational expenses recorded by date." data={dashboard?.charts?.expenses} color="#2563eb" valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
+            <LiveTrendChart title="Expense trend" description="Materials and operational expenses recorded by date." data={dashboard?.charts?.expenses} color="#2563eb" type="line" valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
+            <LiveTrendChart title="Payroll trend" description="Net payroll generated for your manager's workers by date." data={dashboard?.charts?.payroll} color="#16a34a" type="line" valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
+            <LiveTrendChart title="Flexible work trend" description="Actual agreed flexible-worker amounts recorded by date." data={dashboard?.charts?.flexible_work} color="#7c3aed" type="bar" valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
+            <LiveTrendChart title="Advance trend" description="Advance requests recorded by date." data={dashboard?.charts?.advances} color="#f59e0b" type="bar" valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
+            <LiveTrendChart title="Payment trend" description="Successful payments recorded by date." data={dashboard?.charts?.payments} color="#2563eb" type="line" valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
+            <DistributionChart title="Workflow status" description="Records awaiting approval, ready for payment, paid, and failed." data={dashboard?.charts?.workflow_distribution} />
+            <DistributionChart title="Cost distribution" description="Recorded money by payroll and operational category for your manager." data={dashboard?.charts?.cost_distribution} valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
           </section>
 
           <section className="grid gap-4 lg:grid-cols-3">
