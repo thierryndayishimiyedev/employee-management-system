@@ -98,6 +98,16 @@ const workerRecords = async (companyIds, managerUserId = null) => {
     return data || [];
 };
 
+const attendanceRecords = async (companyIds, managerUserId = null) => {
+    let query = supabase.from("attendance")
+        .select("attendance_date,attendance_status,hours_worked,overtime_hours,manager_user_id,employees!inner(daily_rate,payment_type)")
+        .in("company_id", companyIds);
+    if (managerUserId) query = query.eq("manager_user_id", managerUserId);
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+};
+
 const dayKey = (value) => String(value || "").slice(0, 10);
 const startOfMonday = (value) => {
     const date = new Date(`${value}T00:00:00Z`);
@@ -110,6 +120,11 @@ const periodMatch = (value, period, today) => {
     if (!date) return false;
     if (period === "today") return date === today;
     if (period === "week") return startOfMonday(date) === startOfMonday(today);
+    if (period === "two_weeks" || period === "three_weeks") {
+        const start = new Date(`${startOfMonday(today)}T00:00:00Z`);
+        start.setUTCDate(start.getUTCDate() - (period === "two_weeks" ? 7 : 14));
+        return date >= start.toISOString().slice(0, 10) && date <= today;
+    }
     if (period === "month") return date.slice(0, 7) === today.slice(0, 7);
     return date.slice(0, 4) === today.slice(0, 4);
 };
@@ -130,7 +145,7 @@ const getManagers = async (companyIds) => {
 const aggregate = async (companyIds, managerUserId = null) => {
     const [employees, attendance, payroll, advances, production, consumptions, payments, reports, food, expenses, flexibleWork, directWorkers] = await Promise.all([
         workerRecords(companyIds, managerUserId),
-        records("attendance", "attendance_date,attendance_status,hours_worked,overtime_hours,manager_user_id", companyIds, managerUserId),
+        attendanceRecords(companyIds, managerUserId),
         records("payroll", "payroll_id,manager_user_id,payroll_frequency,payroll_period_start,payroll_period_end,payroll_month,payroll_year,basic_salary,net_salary,advance_deduction,consumption_deduction,approval_status,payment_status,generated_at", companyIds, managerUserId),
         advanceRecords(companyIds, managerUserId),
         productionRecords(companyIds, managerUserId),
@@ -203,7 +218,7 @@ const aggregate = async (companyIds, managerUserId = null) => {
         ...production.map(row => ({ type: "Production", date: row.production_date, status: "RECORDED", quantity: Number(row.quantity || 0), manager_user_id: row.manager_user_id })),
         ...directWorkers.map(row => ({ type: "Owner direct worker", date: row.agreement_date, status: row.payment_status, amount: Number(row.agreed_amount || 0), manager_user_id: row.manager_user_id }))
     ].sort((left, right) => String(right.date || "").localeCompare(String(left.date || ""))).slice(0, 30);
-    const periodTotals = ["today", "week", "month", "year"].reduce((all, period) => {
+    const periodTotals = ["today", "week", "two_weeks", "three_weeks", "month", "year"].reduce((all, period) => {
         const filter = (rows, dateField) => rows.filter((row) => periodMatch(row[dateField], period, today));
         const periodPayroll = filter(payroll, "generated_at");
         const fixedPayroll = periodPayroll.filter((row) => row.payroll_frequency !== "WEEKLY");
@@ -215,22 +230,34 @@ const aggregate = async (companyIds, managerUserId = null) => {
         const periodProduction = filter(production, "production_date");
         const periodFlexibleWork = filter(flexibleWork, "work_date");
         const periodDirectWorkers = filter(directWorkers, "agreement_date");
+        const fixedAttendanceGross = (attendance || [])
+            .filter((row) => periodMatch(row.attendance_date, period, today))
+            .filter((row) => ["PRESENT", "LATE"].includes(row.attendance_status))
+            .filter((row) => row.employees?.payment_type !== "FLEXIBLE_DAILY")
+            .reduce((total, row) => total + Number(row.employees?.daily_rate || 0), 0);
+        const flexibleGross = sum(periodFlexibleWork, "agreed_daily_rate");
+        const foodGross = periodFood.reduce((total, row) => total + foodTotal(row), 0);
+        const expenseGross = sum(periodExpenses, "total_amount");
+        const directWorkerGross = sum(periodDirectWorkers, "agreed_amount");
         all[period] = {
             label: period,
+            fixed_workers_attendance_gross: fixedAttendanceGross,
             fixed_payroll_gross: sum(fixedPayroll, "basic_salary"),
             fixed_payroll_advances: sum(fixedPayroll, "advance_deduction"),
             fixed_payroll_consumptions: sum(fixedPayroll, "consumption_deduction"),
             fixed_payroll_net: sum(fixedPayroll, "net_salary"),
             flexible_payroll_total: sum(flexiblePayroll, "net_salary"),
-            flexible_work_value: sum(periodFlexibleWork, "agreed_daily_rate"),
+            flexible_work_value: flexibleGross,
             flexible_work_days: periodFlexibleWork.length,
             owner_direct_workers_total: sum(periodDirectWorkers, "agreed_amount"),
             owner_direct_workers_due: sum(periodDirectWorkers.filter(row => isUnpaid(row.payment_status)), "agreed_amount"),
             advances_total: sum(periodAdvances, "amount"),
-            food_total: periodFood.reduce((total, row) => total + foodTotal(row), 0),
-            expenses_total: sum(periodExpenses, "total_amount"),
+            food_total: foodGross,
+            expenses_total: expenseGross,
             consumptions_total: sum(periodConsumptions, "total_amount"),
             production_quantity: sum(periodProduction, "quantity"),
+            owner_gross_commitment: fixedAttendanceGross + flexibleGross + directWorkerGross + foodGross + expenseGross,
+            owner_gross_formula: "Fixed worker attendance gross + flexible work agreed rates + owner direct workers + food supplies + expenses/materials. Advances and worker consumptions are excluded because they are paid from worker salary, not additional company cost.",
             pending_approvals: count([...periodPayroll, ...periodAdvances, ...periodFood, ...periodExpenses, ...periodConsumptions], (row) => ["GENERATED", "PENDING_MANAGER", "PENDING_OWNER", "CHANGES_REQUESTED"].includes(row.approval_status || row.status)),
             ready_to_pay: sum(periodPayroll.filter((row) => row.approval_status === "OWNER_APPROVED" && isUnpaid(row.payment_status)), "net_salary") + sum(periodAdvances.filter((row) => row.status === "OWNER_APPROVED" && isUnpaid(row.payment_status)), "remaining_balance") + periodFood.filter((row) => row.status === "OWNER_APPROVED" && isUnpaid(row.payment_status)).reduce((total, row) => total + foodTotal(row), 0) + sum(periodExpenses.filter((row) => row.approval_status === "OWNER_APPROVED" && isUnpaid(row.payment_status)), "total_amount") + sum(periodConsumptions.filter((row) => row.approval_status === "OWNER_APPROVED" && isUnpaid(row.shopkeeper_payment_status)), "total_amount") + sum(periodDirectWorkers.filter((row) => isUnpaid(row.payment_status)), "agreed_amount")
         };
