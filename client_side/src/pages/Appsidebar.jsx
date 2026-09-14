@@ -19,6 +19,8 @@ import {
   ChevronsRight,
   Moon,
   Sun,
+  Handshake,
+  Search,
 } from 'lucide-react'
 import { useAuth } from '../context/authStore'
 import { useLanguage } from '../context/LanguageContext'
@@ -33,6 +35,7 @@ const nav = [
   { to: '/owner/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['OWNER'] },
   { to: '/manager/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['MANAGER'] },
   { to: '/accountant/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['ACCOUNTANT'] },
+  { to: '/search', label: 'Search', icon: Search, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { to: '/mines', label: 'Mines', icon: Building2, roles: ['OWNER'] },
   { to: '/departments', label: 'Departments', icon: Building2, roles: ['OWNER'] },
   { to: '/positions', label: 'Positions', icon: TrendingUp, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
@@ -47,6 +50,7 @@ const nav = [
   { to: '/advances', label: 'Advances', icon: BadgeDollarSign, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { to: '/payments', label: 'Payments', icon: CreditCard, roles: ['OWNER'] },
   { to: '/payment-proof', label: 'Payment Proof', icon: Shield, roles: ['OWNER'] },
+  { to: '/owner-direct-workers', label: 'Owner Direct Workers', icon: Handshake, roles: ['OWNER'] },
   { to: '/notifications', label: 'Notifications', icon: FileText, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { to: '/reports', label: 'Reports', icon: FileText, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
   { to: '/downloads', label: 'Downloads', icon: Download, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT', 'FOOD_SUPPLIER'] },

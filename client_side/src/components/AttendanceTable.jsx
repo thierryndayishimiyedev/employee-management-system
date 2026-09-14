@@ -88,6 +88,12 @@ export default function AttendanceTable({
 
                         <th className="px-5 py-4 text-left font-semibold">
 
+                            Worked value
+
+                        </th>
+
+                        <th className="px-5 py-4 text-left font-semibold">
+
                             Overtime
 
                         </th>
@@ -167,6 +173,14 @@ export default function AttendanceTable({
                             <td className="px-5 py-4 text-slate-600">
 
                                 {attendance.hours_worked || 0} hrs
+
+                            </td>
+
+                            <td className="px-5 py-4 font-semibold text-emerald-700">
+
+                                {['PRESENT', 'LATE'].includes(attendance.attendance_status)
+                                    ? `${Number(attendance?.employees?.daily_rate || 0).toLocaleString()} RWF`
+                                    : '0 RWF'}
 
                             </td>
 
@@ -278,6 +292,17 @@ export default function AttendanceTable({
                     ))}
 
                 </tbody>
+
+                <tfoot>
+                    <tr className="border-t-2 border-blue-100 bg-blue-50 text-sm font-bold text-slate-800">
+                        <td colSpan="4" className="px-5 py-4">Selected-record totals</td>
+                        <td className="px-5 py-4">{safeAttendances.reduce((sum, row) => sum + Number(row.hours_worked || 0), 0).toFixed(1)} hrs</td>
+                        <td className="px-5 py-4 text-emerald-800">{safeAttendances.filter((row) => ['PRESENT', 'LATE'].includes(row.attendance_status)).reduce((sum, row) => sum + Number(row?.employees?.daily_rate || 0), 0).toLocaleString()} RWF</td>
+                        <td className="px-5 py-4">{safeAttendances.reduce((sum, row) => sum + Number(row.overtime_hours || 0), 0).toFixed(1)} hrs</td>
+                        <td className="px-5 py-4">—</td>
+                        <td className="px-5 py-4">—</td>
+                    </tr>
+                </tfoot>
 
             </table>
 

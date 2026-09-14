@@ -22,6 +22,8 @@ import PaymentProofPage from "./pages/PaymentProofPage";
 import NotificationCenterPage from "./pages/NotificationCenterPage";
 import SettingsPage from "./pages/SettingsPage";
 import FlexibleWorkPage from "./pages/FlexibleWorkPage";
+import OwnerDirectWorkersPage from "./pages/OwnerDirectWorkersPage";
+import GlobalSearchPage from "./pages/GlobalSearchPage";
 
 import "./App.css";
 import { OwnerManagerScopeProvider } from './context/OwnerManagerScope';
@@ -111,6 +113,8 @@ function App() {
             <Route path="/notifications" element={<ProtectedRoute allowedRoles={["OWNER", "MANAGER", "ACCOUNTANT"]} redirectTo="/login"><NotificationCenterPage /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "OWNER"]} redirectTo="/login"><SettingsPage /></ProtectedRoute>} />
             <Route path="/flexible-work" element={<ProtectedRoute allowedRoles={["OWNER", "MANAGER", "ACCOUNTANT"]} redirectTo="/login"><FlexibleWorkPage /></ProtectedRoute>} />
+            <Route path="/owner-direct-workers" element={<ProtectedRoute allowedRoles={["OWNER"]} redirectTo="/owner/login"><OwnerDirectWorkersPage /></ProtectedRoute>} />
+            <Route path="/search" element={<ProtectedRoute allowedRoles={["OWNER", "MANAGER", "ACCOUNTANT"]} redirectTo="/login"><GlobalSearchPage /></ProtectedRoute>} />
             <Route
                 path="/mines"
                 element={

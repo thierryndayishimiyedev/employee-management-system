@@ -7,6 +7,7 @@ const { getPaymentProvider } = require("./paymentProviders");
 
 const validCategories = new Set(["MATERIAL", "EQUIPMENT", "FUEL", "TOOL", "OTHER"]);
 const validBuyerRoles = new Set(["OWNER", "MANAGER", "ACCOUNTANT", "OTHER"]);
+const validPaymentMethods = new Set(["SYSTEM_MOMO", "EXTERNAL_RECORDED"]);
 const number = (value) => Number(value || 0);
 
 const listExpenses = async (user) => {
@@ -31,17 +32,25 @@ const createExpense = async (payload, user) => {
     const quantity = number(payload.quantity); const unit_price = number(payload.unit_price);
     const expense_category = String(payload.expense_category || "OTHER").toUpperCase();
     const buyer_role = String(payload.buyer_role || "OTHER").toUpperCase();
+    const payment_method = String(payload.payment_method || "SYSTEM_MOMO").toUpperCase();
     if (!payload.expense_date || Number.isNaN(Date.parse(payload.expense_date))) throw new Error("A valid expense date is required.");
     if (!String(payload.item_name || "").trim()) throw new Error("Enter the material, fuel, tool, or expense name.");
     if (!quantity || quantity <= 0 || unit_price < 0) throw new Error("Quantity must be positive and unit price cannot be negative.");
-    if (!validCategories.has(expense_category) || !validBuyerRoles.has(buyer_role)) throw new Error("Choose a valid expense category and buyer role.");
+    if (!validCategories.has(expense_category) || !validBuyerRoles.has(buyer_role) || !validPaymentMethods.has(payment_method)) throw new Error("Choose a valid expense category, buyer role, and payment method.");
     if (!String(payload.buyer_name || "").trim()) throw new Error("Enter the buyer or supplier name.");
-    const buyer_phone = normalizeMtnRwandaPhone(payload.buyer_phone);
+    const buyer_phone = payment_method === "SYSTEM_MOMO" ? normalizeMtnRwandaPhone(payload.buyer_phone) : (String(payload.buyer_phone || "").trim() ? normalizeMtnRwandaPhone(payload.buyer_phone) : null);
+    if (payment_method === "EXTERNAL_RECORDED" && !String(payload.external_payment_reference || "").trim()) throw new Error("Enter a receipt number, invoice number, or external payment reference.");
+    const external_paid_at = payment_method === "EXTERNAL_RECORDED" ? `${payload.external_paid_date || payload.expense_date}T12:00:00.000Z` : null;
     const { data, error } = await supabase.from("operational_expenses").insert([{
         company_id, manager_user_id, expense_date: payload.expense_date, expense_category,
         item_name: payload.item_name.trim(), quantity, unit: String(payload.unit || "item").trim() || "item", unit_price,
         total_amount: quantity * unit_price, buyer_role, buyer_name: payload.buyer_name.trim(), buyer_phone,
-        notes: String(payload.notes || "").trim() || null, recorded_by: user.user_id || null
+        notes: String(payload.notes || "").trim() || null, recorded_by: user.user_id || null,
+        payment_method, external_payment_reference: payment_method === "EXTERNAL_RECORDED" ? payload.external_payment_reference.trim() : null,
+        external_paid_at, payment_status: payment_method === "EXTERNAL_RECORDED" ? "PAID" : "UNPAID",
+        payment_provider: payment_method === "EXTERNAL_RECORDED" ? "EXTERNAL_RECORDED" : null,
+        payment_reference: payment_method === "EXTERNAL_RECORDED" ? payload.external_payment_reference.trim() : null,
+        paid_at: external_paid_at
     }]).select().single();
     if (error) throw error; return data;
 };
@@ -62,6 +71,7 @@ const reviewExpense = async (id, decision, comments, user) => {
 const payExpense = async (id, user) => {
     if (user.role_name !== "OWNER" && !isSuperAdmin(user)) throw new Error("Only the owner may pay an approved expense.");
     const expense = await getExpense(id, user);
+    if (expense.payment_method === "EXTERNAL_RECORDED") throw new Error("This expense was recorded as paid outside the system and must not be paid by MTN again.");
     if (expense.approval_status !== "OWNER_APPROVED" || expense.payment_status === "PAID") throw new Error("Only a final-approved, unpaid expense can be paid.");
     const { data: existing, error: existingError } = await supabase.from("operational_expense_payments").select("expense_payment_id").eq("expense_id", id).maybeSingle();
     if (existingError) throw existingError; if (existing) throw new Error("This expense already has a payment record.");

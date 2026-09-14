@@ -16,7 +16,10 @@ import {
     getTodayAttendance,
     getMonthlySummary,
     deleteAttendance,
-    checkOutAttendance
+    checkOutAttendance,
+    requestAttendanceCorrection,
+    getAttendanceCorrections,
+    reviewAttendanceCorrection
 } from "../api/attendanceApi";
 
 import AttendanceTable from "../components/AttendanceTable";
@@ -105,6 +108,27 @@ const buildMonthlySummaryData = (records = []) => {
     return Array.from(summaryMap.values()).sort((a, b) => b.present - a.present);
 };
 
+const attendancePeriodBounds = (mode, dateValue) => {
+    const date = new Date(`${dateValue}T12:00:00`);
+    const start = new Date(date);
+    const end = new Date(date);
+    if (mode === 'week') {
+        const mondayOffset = (date.getDay() + 6) % 7;
+        start.setDate(date.getDate() - mondayOffset);
+        end.setDate(start.getDate() + 6);
+    } else if (mode === 'month') {
+        start.setDate(1);
+        end.setMonth(date.getMonth() + 1, 0);
+    } else if (mode === 'year') {
+        start.setMonth(0, 1);
+        end.setMonth(11, 31);
+    }
+    const format = (value) => value.toISOString().split('T')[0];
+    return { start: format(start), end: format(end) };
+};
+
+const rwf = (value) => `${Number(value || 0).toLocaleString()} RWF`;
+
 export default function AttendancePage() {
 
     const { user } = useAuth();
@@ -131,6 +155,9 @@ export default function AttendancePage() {
     const [showModal, setShowModal] = useState(false);
 
     const [selectedAttendance, setSelectedAttendance] = useState(null);
+    const [corrections, setCorrections] = useState([]);
+    const [period, setPeriod] = useState("day");
+    const [periodDate, setPeriodDate] = useState(() => new Date().toISOString().split("T")[0]);
 
     const loadDashboard = async () => {
 
@@ -141,7 +168,8 @@ export default function AttendancePage() {
                 attendanceRes,
                 weeklyRes,
                 todayRes,
-                monthlyRes
+                monthlyRes,
+                correctionsRes
             ] = await Promise.allSettled([
 
                 getDashboard(),
@@ -152,7 +180,8 @@ export default function AttendancePage() {
 
                 getTodayAttendance(),
 
-                getMonthlySummary()
+                getMonthlySummary(),
+                (user?.role_name === 'ACCOUNTANT' || user?.role_name === 'MANAGER') ? getAttendanceCorrections() : Promise.resolve({ data: [] })
 
             ]);
 
@@ -170,6 +199,9 @@ export default function AttendancePage() {
                 : [];
             const monthlyData = monthlyRes.status === "fulfilled"
                 ? (Array.isArray(monthlyRes.value?.data) ? monthlyRes.value.data : Array.isArray(monthlyRes.value?.data?.data) ? monthlyRes.value.data.data : [])
+                : [];
+            const correctionData = correctionsRes.status === "fulfilled"
+                ? (Array.isArray(correctionsRes.value?.data) ? correctionsRes.value.data : Array.isArray(correctionsRes.value?.data?.data) ? correctionsRes.value.data.data : [])
                 : [];
 
             const today = new Date().toISOString().split("T")[0];
@@ -221,6 +253,7 @@ export default function AttendancePage() {
             setTodayAttendance(todayData.length ? todayData : todaysRecords);
 
             setMonthlySummary(buildMonthlySummaryData(monthlyData.length ? monthlyData : attendanceData));
+            setCorrections(correctionData);
 
         } catch (error) {
 
@@ -280,6 +313,19 @@ export default function AttendancePage() {
 
     const scopedWeeklyAttendance = useMemo(() => buildWeeklyChartData(scopedAttendances), [scopedAttendances]);
 
+    const selectedPeriod = useMemo(() => attendancePeriodBounds(period, periodDate), [period, periodDate]);
+    const periodAttendances = useMemo(() => scopedAttendances.filter((record) => record.attendance_date >= selectedPeriod.start && record.attendance_date <= selectedPeriod.end), [scopedAttendances, selectedPeriod]);
+    const periodStats = useMemo(() => {
+        const count = (status) => periodAttendances.filter((record) => record.attendance_status === status).length;
+        const paidRows = periodAttendances.filter((record) => ['PRESENT', 'LATE'].includes(record.attendance_status));
+        return {
+            employees: new Set(periodAttendances.map((record) => record.employee_id).filter(Boolean)).size,
+            present: count('PRESENT'), absent: count('ABSENT'), late: count('LATE'), leave: count('LEAVE'),
+            workedMoney: paidRows.reduce((sum, record) => sum + Number(record?.employees?.daily_rate || 0), 0),
+            hours: paidRows.reduce((sum, record) => sum + Number(record.hours_worked || 0), 0)
+        };
+    }, [periodAttendances]);
+
     const selectedManagerName = managerId ? managers.find((manager) => manager.user_id === managerId)?.name || 'Selected manager' : 'All managers';
 
     if (loading) {
@@ -296,7 +342,7 @@ export default function AttendancePage() {
 
     }
 
-    const filteredAttendance = (scopedAttendances || []).filter((attendance) => {
+    const filteredAttendance = (periodAttendances || []).filter((attendance) => {
 
         const employee =
             `${attendance?.employees?.first_name || ""} ${attendance?.employees?.last_name || ""}`.toLowerCase();
@@ -387,6 +433,41 @@ export default function AttendancePage() {
                     onChanged={refreshDashboard}
                 />
 
+                {(user?.role_name === 'ACCOUNTANT' || user?.role_name === 'MANAGER') && corrections.length > 0 && (
+                    <section className="rounded-2xl border border-amber-200 bg-amber-50/40 p-5 shadow-sm">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div><p className="text-xs font-bold uppercase tracking-wider text-amber-700">Attendance corrections</p><h2 className="mt-1 text-xl font-bold text-slate-900">Manager review protects completed attendance</h2></div>
+                            <span className="rounded-full bg-white px-3 py-1 text-sm font-bold text-slate-700">{corrections.length} request(s)</span>
+                        </div>
+                        <div className="mt-4 space-y-3">
+                            {corrections.map((request) => <div key={request.correction_request_id} className="flex flex-col gap-3 rounded-xl border border-amber-100 bg-white p-4 md:flex-row md:items-center md:justify-between">
+                                <div><p className="font-bold text-slate-900">{request?.attendance?.employees?.first_name} {request?.attendance?.employees?.last_name} · {request?.attendance?.attendance_date}</p><p className="mt-1 text-sm text-slate-600">Reason: {request.reason}</p><p className="mt-1 text-xs font-semibold text-slate-500">Status: {request.status.replaceAll('_', ' ')}</p></div>
+                                {user?.role_name === 'MANAGER' && request.status === 'PENDING_MANAGER' && <div className="flex gap-2"><button type="button" onClick={() => reviewAttendanceCorrection(request.correction_request_id, 'approve').then(refreshDashboard).catch((error) => alert(error.response?.data?.message || 'Could not approve correction'))} className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700">Approve correction</button><button type="button" onClick={() => { const comments = window.prompt('Reason for rejecting this correction (optional):', ''); reviewAttendanceCorrection(request.correction_request_id, 'reject', comments || '').then(refreshDashboard).catch((error) => alert(error.response?.data?.message || 'Could not reject correction')); }} className="rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-700 hover:bg-red-50">Reject</button></div>}
+                                {user?.role_name === 'ACCOUNTANT' && request.status === 'APPROVED' && <span className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800">Approved — use the pencil to update</span>}
+                            </div>)}
+                        </div>
+                    </section>
+                )}
+
+                <section className="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                        <div>
+                            <p className="text-xs font-bold uppercase tracking-wider text-blue-700">Attendance review period</p>
+                            <h2 className="mt-1 text-xl font-bold text-slate-900">Choose a date, then review the full group</h2>
+                            <p className="mt-1 text-sm text-slate-500">Week means Monday to Sunday. Worked value counts Present and Late days at each worker’s real daily rate.</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {['day', 'week', 'month', 'year'].map((mode) => <button key={mode} type="button" onClick={() => setPeriod(mode)} className={`rounded-lg px-4 py-2 text-sm font-bold capitalize transition ${period === mode ? 'bg-blue-600 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700'}`}>{mode === 'day' ? 'Daily' : mode === 'week' ? 'Weekly' : mode === 'month' ? 'Monthly' : 'Yearly'}</button>)}
+                            <input type="date" value={periodDate} onChange={(event) => setPeriodDate(event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700" />
+                        </div>
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                        <div className="rounded-xl bg-blue-50 p-3"><p className="text-xs font-bold uppercase text-blue-700">Selected range</p><p className="mt-1 font-bold text-slate-900">{selectedPeriod.start} to {selectedPeriod.end}</p></div>
+                        <div className="rounded-xl bg-emerald-50 p-3"><p className="text-xs font-bold uppercase text-emerald-700">Worked money</p><p className="mt-1 font-bold text-emerald-900">{rwf(periodStats.workedMoney)}</p></div>
+                        <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs font-bold uppercase text-slate-600">Recorded hours</p><p className="mt-1 font-bold text-slate-900">{Number(periodStats.hours || 0).toFixed(1)} hours</p></div>
+                    </div>
+                </section>
+
 
                           {/* Statistics */}
 
@@ -398,7 +479,7 @@ export default function AttendancePage() {
 
                             title: "Total Employees",
 
-                            value: scopedDashboard.totalEmployees,
+                            value: periodStats.employees,
 
                             icon: Users,
 
@@ -410,7 +491,7 @@ export default function AttendancePage() {
 
                             title: "Present",
 
-                            value: scopedDashboard.present,
+                            value: periodStats.present,
 
                             icon: UserCheck,
 
@@ -422,7 +503,7 @@ export default function AttendancePage() {
 
                             title: "Absent",
 
-                            value: scopedDashboard.absent,
+                            value: periodStats.absent,
 
                             icon: UserX,
 
@@ -434,7 +515,7 @@ export default function AttendancePage() {
 
                             title: "Late",
 
-                            value: scopedDashboard.late,
+                            value: periodStats.late,
 
                             icon: Clock3,
 
@@ -446,7 +527,7 @@ export default function AttendancePage() {
 
                             title: "Leave",
 
-                            value: scopedDashboard.leave,
+                            value: periodStats.leave,
 
                             icon: CalendarDays,
 
@@ -652,10 +733,17 @@ export default function AttendancePage() {
                         onEdit={(attendance) => {
 
                             if (!canManageAttendance) return;
-
-                            setSelectedAttendance(attendance);
-
-                            setShowModal(true);
+                            const approved = corrections.find((request) => request.attendance_id === attendance.attendance_id && request.status === 'APPROVED');
+                            if (approved) {
+                                setSelectedAttendance(attendance);
+                                setShowModal(true);
+                                return;
+                            }
+                            const reason = window.prompt(`Why does attendance for ${attendance.employees.first_name} ${attendance.employees.last_name} on ${attendance.attendance_date} need correction?`);
+                            if (!reason?.trim()) return;
+                            requestAttendanceCorrection(attendance.attendance_id, reason.trim())
+                                .then(() => { alert('Correction request sent to your manager. You can edit the attendance after approval.'); refreshDashboard(); })
+                                .catch((error) => alert(error.response?.data?.message || 'Could not request correction'));
 
                         }}
 

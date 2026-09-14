@@ -37,6 +37,8 @@ const operationalExpenseRoutes = require("./routes/operationalExpense.routes");
 const notificationRoutes = require("./routes/notification.routes");
 const settingsRoutes = require("./routes/settings.routes");
 const flexibleWorkRoutes = require("./routes/flexibleWork.routes");
+const ownerDirectWorkerRoutes = require("./routes/ownerDirectWorker.routes");
+const globalSearchRoutes = require("./routes/globalSearch.routes");
 
 const app = express();
 
@@ -86,6 +88,8 @@ app.use("/api/operational-expenses", paymentLimiter, operationalExpenseRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/flexible-work", flexibleWorkRoutes);
+app.use("/api/owner-direct-workers", paymentLimiter, ownerDirectWorkerRoutes);
+app.use("/api/search", globalSearchRoutes);
 
 
 

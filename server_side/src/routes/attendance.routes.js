@@ -64,6 +64,9 @@ const {
     fetchTodayAttendance,
     fetchEmployeeAttendance,
     fetchMonthlyAttendanceSummary
+    ,requestCorrection
+    ,fetchCorrections
+    ,reviewCorrection
 } = require("../controllers/attendance.controller");
 
 router.post(
@@ -114,6 +117,10 @@ router.get(
     authorize("OWNER", "MANAGER", "ACCOUNTANT", "SUPER_ADMIN"),
     fetchMonthlyAttendanceSummary
 );
+
+router.get('/corrections', authenticate, authorize('MANAGER', 'ACCOUNTANT', 'SUPER_ADMIN'), fetchCorrections);
+router.post('/:id/correction-request', authenticate, authorize('ACCOUNTANT'), requestCorrection);
+router.put('/corrections/:id/review', authenticate, authorize('MANAGER'), reviewCorrection);
 
 router.get(
     "/:id",

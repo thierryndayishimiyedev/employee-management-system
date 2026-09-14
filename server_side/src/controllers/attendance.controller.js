@@ -145,7 +145,10 @@ const {
     getWeeklyAttendance,
     getTodayAttendance,
     getEmployeeAttendance,
-    getMonthlyAttendanceSummary
+    getMonthlyAttendanceSummary,
+    requestAttendanceCorrection,
+    getAttendanceCorrections,
+    reviewAttendanceCorrection
 } = require("../services/attendance.service");
 
 const createAttendance = async (req, res) => {
@@ -255,6 +258,19 @@ const completeAttendanceCheckOut = async (req, res) => {
     } catch (err) {
         return res.status(400).json({ success: false, message: err.message });
     }
+};
+
+const requestCorrection = async (req, res) => {
+    try { res.status(201).json({ success: true, data: await requestAttendanceCorrection(req.params.id, req.body?.reason, req.user) }); }
+    catch (err) { res.status(400).json({ success: false, message: err.message }); }
+};
+const fetchCorrections = async (req, res) => {
+    try { res.json({ success: true, data: await getAttendanceCorrections(req.user) }); }
+    catch (err) { res.status(400).json({ success: false, message: err.message }); }
+};
+const reviewCorrection = async (req, res) => {
+    try { res.json({ success: true, data: await reviewAttendanceCorrection(req.params.id, req.body?.decision, req.body?.comments, req.user) }); }
+    catch (err) { res.status(400).json({ success: false, message: err.message }); }
 };
 
 const removeAttendance = async (req, res) => {
@@ -398,6 +414,9 @@ module.exports = {
     fetchAttendance,
     editAttendance,
     completeAttendanceCheckOut,
+    requestCorrection,
+    fetchCorrections,
+    reviewCorrection,
     removeAttendance,
     fetchAttendanceDashboard,
     fetchWeeklyAttendance,

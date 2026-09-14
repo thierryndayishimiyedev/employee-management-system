@@ -25,6 +25,14 @@ const generateWorkerCode = async ({ managerUserId, positionName }) => {
     return `${prefix}${String(next).padStart(3, "0")}`;
 };
 
+const workerIdentityMessage = (error) => {
+    const message = String(error?.message || '');
+    if (error?.code === '23505' || /worker ID|MTN number|phone/i.test(message)) {
+        return 'This national ID or MTN number is already registered. A worker can belong to only one manager and cannot receive duplicate payments.';
+    }
+    return null;
+};
+
 const createWorker = async (data, userScope) => {
 
     const {
@@ -97,8 +105,11 @@ const createWorker = async (data, userScope) => {
         .select()
         .single();
 
-    if (employeeError)
+    if (employeeError) {
+        const message = workerIdentityMessage(employeeError);
+        if (message) throw new Error(message);
         throw employeeError;
+    }
 
     return { employee };
 
@@ -166,7 +177,7 @@ const updateWorker = async (id, workerData, userScope) => {
         mutuelle_de_sante
     } = workerData;
 
-    await getWorkerById(id, userScope);
+    const currentWorker = await getWorkerById(id, userScope);
 
     const isFlexible = payment_type === "FLEXIBLE_DAILY";
     const parsedDailyRate = daily_rate === undefined ? undefined : (isFlexible ? 0 : Number(daily_rate));
@@ -193,8 +204,8 @@ const updateWorker = async (id, workerData, userScope) => {
     if (workerData.manager_user_id !== undefined) {
         const manager_user_id = resolveManagerForWrite(userScope, workerData.manager_user_id);
         if (!manager_user_id) throw new Error("A manager must be selected for every worker.");
-        const current = await getWorkerById(id, userScope);
-        await assertManagerInCompany(manager_user_id, current.company_id);
+        if (manager_user_id !== currentWorker.manager_user_id) throw new Error("A registered worker belongs to one manager and cannot be moved to another manager.");
+        await assertManagerInCompany(manager_user_id, currentWorker.company_id);
         updateData.manager_user_id = manager_user_id;
     }
 
@@ -226,8 +237,11 @@ const updateWorker = async (id, workerData, userScope) => {
 
     const { error } = await query;
 
-    if (error)
+    if (error) {
+        const message = workerIdentityMessage(error);
+        if (message) throw new Error(message);
         throw error;
+    }
 
     return await getWorkerById(id, userScope);
 

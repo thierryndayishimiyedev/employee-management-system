@@ -13,6 +13,9 @@ const reports = [
   { type: 'payments', title: 'Payments', roles: ['OWNER'] },
   { type: 'advances', title: 'Advances', roles: ['OWNER', 'ACCOUNTANT'] },
   { type: 'expenses', title: 'Expenses & Materials', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+  { type: 'worker-consumptions', title: 'Worker Items & Shopkeeper Payments', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+  { type: 'flexible-work', title: 'Flexible Work', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+  { type: 'owner-direct-workers', title: 'Owner Direct Workers', roles: ['OWNER'] },
   { type: 'food-supplies', title: 'My Food Supplies & Payments', roles: ['FOOD_SUPPLIER'] },
   { type: 'employees', title: 'Employees', roles: ['OWNER', 'MANAGER'] },
   { type: 'departments', title: 'Departments', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
@@ -90,6 +93,9 @@ export default function DownloadCenterPage() {
                 <option value="today">Daily — Today</option>
                 <option value="yesterday">Daily — Yesterday</option>
                 <option value="week">Weekly — This Week</option>
+                <option value="last_7_days">Previous 7 days</option>
+                <option value="last_14_days">Previous 14 days</option>
+                <option value="last_21_days">Previous 3 weeks</option>
                 <option value="month">Monthly — This Month</option>
                 <option value="year">Yearly — This Year</option>
                 <option value="custom">Custom Range</option>

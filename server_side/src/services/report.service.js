@@ -8,10 +8,14 @@ const parseDailySummary = (value) => {
     try { return JSON.parse(value); } catch { return {}; }
 };
 
-const resolvePeriod = ({ report_date, report_type = "DAILY" }) => {
+const resolvePeriod = ({ report_date, report_type = "DAILY", period_start, period_end }) => {
     if (!report_date || Number.isNaN(Date.parse(`${report_date}T00:00:00Z`))) throw new Error("A valid report date is required.");
     const type = String(report_type).toUpperCase();
-    if (!["DAILY", "WEEKLY", "MONTHLY", "YEARLY"].includes(type)) throw new Error("Report type must be DAILY, WEEKLY, MONTHLY, or YEARLY.");
+    if (!["DAILY", "WEEKLY", "MONTHLY", "YEARLY", "CUSTOM"].includes(type)) throw new Error("Report type must be DAILY, WEEKLY, MONTHLY, YEARLY, or CUSTOM.");
+    if (type === "CUSTOM") {
+        if (!period_start || !period_end || Number.isNaN(Date.parse(`${period_start}T00:00:00Z`)) || Number.isNaN(Date.parse(`${period_end}T00:00:00Z`)) || period_end < period_start) throw new Error("Choose a valid custom report start and end date.");
+        return { type, start: period_start, end: period_end };
+    }
     const date = new Date(`${report_date}T00:00:00Z`); let start = new Date(date); let end = new Date(date);
     if (type === "WEEKLY") { const offset = (date.getUTCDay() + 6) % 7; start.setUTCDate(date.getUTCDate() - offset); end = new Date(start); end.setUTCDate(start.getUTCDate() + 6); }
     if (type === "MONTHLY") { start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1)); end = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)); }
@@ -31,7 +35,7 @@ const buildActivitySnapshot = async (companyId, period, managerUserId) => {
         withinManagerScope(supabase.from("payroll").select("payroll_period_start,payroll_period_end,days_worked,basic_salary,advance_deduction,consumption_deduction,net_salary,payment_status,approval_status,employees!inner(employee_code,first_name,last_name,company_id)").eq("employees.company_id", companyId).gte("generated_at", `${period.start}T00:00:00Z`).lte("generated_at", `${period.end}T23:59:59Z`)),
         withinManagerScope(supabase.from("worker_consumptions").select("consumption_date,item_name,quantity,total_amount,amount_deducted,remaining_balance,approval_status,shopkeeper_payment_status,employees!inner(employee_code,first_name,last_name,company_id),shopkeepers(shopkeeper_name)").eq("company_id", companyId).gte("consumption_date", period.start).lte("consumption_date", period.end)),
         withinManagerScope(supabase.from("food_supplies").select("supply_date,status,payment_status,food_suppliers(supplier_name),food_supply_items(food_name,quantity,unit,unit_price)").eq("company_id", companyId).gte("supply_date", period.start).lte("supply_date", period.end)),
-        withinManagerScope(supabase.from("operational_expenses").select("expense_date,expense_category,item_name,quantity,unit,unit_price,total_amount,buyer_name,buyer_phone,approval_status,payment_status").eq("company_id", companyId).gte("expense_date", period.start).lte("expense_date", period.end))
+        withinManagerScope(supabase.from("operational_expenses").select("expense_date,expense_category,item_name,quantity,unit,unit_price,total_amount,buyer_name,buyer_phone,payment_method,external_payment_reference,external_paid_at,approval_status,payment_status").eq("company_id", companyId).gte("expense_date", period.start).lte("expense_date", period.end))
     ]);
     if ([attendanceResult, productionResult, advancesResult, payrollResult, consumptionResult, foodResult, expenseResult].some((result) => result.error)) throw new Error("Unable to build report from recorded activities. Run all required database migrations first.");
     const attendance = attendanceResult.data || [];
@@ -40,7 +44,7 @@ const buildActivitySnapshot = async (companyId, period, managerUserId) => {
     const expenses = (expenseResult.data || []).reduce((sum, item) => sum + Number(item.total_amount || 0), 0);
     return {
         period,
-        attendance_summary: { total_workers: employeeResult.count || 0, records: attendance.length, present: attendance.filter(a => a.attendance_status === "PRESENT").length, absent: attendance.filter(a => a.attendance_status === "ABSENT").length, hours: attendance.reduce((s, a) => s + Number(a.hours_worked || 0), 0), overtime: attendance.reduce((s, a) => s + Number(a.overtime_hours || 0), 0) },
+        attendance_summary: { total_workers: employeeResult.count || 0, records: attendance.length, present: attendance.filter(a => ["PRESENT", "LATE"].includes(a.attendance_status)).length, absent: attendance.filter(a => a.attendance_status === "ABSENT").length, late: attendance.filter(a => a.attendance_status === "LATE").length, leave: attendance.filter(a => a.attendance_status === "LEAVE").length, hours: attendance.reduce((s, a) => s + Number(a.hours_worked || 0), 0), overtime: attendance.reduce((s, a) => s + Number(a.overtime_hours || 0), 0) },
         production_summary: { records: production.length, minerals: production.map(p => ({ mineral_type: p.mineral_type, quantity: p.quantity, unit: p.unit })), gross_value: gross, expenses, net_result: gross - expenses },
         advances_summary: { count: (advancesResult.data || []).length, total: (advancesResult.data || []).reduce((s, a) => s + Number(a.amount || 0), 0), paid: (advancesResult.data || []).filter((a) => a.payment_status === "PAID").reduce((s, a) => s + Number(a.amount || 0), 0) },
         payroll_summary: { count: (payrollResult.data || []).length, net_salary: (payrollResult.data || []).reduce((s, p) => s + Number(p.net_salary || 0), 0), advance_deduction: (payrollResult.data || []).reduce((s, p) => s + Number(p.advance_deduction || 0), 0), consumption_deduction: (payrollResult.data || []).reduce((s, p) => s + Number(p.consumption_deduction || 0), 0) },
@@ -60,7 +64,7 @@ const createReport = async (reportData, user) => {
     const scopedCompanyId = resolveAuthorizedCompanyId(user, reportData.company_id);
     const manager_user_id = user?.role_name === "ACCOUNTANT" ? requireManagerUserId(user) : reportData.manager_user_id;
     if (!manager_user_id) throw new Error("A manager must be selected for this report.");
-    const period = resolvePeriod({ report_date, report_type });
+    const period = resolvePeriod({ report_date, report_type, period_start: reportData.period_start, period_end: reportData.period_end });
     const snapshot = await buildActivitySnapshot(scopedCompanyId, period, manager_user_id);
 
     const { data, error } = await supabase
@@ -175,7 +179,7 @@ const submitReport = async (id, user) => {
     if (!["DRAFT", "CHANGES_REQUESTED"].includes(report.status || "DRAFT")) {
         throw new Error("Only a draft or correction-requested report can be submitted.");
     }
-    const period = parseDailySummary(report.daily_summary).report_period || resolvePeriod({ report_date: report.report_date, report_type: "DAILY" });
+    const period = parseDailySummary(report.daily_summary).report_period || resolvePeriod({ report_date: report.report_date, report_type: report.report_type || "DAILY", period_start: report.period_start, period_end: report.period_end });
     const snapshot = await buildActivitySnapshot(report.company_id, period, report.manager_user_id);
 
     const { data, error } = await supabase
@@ -267,6 +271,27 @@ const updateReport = async (id, reportData, user) => {
 
 };
 
+const requestReportDeletion = async (id, reason, user) => {
+    const report = await getReportById(id, user);
+    if (user?.role_name !== "ACCOUNTANT" || report.accountant_id !== user.employee_id) throw new Error("Only the report's assigned accountant can request deletion.");
+    if (report.status === "DELETE_REQUESTED") throw new Error("This report deletion is already waiting for manager approval.");
+    const { data, error } = await supabase.from("reports").update({ status: "DELETE_REQUESTED", is_locked: true, deletion_requested_at: new Date().toISOString(), deletion_requested_by: user.user_id, deletion_request_reason: String(reason || "").trim() || "Accountant requested deletion.", deletion_requested_from_status: report.status || "DRAFT" }).eq("report_id", id).select().single();
+    if (error) throw error; return data;
+};
+
+const reviewReportDeletion = async (id, decision, comments, user) => {
+    const report = await getReportById(id, user);
+    if (user?.role_name !== "MANAGER") throw new Error("Only the assigned manager can decide a report deletion request.");
+    if (report.status !== "DELETE_REQUESTED") throw new Error("This report is not awaiting deletion approval.");
+    if (decision === "approve") {
+        const { error } = await supabase.from("reports").delete().eq("report_id", id).eq("manager_user_id", requireManagerUserId(user));
+        if (error) throw error; return { deleted: true };
+    }
+    const restore = ["DRAFT", "CHANGES_REQUESTED", "PENDING_MANAGER", "PENDING_OWNER", "APPROVED"].includes(report.deletion_requested_from_status) ? report.deletion_requested_from_status : "DRAFT";
+    const { data, error } = await supabase.from("reports").update({ status: restore, is_locked: ["PENDING_MANAGER", "PENDING_OWNER", "APPROVED"].includes(restore), deletion_reviewed_at: new Date().toISOString(), deletion_reviewed_by: user.user_id, deletion_review_reason: String(comments || "").trim() || "Manager declined deletion.", deletion_requested_at: null, deletion_requested_by: null, deletion_request_reason: null, deletion_requested_from_status: null }).eq("report_id", id).select().single();
+    if (error) throw error; return data;
+};
+
 const reviewReport = async (id, decision, comments, user) => {
     const report = await getReportById(id, user);
     const now = new Date().toISOString();
@@ -302,5 +327,7 @@ module.exports = {
     submitReport,
     approveReportEdit,
     updateReport,
-    reviewReport
+    reviewReport,
+    requestReportDeletion,
+    reviewReportDeletion
 };

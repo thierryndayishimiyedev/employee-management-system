@@ -474,6 +474,13 @@ const dailyReportsPdf = async (user, query) => {
         return createPdfBuffer({ title: `${range.label} Detailed Operations Register`, reportNumber: `DR-${Date.now()}`, company, generatedBy: generatedBy(user), summary: [{ label: "Period", value: `${range.start} to ${range.end}` }, { label: "Activity rows", value: detailedRows.length }, { label: "Recorded money", value: detailedRows.reduce((sum, row) => sum + Number(row.amount || 0), 0) }], insights: ["The table lists every saved attendance, production, advance, payroll, expense/material, and worker-item row for the report period."], columns: [{ key: "section", label: "Section", width: 14 }, { key: "date", label: "Date", width: 11 }, { key: "subject", label: "Worker / Item", width: 20 }, { key: "details", label: "Details", width: 31 }, { key: "amount", label: "Amount", width: 12 }, { key: "status", label: "Status", width: 17 }], rows: detailedRows });
     }
 
+    if (["last_7_days", "last_14_days", "last_21_days"].includes(period)) {
+        const days = Number(period.split('_')[1]);
+        const start = startOfDay(today);
+        start.setDate(start.getDate() - (days - 1));
+        return { start: toIso(start), end: toIso(today), label: `Previous ${days} Days` };
+    }
+
     const rows = (data || []).map((record) => {
         const summary = parseReportSummary(record.daily_summary);
         return ({
@@ -537,6 +544,37 @@ const foodSuppliesPdf = async (user, query) => {
     return createPdfBuffer({ title: `${range.label} Food Supply Report`, reportNumber: `FOOD-${Date.now()}`, company, generatedBy: generatedBy(user), summary: [{ label: 'Period', value: `${range.start} to ${range.end}` }, { label: 'Supply items', value: rows.length }, { label: 'Total supplied', value: rows.reduce((s, r) => s + Number(r.amount || 0), 0) }, { label: 'Paid value', value: rows.filter(r => r.payment === 'PAID').reduce((s, r) => s + Number(r.amount || 0), 0) }], columns: [{ key: 'date', label: 'Date', width: 12 }, { key: 'manager', label: 'Manager Unit', width: 18 }, { key: 'item', label: 'Food Supplied', width: 28 }, { key: 'amount', label: 'Amount', width: 14 }, { key: 'approval', label: 'Approval', width: 15 }, { key: 'payment', label: 'Payment', width: 13 }], rows });
 };
 
+const workerConsumptionsPdf = async (user, query) => {
+    const company = await getCompany(user); const range = dateRange(query);
+    let request = supabase.from('worker_consumptions').select('consumption_date,item_name,quantity,unit_price,total_amount,approval_status,shopkeeper_payment_status,employees!inner(employee_code,first_name,last_name,company_id,manager_user_id),shopkeepers(shopkeeper_name,phone)').gte('consumption_date', range.start).lte('consumption_date', range.end).order('consumption_date', { ascending: true });
+    request = scopeByRelatedCompany(request, user); request = scopeByManager(request, user, 'employees.manager_user_id');
+    const { data, error } = await request; if (error) throw error;
+    const rows = (data || []).map((record) => ({ date: record.consumption_date, worker: `${record.employees?.employee_code || ''} ${nameOf(record.employees)}`.trim(), item: `${record.item_name} × ${record.quantity}`, amount: record.total_amount, shopkeeper: record.shopkeepers?.shopkeeper_name || '-', approval: record.approval_status, payment: record.shopkeeper_payment_status }));
+    const total = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+    return createPdfBuffer({ title: `${range.label} Worker Items Report`, reportNumber: `ITEM-${Date.now()}`, company, generatedBy: generatedBy(user), summary: [{ label: 'Period', value: `${range.start} to ${range.end}` }, { label: 'Items recorded', value: rows.length }, { label: 'Total value', value: total }, { label: 'Shopkeeper payment due', value: rows.filter(row => row.payment !== 'PAID').reduce((sum, row) => sum + Number(row.amount || 0), 0) }], insights: [`${rows.filter(row => row.approval !== 'PAID').length} item record(s) still need workflow completion.`, `${rows.filter(row => row.payment === 'PAID').length} shopkeeper item payment(s) are paid.`], columns: [{ key: 'date', label: 'Date', width: 10 }, { key: 'worker', label: 'Worker', width: 20 }, { key: 'item', label: 'Item', width: 19 }, { key: 'amount', label: 'Amount', width: 12 }, { key: 'shopkeeper', label: 'Shopkeeper', width: 16 }, { key: 'approval', label: 'Approval', width: 13 }, { key: 'payment', label: 'Payment', width: 12 }], rows });
+};
+
+const flexibleWorkPdf = async (user, query) => {
+    const company = await getCompany(user); const range = dateRange(query);
+    let request = supabase.from('flexible_work_entries').select('work_date,agreed_daily_rate,work_details,employees!inner(employee_code,first_name,last_name,company_id,manager_user_id)').gte('work_date', range.start).lte('work_date', range.end).order('work_date', { ascending: true });
+    request = scopeByRelatedCompany(request, user); request = scopeByManager(request, user, 'employees.manager_user_id');
+    const { data, error } = await request; if (error) throw error;
+    const rows = (data || []).map((record) => ({ date: record.work_date, worker: `${record.employees?.employee_code || ''} ${nameOf(record.employees)}`.trim(), rate: record.agreed_daily_rate, details: record.work_details || '-' }));
+    const total = rows.reduce((sum, row) => sum + Number(row.rate || 0), 0);
+    return createPdfBuffer({ title: `${range.label} Flexible Work Report`, reportNumber: `FLEX-${Date.now()}`, company, generatedBy: generatedBy(user), summary: [{ label: 'Period', value: `${range.start} to ${range.end}` }, { label: 'Work entries', value: rows.length }, { label: 'Agreed work value', value: total }], insights: [rows.length ? 'Flexible work is recorded per actual work date and agreed daily amount.' : 'No flexible work was recorded in this period.'], columns: [{ key: 'date', label: 'Work Date', width: 13 }, { key: 'worker', label: 'Worker', width: 24 }, { key: 'rate', label: 'Agreed Amount', width: 16 }, { key: 'details', label: 'Work Details', width: 35 }], rows });
+};
+
+const ownerDirectWorkersPdf = async (user, query) => {
+    if (user.role_name !== 'OWNER') throw new Error('Only the Owner can download direct-worker payment records.');
+    const company = await getCompany(user); const range = dateRange(query);
+    let request = supabase.from('owner_direct_workers').select('full_name,national_id,momo_phone,agreement_date,agreed_amount,work_description,payment_status,payment_reference,payment_failure_reason,paid_at,manager_user_id').gte('agreement_date', range.start).lte('agreement_date', range.end).eq('owner_user_id', user.user_id).order('agreement_date', { ascending: true });
+    request = scopeByCompany(request, user); request = scopeByManager(request, user);
+    const { data, error } = await request; if (error) throw error;
+    const rows = (data || []).map((record) => ({ date: record.agreement_date, worker: record.full_name, id: record.national_id, phone: record.momo_phone, amount: record.agreed_amount, note: record.work_description || '-', status: record.payment_status, proof: record.payment_reference || record.payment_failure_reason || '-' }));
+    const total = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+    return createPdfBuffer({ title: `${range.label} Owner Direct-Worker Payments`, reportNumber: `DIR-${Date.now()}`, company, generatedBy: generatedBy(user), summary: [{ label: 'Period', value: `${range.start} to ${range.end}` }, { label: 'Direct worker deals', value: rows.length }, { label: 'Total agreed', value: total }, { label: 'Still due', value: rows.filter(row => row.status !== 'PAID').reduce((sum, row) => sum + Number(row.amount || 0), 0) }], insights: [`${rows.filter(row => row.status === 'PAID').length} direct-worker payment(s) are paid.`, `${rows.filter(row => row.status === 'FAILED').length} payment(s) failed and need follow-up.`], columns: [{ key: 'date', label: 'Date', width: 10 }, { key: 'worker', label: 'Worker', width: 18 }, { key: 'id', label: 'ID', width: 14 }, { key: 'phone', label: 'MoMo', width: 13 }, { key: 'amount', label: 'Amount', width: 12 }, { key: 'status', label: 'Status', width: 11 }, { key: 'proof', label: 'Proof / Reason', width: 24 }], rows });
+};
+
 const buildReportPdf = async (type, user, query) => {
     if (type === "attendance") return attendancePdf(user, query);
     if (type === "production") return productionPdf(user, query);
@@ -545,6 +583,9 @@ const buildReportPdf = async (type, user, query) => {
     if (type === "advances") return advancesPdf(user, query);
     if (type === "expenses") return expensesPdf(user, query);
     if (type === "food-supplies") return foodSuppliesPdf(user, query);
+    if (type === "worker-consumptions") return workerConsumptionsPdf(user, query);
+    if (type === "flexible-work") return flexibleWorkPdf(user, query);
+    if (type === "owner-direct-workers") return ownerDirectWorkersPdf(user, query);
     if (type === "employees" || type === "departments" || type === "positions") return simpleEmployeePdf(user, query, type);
     if (type === "reports") return dailyReportsPdf(user, query);
     throw new Error("Unsupported report type.");

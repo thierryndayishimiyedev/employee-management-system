@@ -83,6 +83,21 @@ export const checkOutAttendance = async (id, data) => {
     return response.data;
 };
 
+export const requestAttendanceCorrection = async (id, reason) => {
+    const response = await api.post(`/attendance/${id}/correction-request`, { reason });
+    return response.data;
+};
+
+export const getAttendanceCorrections = async () => {
+    const response = await api.get('/attendance/corrections');
+    return response.data;
+};
+
+export const reviewAttendanceCorrection = async (id, decision, comments = '') => {
+    const response = await api.put(`/attendance/corrections/${id}/review`, { decision, comments });
+    return response.data;
+};
+
 /*
 |--------------------------------------------------------------------------
 | Delete Attendance

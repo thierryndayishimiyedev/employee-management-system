@@ -155,7 +155,21 @@ const wrapCell = (value, width, fontSize) => {
 
 const createPdfBuffer = (options) => {
     const columns = options.columns || [];
-    const rows = options.rows || [];
+    const sourceRows = options.rows || [];
+    // A printed report must be reviewable without a calculator. Add one final
+    // table row for real numeric columns unless a caller explicitly opts out.
+    const totalKeys = columns
+        .filter((column) => /amount|salary|value|quantity|hours|overtime|deduction|requested|paid|remaining|gross|net|total/i.test(column.label || column.key || ''))
+        .map((column) => column.key);
+    const totals = Object.fromEntries(totalKeys.map((key) => [key, sourceRows.reduce((sum, row) => {
+        const value = Number(row[key]);
+        return sum + (Number.isFinite(value) ? value : 0);
+    }, 0)]));
+    const usableTotalKeys = totalKeys.filter((key) => sourceRows.some((row) => Number.isFinite(Number(row[key]))));
+    const totalRow = usableTotalKeys.length && sourceRows.length
+        ? columns.reduce((row, column, index) => ({ ...row, [column.key]: index === 0 ? 'TOTAL' : usableTotalKeys.includes(column.key) ? totals[column.key] : '—' }), {})
+        : null;
+    const rows = totalRow ? [...sourceRows, totalRow] : sourceRows;
     const landscape = columns.length > 7;
     const pageWidth = landscape ? 792 : 612;
     const pageHeight = landscape ? 612 : 792;

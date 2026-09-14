@@ -13,7 +13,9 @@ const {
     sendReport,
     allowReportEdit,
     editReport,
-    review
+    review,
+    requestDeletion,
+    reviewDeletion
 } = require("../controllers/report.controller");
 
 router.post(
@@ -59,6 +61,9 @@ router.put(
 );
 
 router.put("/:id/review", authenticate, authorize("MANAGER", "OWNER"), review);
+
+router.put("/:id/delete-request", authenticate, authorize("ACCOUNTANT", "SUPER_ADMIN"), requestDeletion);
+router.put("/:id/delete-review", authenticate, authorize("MANAGER"), reviewDeletion);
 
 router.put(
     "/:id",

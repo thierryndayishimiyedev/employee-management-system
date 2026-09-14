@@ -6,7 +6,9 @@ const {
     submitReport,
     approveReportEdit,
     updateReport,
-    reviewReport
+    reviewReport,
+    requestReportDeletion,
+    reviewReportDeletion
 } = require("../services/report.service");
 
 const registerReport = async (req, res) => {
@@ -196,6 +198,20 @@ const editReport = async (req, res) => {
 
 };
 
+const requestDeletion = async (req, res) => {
+    try {
+        const report = await requestReportDeletion(req.params.id, req.body?.reason, req.user);
+        res.json({ success: true, message: "Deletion request sent to the manager.", data: report });
+    } catch (error) { res.status(400).json({ success: false, message: error.message }); }
+};
+
+const reviewDeletion = async (req, res) => {
+    try {
+        const result = await reviewReportDeletion(req.params.id, req.body?.decision, req.body?.comments, req.user);
+        res.json({ success: true, message: result.deleted ? "Report deleted after manager approval." : "Deletion request declined; report restored.", data: result });
+    } catch (error) { res.status(400).json({ success: false, message: error.message }); }
+};
+
 module.exports = {
     registerReport,
     fetchReports,
@@ -204,5 +220,7 @@ module.exports = {
     sendReport,
     allowReportEdit,
     editReport,
-    review
+    review,
+    requestDeletion,
+    reviewDeletion
 };

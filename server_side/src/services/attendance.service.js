@@ -302,7 +302,8 @@ const getAttendances = async (user) => {
             employees(
                 employee_code,
                 first_name,
-                last_name
+                last_name,
+                daily_rate
             )
         `)
         .order("attendance_date", {
@@ -345,7 +346,14 @@ const getAttendanceById = async (id, user) => {
 
 const updateAttendance = async (id, attendanceData, user) => {
     const existing = await getAttendanceById(id, user);
-    if (existing.attendance_status === "PRESENT" && existing.check_out) {
+    let approvedCorrectionRequest = null;
+    if (user.role_name === 'ACCOUNTANT') {
+        const { data: request, error: requestError } = await supabase.from('attendance_correction_requests').select('*').eq('attendance_id', id).eq('requested_by', user.user_id).eq('status', 'APPROVED').order('created_at', { ascending: false }).maybeSingle();
+        if (requestError) throw requestError;
+        if (!request) throw new Error('Request a correction from your manager before changing attendance.');
+        approvedCorrectionRequest = request;
+    }
+    if (existing.attendance_status === "PRESENT" && existing.check_out && !approvedCorrectionRequest) {
         throw new Error("Completed attendance cannot be edited. Use the approved correction process if a correction is required.");
     }
     if (attendanceData.check_out) {
@@ -383,8 +391,38 @@ const updateAttendance = async (id, attendanceData, user) => {
     if (error)
         throw error;
 
+    if (approvedCorrectionRequest) {
+        const { error: correctionError } = await supabase
+            .from('attendance_correction_requests')
+            .update({ status: 'USED', used_at: new Date().toISOString() })
+            .eq('correction_request_id', approvedCorrectionRequest.correction_request_id);
+        if (correctionError) throw correctionError;
+    }
+
     return data;
 
+};
+
+const requestAttendanceCorrection = async (id, reason, user) => {
+    if (user.role_name !== 'ACCOUNTANT') throw new Error('Only the assigned accountant can request an attendance correction.');
+    const attendance = await getAttendanceById(id, user);
+    if (!String(reason || '').trim()) throw new Error('Give the manager a clear reason for this attendance correction.');
+    const { data, error } = await supabase.from('attendance_correction_requests').insert([{ attendance_id: id, company_id: attendance.company_id, manager_user_id: attendance.manager_user_id, requested_by: user.user_id, reason: String(reason).trim() }]).select().single();
+    if (error?.code === '23505') throw new Error('A correction request for this attendance is already waiting for manager review.');
+    if (error) throw error; return data;
+};
+const getAttendanceCorrections = async (user) => {
+    let query = supabase.from('attendance_correction_requests').select('*, attendance!inner(attendance_date,attendance_status,employees(employee_code,first_name,last_name))').order('created_at', { ascending: false });
+    query = scopeByCompany(query, user); query = scopeByManager(query, user);
+    if (user.role_name === 'ACCOUNTANT') query = query.eq('requested_by', user.user_id);
+    const { data, error } = await query; if (error) throw error; return data || [];
+};
+const reviewAttendanceCorrection = async (id, decision, comments, user) => {
+    if (user.role_name !== 'MANAGER') throw new Error('Only the responsible manager can review attendance corrections.');
+    let query = supabase.from('attendance_correction_requests').select('*').eq('correction_request_id', id); query = scopeByCompany(query, user); query = scopeByManager(query, user);
+    const { data: request, error } = await query.single(); if (error || !request) throw new Error('Attendance correction request not found.');
+    if (request.status !== 'PENDING_MANAGER') throw new Error('This correction request has already been reviewed.');
+    const { data, error: updateError } = await supabase.from('attendance_correction_requests').update({ status: decision === 'approve' ? 'APPROVED' : 'REJECTED', manager_reviewed_by: user.user_id, manager_reviewed_at: new Date().toISOString(), manager_comments: comments || null }).eq('correction_request_id', id).select().single(); if (updateError) throw updateError; return data;
 };
 
 const deleteAttendance = async (id, user) => {
@@ -556,6 +594,9 @@ module.exports = {
     getAttendances,
     getAttendanceById,
     updateAttendance,
+    requestAttendanceCorrection,
+    getAttendanceCorrections,
+    reviewAttendanceCorrection,
     checkOutAttendance,
     deleteAttendance,
     getAttendanceDashboard,
