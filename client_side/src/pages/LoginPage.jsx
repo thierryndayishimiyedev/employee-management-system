@@ -23,7 +23,7 @@ const destinationForRole = (roleName) => {
 
 export default function LoginPage() {
   const { login, isAuthenticated, user } = useAuth()
-  const { language, setLanguage } = useLanguage()
+  const { language, setLanguage, t } = useLanguage()
   const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
   const [name, setName] = useState('')
@@ -57,7 +57,7 @@ export default function LoginPage() {
 
     try {
       const response = await login(name, password, accountType === 'OWNER' ? 'owner' : 'admin', accountType)
-      toast.success('Welcome back')
+      toast.success(t('auth.welcome'))
       const roleName =
         response?.data?.user?.role_name ||
         response?.data?.user?.roles?.role_name ||
@@ -68,7 +68,7 @@ export default function LoginPage() {
       navigate(destination)
     } catch (error) {
       const message =
-        error.response?.data?.message || error.message || 'Login failed'
+        error.response?.data?.message || error.message || t('auth.loginFailed')
       toast.error(message)
     } finally {
       setLoading(false)
@@ -96,15 +96,15 @@ export default function LoginPage() {
         </div>
         <div className="relative z-10 space-y-6 max-w-md">
           <h1 className="font-display !text-white text-4xl font-bold leading-tight">
-            Run every mine site from a single command center.
+            {t('auth.commandCenter')}
           </h1>
           <p className="text-white/70 leading-relaxed">
-            Track employees, attendance, loans, canteen, production and payroll across all mining sites in real time with role-based access.
+            {t('auth.commandDescription')}
           </p>
-          <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/15 text-xs uppercase tracking-widest text-white/70"><span>Secure</span><span>Scoped</span><span>Live data</span></div>
+          <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/15 text-xs uppercase tracking-widest text-white/70"><span>{t('auth.secure')}</span><span>{t('auth.scoped')}</span><span>{t('auth.liveData')}</span></div>
         </div>
         <div className="relative z-10 text-xs text-white/60 flex items-center gap-2">
-          <ShieldCheck className="h-3.5 w-3.5" /> Secure access · Role-based permissions
+          <ShieldCheck className="h-3.5 w-3.5" /> {t('auth.secureAccess')}
         </div>
       </div>
 
@@ -117,7 +117,7 @@ export default function LoginPage() {
             <span className="font-display text-lg font-semibold">C.M.K Gatsibo</span>
           </div>
           <div className="space-y-2">
-            <h2 className="font-display text-3xl font-semibold tracking-tight text-slate-900">Sign in</h2>
+            <h2 className="font-display text-3xl font-semibold tracking-tight text-slate-900">{t('auth.signIn')}</h2>
             <p className="text-sm text-slate-500">Enter your credentials to access the operations dashboard.</p>
           </div>
 

@@ -88,6 +88,7 @@ const attendancePdf = async (user, query) => {
                 employee_code,
                 first_name,
                 last_name,
+                daily_rate,
                 positions(position_name)
             )
         `)
@@ -107,10 +108,12 @@ const attendancePdf = async (user, query) => {
         position: record.employees?.positions?.position_name,
         check_in: record.check_in || "-",
         check_out: record.check_out || "-",
+        shift: record.shift_type || "DAY",
+        rate: Number(record.applied_daily_rate ?? record.employees?.daily_rate ?? 0),
         hours: record.hours_worked || 0,
         overtime: record.overtime_hours || 0,
         status: record.attendance_status,
-        remarks: record.remarks || "-"
+        remarks: [record.remarks, record.rate_adjustment_reason ? `Rate reason: ${record.rate_adjustment_reason}` : null].filter(Boolean).join(" · ") || "-"
     }));
 
     const count = (status) => rows.filter((row) => row.status === status).length;
@@ -128,6 +131,7 @@ const attendancePdf = async (user, query) => {
             { label: "Absent", value: count("ABSENT") },
             { label: "Late", value: count("LATE") },
             { label: "Leave", value: count("LEAVE") }
+            ,{ label: "Worked value", value: `${rows.filter((row) => ["PRESENT", "LATE"].includes(row.status)).reduce((sum, row) => sum + Number(row.rate || 0), 0).toLocaleString()} RWF` }
         ],
         insights: [
             present + absent ? `Attendance completion is ${Math.round((present / (present + absent)) * 100)}% for present/absent records.` : "No present or absent attendance records were captured for this period.",
@@ -138,6 +142,8 @@ const attendancePdf = async (user, query) => {
             { key: "code", label: "Code", width: 10 },
             { key: "employee", label: "Employee", width: 18 },
             { key: "position", label: "Position", width: 14 },
+            { key: "shift", label: "Shift", width: 8 },
+            { key: "rate", label: "Rate", width: 10 },
             { key: "check_in", label: "In", width: 8 },
             { key: "check_out", label: "Out", width: 8 },
             { key: "hours", label: "Hrs", width: 5 },
@@ -600,11 +606,11 @@ const buildReportCsv = async (type, user, query = {}) => {
     let request;
 
     if (type === "attendance") {
-        request = scopeByManager(scopeByCompany(supabase.from("attendance").select("attendance_date,check_in,check_out,hours_worked,overtime_hours,attendance_status,remarks,employees(employee_code,first_name,last_name)").gte("attendance_date", range.start).lte("attendance_date", range.end).order("attendance_date"), user), user);
+        request = scopeByManager(scopeByCompany(supabase.from("attendance").select("attendance_date,check_in,check_out,hours_worked,overtime_hours,attendance_status,shift_type,applied_daily_rate,rate_adjustment_reason,remarks,employees(employee_code,first_name,last_name,daily_rate)").gte("attendance_date", range.start).lte("attendance_date", range.end).order("attendance_date"), user), user);
         const { data, error } = await request; if (error) throw error;
         base.title = `${range.label} Attendance Report`;
-        base.columns = ["Date", "Employee Code", "Employee", "Check In", "Check Out", "Hours", "Overtime", "Status", "Remarks"];
-        base.rows = (data || []).map(r => [r.attendance_date, r.employees?.employee_code, nameOf(r.employees), r.check_in, r.check_out, r.hours_worked, r.overtime_hours, r.attendance_status, r.remarks]);
+        base.columns = ["Date", "Employee Code", "Employee", "Shift", "Check In", "Check Out", "Hours", "Daily Rate", "Rate Adjustment Reason", "Overtime", "Status", "Remarks"];
+        base.rows = (data || []).map(r => [r.attendance_date, r.employees?.employee_code, nameOf(r.employees), r.shift_type || 'DAY', r.check_in, r.check_out, r.hours_worked, r.applied_daily_rate ?? r.employees?.daily_rate, r.rate_adjustment_reason, r.overtime_hours, r.attendance_status, r.remarks]);
     } else if (type === "production") {
         request = scopeByManager(scopeByRelatedCompany(supabase.from("production_records").select("production_date,mineral_type,quantity,unit,working_hours,activity_details,remarks,employees!inner(employee_code,first_name,last_name,company_id)").gte("production_date", range.start).lte("production_date", range.end).order("production_date"), user), user);
         const { data, error } = await request; if (error) throw error;

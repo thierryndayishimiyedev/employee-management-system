@@ -145,7 +145,7 @@ const supabase = require("../config/supabase");
 const { isSuperAdmin, requireCompanyIds, scopeByCompany } = require("../utils/companyScope");
 const { scopeByManager, assertEmployeeManager } = require("../utils/managerScope");
 
-const calculateHours = (checkIn, checkOut) => {
+const calculateHours = (checkIn, checkOut, shiftType = "DAY") => {
     if (!checkIn || !checkOut) return null;
     const parse = (value) => {
         const [hours, minutes = "0"] = String(value).split(":");
@@ -153,10 +153,10 @@ const calculateHours = (checkIn, checkOut) => {
         return Number.isFinite(total) ? total : NaN;
     };
     const start = parse(checkIn);
-    const end = parse(checkOut);
-    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
-        throw new Error("Check-out must be later than check-in.");
-    }
+    let end = parse(checkOut);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) throw new Error("Check-in and check-out must use valid times.");
+    if (end < start && shiftType === "NIGHT") end += 24 * 60;
+    if (end < start) throw new Error("Check-out must be later than check-in, unless this is a night shift.");
     return Number(((end - start) / 60).toFixed(2));
 };
 
@@ -164,10 +164,11 @@ const VALID_ATTENDANCE_STATUSES = ["PRESENT", "ABSENT", "LEAVE", "LATE"];
 const isWorkedStatus = (status) => ["PRESENT", "LATE"].includes(status);
 
 const buildAttendanceValues = (attendanceData, { allowOpenCheckIn = false } = {}) => {
-    const { check_in, check_out, overtime_hours, attendance_status } = attendanceData;
+    const { check_in, check_out, overtime_hours, attendance_status, shift_type = "DAY" } = attendanceData;
     if (!VALID_ATTENDANCE_STATUSES.includes(attendance_status)) {
         throw new Error("Attendance status must be PRESENT, ABSENT, LEAVE, or LATE.");
     }
+    if (!["DAY", "NIGHT"].includes(shift_type)) throw new Error("Shift type must be DAY or NIGHT.");
     if (isWorkedStatus(attendance_status) && !check_in) {
         throw new Error("Check-in is required for worked attendance.");
     }
@@ -175,7 +176,7 @@ const buildAttendanceValues = (attendanceData, { allowOpenCheckIn = false } = {}
         throw new Error("Use the check-out action after the worker finishes work.");
     }
     const hours_worked = isWorkedStatus(attendance_status) && check_out
-        ? calculateHours(check_in, check_out)
+        ? calculateHours(check_in, check_out, shift_type)
         : 0;
     const overtime = overtime_hours === "" || overtime_hours === null || overtime_hours === undefined
         ? Math.max(0, Number(hours_worked) - 8)
@@ -193,7 +194,10 @@ const recordAttendance = async (attendanceData, user) => {
         check_out,
         overtime_hours,
         attendance_status,
-        remarks
+        remarks,
+        shift_type = "DAY",
+        applied_daily_rate,
+        rate_adjustment_reason
     } = attendanceData;
 
     if (!attendance_date || Number.isNaN(Date.parse(`${attendance_date}T00:00:00Z`))) {
@@ -207,7 +211,7 @@ const recordAttendance = async (attendanceData, user) => {
 
     let employeeQuery = supabase
         .from("employees")
-        .select("company_id, manager_user_id")
+        .select("company_id, manager_user_id, daily_rate")
         .eq("employee_id", employee_id);
 
     if (!isSuperAdmin(user)) {
@@ -235,7 +239,15 @@ const recordAttendance = async (attendanceData, user) => {
     // Standard attendance is saved as a completed shift by the daily register
     // (07:00–17:00). An accountant can use the manual exception form to enter
     // a genuine early departure or another non-standard time.
-    const calculated = buildAttendanceValues({ check_in, check_out, overtime_hours, attendance_status }, { allowOpenCheckIn: true });
+    const calculated = buildAttendanceValues({ check_in, check_out, overtime_hours, attendance_status, shift_type }, { allowOpenCheckIn: true });
+    const normalRate = Number(employee.daily_rate || 0);
+    const requestedRate = applied_daily_rate === "" || applied_daily_rate === null || applied_daily_rate === undefined ? normalRate : Number(applied_daily_rate);
+    if (isWorkedStatus(attendance_status) && (!Number.isFinite(requestedRate) || requestedRate < 0 || requestedRate > normalRate)) {
+        throw new Error("Daily rate for this attendance must be between 0 and the worker's normal daily rate.");
+    }
+    if (isWorkedStatus(attendance_status) && requestedRate < normalRate && !String(rate_adjustment_reason || "").trim()) {
+        throw new Error("Give a reason when reducing a worker's daily rate for one attendance day.");
+    }
 
     const { data: attendance, error: attendanceError } = await supabase
         .from("attendance")
@@ -244,6 +256,9 @@ const recordAttendance = async (attendanceData, user) => {
             company_id: employee.company_id,
             manager_user_id: employee.manager_user_id,
             attendance_date,
+            shift_type,
+            applied_daily_rate: isWorkedStatus(attendance_status) ? requestedRate : 0,
+            rate_adjustment_reason: requestedRate < normalRate ? String(rate_adjustment_reason).trim() : null,
             check_in,
             check_out,
             ...calculated,
@@ -274,7 +289,8 @@ const checkOutAttendance = async (id, attendanceData, user) => {
         check_in: existing.check_in,
         check_out: attendanceData.check_out,
         overtime_hours: attendanceData.overtime_hours,
-        attendance_status: "PRESENT"
+        attendance_status: "PRESENT",
+        shift_type: existing.shift_type || "DAY"
     });
     let query = scopeByCompany(supabase
         .from("attendance")
@@ -329,7 +345,8 @@ const getAttendanceById = async (id, user) => {
             employees(
                 employee_code,
                 first_name,
-                last_name
+                last_name,
+                daily_rate
             )
         `)
         .eq("attendance_id", id), user);
@@ -364,6 +381,9 @@ const updateAttendance = async (id, attendanceData, user) => {
         check_in: attendanceData.check_in ?? existing.check_in,
         check_out: attendanceData.check_out ?? existing.check_out,
         attendance_status: attendanceData.attendance_status ?? existing.attendance_status,
+        shift_type: attendanceData.shift_type ?? existing.shift_type ?? "DAY",
+        applied_daily_rate: attendanceData.applied_daily_rate ?? existing.applied_daily_rate,
+        rate_adjustment_reason: attendanceData.rate_adjustment_reason ?? existing.rate_adjustment_reason,
         overtime_hours: attendanceData.overtime_hours,
         remarks: attendanceData.remarks
     };
@@ -371,6 +391,14 @@ const updateAttendance = async (id, attendanceData, user) => {
         throw new Error("A valid attendance date is required.");
     }
     const calculated = buildAttendanceValues(safeData, { allowOpenCheckIn: true });
+    const normalRate = Number(existing.employees?.daily_rate || 0);
+    const requestedRate = isWorkedStatus(safeData.attendance_status) ? Number(safeData.applied_daily_rate ?? normalRate) : 0;
+    if (isWorkedStatus(safeData.attendance_status) && (!Number.isFinite(requestedRate) || requestedRate < 0 || requestedRate > normalRate)) {
+        throw new Error("Daily rate for this attendance must be between 0 and the worker's normal daily rate.");
+    }
+    if (isWorkedStatus(safeData.attendance_status) && requestedRate < normalRate && !String(safeData.rate_adjustment_reason || "").trim()) {
+        throw new Error("Give a reason when reducing a worker's daily rate for one attendance day.");
+    }
     let query = scopeByCompany(supabase
         .from("attendance")
         .update({
@@ -378,6 +406,9 @@ const updateAttendance = async (id, attendanceData, user) => {
             check_in: safeData.check_in,
             check_out: safeData.check_out,
             attendance_status: safeData.attendance_status,
+            shift_type: safeData.shift_type,
+            applied_daily_rate: requestedRate,
+            rate_adjustment_reason: requestedRate < normalRate ? String(safeData.rate_adjustment_reason).trim() : null,
             overtime_hours: calculated.overtime_hours,
             hours_worked: calculated.hours_worked,
             remarks: safeData.remarks ?? existing.remarks

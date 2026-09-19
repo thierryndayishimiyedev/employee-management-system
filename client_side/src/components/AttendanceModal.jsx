@@ -29,6 +29,12 @@ export default function AttendanceModal({
 
         attendance_status: "PRESENT",
 
+        shift_type: "DAY",
+
+        applied_daily_rate: "",
+
+        rate_adjustment_reason: "",
+
         remarks: ""
 
     });
@@ -57,6 +63,12 @@ export default function AttendanceModal({
 
                 attendance_status: attendance.attendance_status || "PRESENT",
 
+                shift_type: attendance.shift_type || "DAY",
+
+                applied_daily_rate: attendance.applied_daily_rate ?? "",
+
+                rate_adjustment_reason: attendance.rate_adjustment_reason || "",
+
                 remarks: attendance.remarks || ""
 
             });
@@ -74,6 +86,12 @@ export default function AttendanceModal({
                 overtime_hours: "",
 
                 attendance_status: "PRESENT",
+
+                shift_type: "DAY",
+
+                applied_daily_rate: "",
+
+                rate_adjustment_reason: "",
 
                 remarks: ""
 
@@ -403,6 +421,30 @@ export default function AttendanceModal({
                             </select>
 
                         </div>
+
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-5">
+
+                        <div>
+                            <label className="text-sm text-slate-300">Shift</label>
+                            <select name="shift_type" value={formData.shift_type} onChange={handleChange} className="mt-2 w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-3">
+                                <option value="DAY">Day shift</option>
+                                <option value="NIGHT">Night shift (may finish after midnight)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="text-sm text-slate-300">Daily rate for this attendance</label>
+                            <input type="number" min="0" name="applied_daily_rate" value={formData.applied_daily_rate} onChange={handleChange} placeholder="Leave blank for normal rate" className="mt-2 w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-3" />
+                        </div>
+
+                    </div>
+
+                    <div>
+
+                        <label className="text-sm text-slate-300">Reason if daily rate is reduced</label>
+                        <textarea rows="2" name="rate_adjustment_reason" value={formData.rate_adjustment_reason} onChange={handleChange} placeholder="Required when the rate is below the worker's normal daily rate" className="mt-2 w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-3" />
 
                     </div>
 

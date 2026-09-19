@@ -100,7 +100,7 @@ const workerRecords = async (companyIds, managerUserId = null) => {
 
 const attendanceRecords = async (companyIds, managerUserId = null) => {
     let query = supabase.from("attendance")
-        .select("attendance_date,attendance_status,hours_worked,overtime_hours,manager_user_id,employees!inner(daily_rate,payment_type)")
+        .select("attendance_date,attendance_status,hours_worked,overtime_hours,shift_type,applied_daily_rate,manager_user_id,employees!inner(daily_rate,payment_type)")
         .in("company_id", companyIds);
     if (managerUserId) query = query.eq("manager_user_id", managerUserId);
     const { data, error } = await query;
@@ -234,7 +234,7 @@ const aggregate = async (companyIds, managerUserId = null) => {
             .filter((row) => periodMatch(row.attendance_date, period, today))
             .filter((row) => ["PRESENT", "LATE"].includes(row.attendance_status))
             .filter((row) => row.employees?.payment_type !== "FLEXIBLE_DAILY")
-            .reduce((total, row) => total + Number(row.employees?.daily_rate || 0), 0);
+            .reduce((total, row) => total + Number(row.applied_daily_rate ?? row.employees?.daily_rate ?? 0), 0);
         const flexibleGross = sum(periodFlexibleWork, "agreed_daily_rate");
         const foodGross = periodFood.reduce((total, row) => total + foodTotal(row), 0);
         const expenseGross = sum(periodExpenses, "total_amount");

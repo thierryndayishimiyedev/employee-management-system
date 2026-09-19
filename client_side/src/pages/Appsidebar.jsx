@@ -28,36 +28,7 @@ import { useOwnerManagerScope } from '../context/OwnerManagerScope'
 import { useTheme } from '../context/ThemeContext'
 
 const nav = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['SUPER_ADMIN'] },
-  { to: '/companies', label: 'Companies', icon: Building2, roles: ['SUPER_ADMIN'] },
-  { to: '/owners', label: 'Owners', icon: UserCog, roles: ['SUPER_ADMIN'] },
-  { to: '/admins', label: 'Admins', icon: Shield, roles: ['SUPER_ADMIN'] },
-  { to: '/owner/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['OWNER'] },
-  { to: '/manager/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['MANAGER'] },
-  { to: '/accountant/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['ACCOUNTANT'] },
-  { to: '/search', label: 'Search', icon: Search, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { to: '/mines', label: 'Mines', icon: Building2, roles: ['OWNER'] },
-  { to: '/departments', label: 'Departments', icon: Building2, roles: ['OWNER'] },
-  { to: '/positions', label: 'Positions', icon: TrendingUp, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { to: '/attendance', label: 'Attendance', icon: CalendarCheck, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { to: '/production', label: 'Production', icon: Mountain, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { to: '/food-supplies', label: 'Food Supplies', icon: BadgeDollarSign, roles: ['OWNER', 'MANAGER', 'FOOD_SUPPLIER'] },
-  { to: '/worker-consumptions', label: 'Worker Items', icon: CreditCard, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { to: '/expenses', label: 'Expenses & Materials', icon: BadgeDollarSign, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { to: '/workers', label: 'Workers', icon: Users, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { to: '/flexible-work', label: 'Flexible Work', icon: Wallet, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { to: '/payroll', label: 'Payroll', icon: Wallet, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { to: '/advances', label: 'Advances', icon: BadgeDollarSign, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { to: '/payments', label: 'Payments', icon: CreditCard, roles: ['OWNER'] },
-  { to: '/payment-proof', label: 'Payment Proof', icon: Shield, roles: ['OWNER'] },
-  { to: '/owner-direct-workers', label: 'Owner Direct Workers', icon: Handshake, roles: ['OWNER'] },
-  { to: '/notifications', label: 'Notifications', icon: FileText, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { to: '/reports', label: 'Reports', icon: FileText, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { to: '/downloads', label: 'Downloads', icon: Download, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT', 'FOOD_SUPPLIER'] },
-  { to: '/managers', label: 'Managers', icon: UserCog, roles: ['OWNER'] },
-  { to: '/accountants', label: 'Accountants', icon: Users, roles: ['OWNER'] },
-  { to: '/roles', label: 'Roles', icon: Shield, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { to: '/settings', label: 'Settings', icon: Shield, roles: ['SUPER_ADMIN', 'OWNER'] },
+  { to: '/dashboard', label: 'navigation.dashboard', icon: LayoutDashboard, roles: ['SUPER_ADMIN'] }, { to: '/companies', label: 'navigation.companies', icon: Building2, roles: ['SUPER_ADMIN'] }, { to: '/owners', label: 'navigation.owners', icon: UserCog, roles: ['SUPER_ADMIN'] }, { to: '/admins', label: 'navigation.admins', icon: Shield, roles: ['SUPER_ADMIN'] }, { to: '/owner/dashboard', label: 'navigation.dashboard', icon: LayoutDashboard, roles: ['OWNER'] }, { to: '/manager/dashboard', label: 'navigation.dashboard', icon: LayoutDashboard, roles: ['MANAGER'] }, { to: '/accountant/dashboard', label: 'navigation.dashboard', icon: LayoutDashboard, roles: ['ACCOUNTANT'] }, { to: '/search', label: 'common.search', icon: Search, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] }, { to: '/mines', label: 'navigation.mines', icon: Building2, roles: ['OWNER'] }, { to: '/departments', label: 'navigation.departments', icon: Building2, roles: ['OWNER'] }, { to: '/positions', label: 'navigation.positions', icon: TrendingUp, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] }, { to: '/attendance', label: 'navigation.attendance', icon: CalendarCheck, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] }, { to: '/production', label: 'navigation.production', icon: Mountain, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] }, { to: '/food-supplies', label: 'navigation.foodSupplies', icon: BadgeDollarSign, roles: ['OWNER', 'MANAGER', 'FOOD_SUPPLIER'] }, { to: '/worker-consumptions', label: 'navigation.workerItems', icon: CreditCard, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] }, { to: '/expenses', label: 'navigation.expenses', icon: BadgeDollarSign, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] }, { to: '/workers', label: 'navigation.workers', icon: Users, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] }, { to: '/flexible-work', label: 'navigation.flexibleWork', icon: Wallet, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] }, { to: '/payroll', label: 'navigation.payroll', icon: Wallet, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] }, { to: '/advances', label: 'navigation.advances', icon: BadgeDollarSign, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] }, { to: '/payments', label: 'navigation.payments', icon: CreditCard, roles: ['OWNER'] }, { to: '/payment-proof', label: 'navigation.paymentProof', icon: Shield, roles: ['OWNER'] }, { to: '/owner-direct-workers', label: 'navigation.ownerDirectWorkers', icon: Handshake, roles: ['OWNER'] }, { to: '/notifications', label: 'navigation.notifications', icon: FileText, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] }, { to: '/reports', label: 'navigation.reports', icon: FileText, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] }, { to: '/downloads', label: 'navigation.downloads', icon: Download, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT', 'FOOD_SUPPLIER'] }, { to: '/managers', label: 'navigation.managers', icon: UserCog, roles: ['OWNER'] }, { to: '/accountants', label: 'navigation.accountants', icon: Users, roles: ['OWNER'] }, { to: '/roles', label: 'navigation.roles', icon: Shield, roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] }, { to: '/settings', label: 'navigation.settings', icon: Shield, roles: ['SUPER_ADMIN', 'OWNER'] },
 ]
 
 export default function AppSidebar() {
@@ -128,7 +99,7 @@ export default function AppSidebar() {
         )}
         {!collapsed && (
           <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-            {t('Workspace')}
+            {t('navigation.workspace')}
           </p>
         )}
         <ul className="space-y-1">
@@ -140,7 +111,7 @@ export default function AppSidebar() {
               <li key={item.to}>
                 <Link
                   to={item.to}
-                  title={collapsed ? item.label : undefined}
+                  title={collapsed ? t(item.label) : undefined}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
                     active
                       ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 shadow-sm'
@@ -162,7 +133,7 @@ export default function AppSidebar() {
         className="mx-3 mb-2 flex items-center justify-center gap-2 rounded-lg border border-slate-200 py-2 text-xs font-medium text-slate-500 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
       >
         {collapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
-        {!collapsed && <span>{t('Collapse')}</span>}
+        {!collapsed && <span>{t('navigation.collapse')}</span>}
       </button>
 
       <button

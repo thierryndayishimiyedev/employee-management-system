@@ -143,7 +143,12 @@ const generatePayroll = async (payload, user) => {
         if (!flexibleEntries.length) throw new Error("No unpaid flexible-work entries exist for this payroll period.");
     }
     const paidDays = employee.payment_type === "FLEXIBLE_DAILY" ? flexibleEntries.length : daysWorked;
-    const basicSalary = employee.payment_type === "FLEXIBLE_DAILY" ? flexibleEntries.reduce((sum, row) => sum + Number(row.agreed_daily_rate || 0), 0) : daysWorked * Number(employee.daily_rate);
+    // Use the rate saved on each attendance day. A supervisor can reduce one
+    // specific shift with a reason without changing the worker's normal rate.
+    const basicSalary = employee.payment_type === "FLEXIBLE_DAILY"
+        ? flexibleEntries.reduce((sum, row) => sum + Number(row.agreed_daily_rate || 0), 0)
+        : attendance.filter((record) => ["PRESENT", "LATE"].includes(record.attendance_status) && new Date(`${record.attendance_date}T00:00:00Z`).getUTCDay() !== 0)
+            .reduce((sum, record) => sum + Number(record.applied_daily_rate ?? employee.daily_rate ?? 0), 0);
     if (employee.payment_type !== "FLEXIBLE_DAILY" && paidDays === 0) {
         throw new Error("No recorded worked attendance exists for this payroll period.");
     }

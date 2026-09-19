@@ -321,7 +321,7 @@ export default function AttendancePage() {
         return {
             employees: new Set(periodAttendances.map((record) => record.employee_id).filter(Boolean)).size,
             present: count('PRESENT'), absent: count('ABSENT'), late: count('LATE'), leave: count('LEAVE'),
-            workedMoney: paidRows.reduce((sum, record) => sum + Number(record?.employees?.daily_rate || 0), 0),
+            workedMoney: paidRows.reduce((sum, record) => sum + Number(record.applied_daily_rate ?? record?.employees?.daily_rate ?? 0), 0),
             hours: paidRows.reduce((sum, record) => sum + Number(record.hours_worked || 0), 0)
         };
     }, [periodAttendances]);

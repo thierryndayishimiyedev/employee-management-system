@@ -32,10 +32,10 @@ const availableWorkerConsumptionCredit = async (employee, user) => {
   }
   const { data: payroll, error: payrollError } = await supabase.from('payroll').select('payroll_period_start,payroll_period_end').eq('employee_id', employee.employee_id);
   if (payrollError) throw payrollError;
-  let attendanceQuery = supabase.from('attendance').select('attendance_date,attendance_status').eq('employee_id', employee.employee_id).in('attendance_status', ['PRESENT', 'LATE']);
+  let attendanceQuery = supabase.from('attendance').select('attendance_date,attendance_status,applied_daily_rate').eq('employee_id', employee.employee_id).in('attendance_status', ['PRESENT', 'LATE']);
   const { data: attendance, error: attendanceError } = await attendanceQuery; if (attendanceError) throw attendanceError;
   const unpaidDays = (attendance || []).filter((row) => !(payroll || []).some((period) => period.payroll_period_start && period.payroll_period_end && row.attendance_date >= period.payroll_period_start && row.attendance_date <= period.payroll_period_end));
-  return unpaidDays.length * Number(employee.daily_rate || 0);
+  return unpaidDays.reduce((sum, row) => sum + Number(row.applied_daily_rate ?? employee.daily_rate ?? 0), 0);
 };
 const workerConsumptionCapacity = async (employee, user) => {
   const earned = await availableWorkerConsumptionCredit(employee, user);

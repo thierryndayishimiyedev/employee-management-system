@@ -38,7 +38,7 @@ const getFirstWeekEarnings = async (employeeId, dailyRate, paymentType = "FIXED_
     }
     let attendanceQuery = supabase
         .from("attendance")
-        .select("attendance_status, overtime_hours, attendance_date")
+        .select("attendance_status, overtime_hours, attendance_date, applied_daily_rate")
         .eq("employee_id", employeeId)
         .lte("attendance_date", today)
         .order("attendance_date", { ascending: true });
@@ -54,7 +54,7 @@ const getFirstWeekEarnings = async (employeeId, dailyRate, paymentType = "FIXED_
         .filter((item) => WORKED_STATUSES.includes(item.attendance_status))
         .slice(0, FIRST_WEEK_WORK_DAYS);
     const earned_amount = workedDays.reduce((sum, item) => (
-        sum + Number(dailyRate) + (Number(item.overtime_hours || 0) * (Number(dailyRate) / 8))
+        sum + Number(item.applied_daily_rate ?? dailyRate) + (Number(item.overtime_hours || 0) * (Number(item.applied_daily_rate ?? dailyRate) / 8))
     ), 0);
     return {
         worked_days: workedDays.length,
