@@ -25,6 +25,8 @@ export default function AttendanceModal({
 
         check_in: "",
 
+        check_out: "",
+
         overtime_hours: "",
 
         attendance_status: "PRESENT",
@@ -59,6 +61,8 @@ export default function AttendanceModal({
 
                 check_in: attendance.check_in || "",
 
+                check_out: attendance.check_out || "",
+
                 overtime_hours: attendance.overtime_hours || "",
 
                 attendance_status: attendance.attendance_status || "PRESENT",
@@ -82,6 +86,8 @@ export default function AttendanceModal({
                 attendance_date: "",
 
                 check_in: "",
+
+                check_out: "",
 
                 overtime_hours: "",
 
@@ -149,6 +155,8 @@ export default function AttendanceModal({
 
             if (attendance) {
 
+                payload.manual_pay_by_hours = ["PRESENT", "LATE"].includes(payload.attendance_status);
+
                 await api.put(
 
                     `/attendance/${attendance.attendance_id}`,
@@ -205,7 +213,7 @@ export default function AttendanceModal({
 
                             attendance
 
-                                ? "Edit check-in"
+                                ? "Correct attendance"
 
                                 : "Check in worker"
 
@@ -365,9 +373,10 @@ export default function AttendanceModal({
 
                         </div>
 
-                        <div className="rounded-xl border border-amber-800 bg-amber-950/40 px-4 py-3 text-sm text-amber-100">
-                            <p className="font-medium">Check-out is recorded later</p>
-                            <p className="mt-1 text-amber-200">Save this form to check the worker in. Use the check-out button when the worker leaves.</p>
+                        <div>
+                            <label className="text-sm text-slate-300">Check Out</label>
+                            <input type="time" name="check_out" value={formData.check_out} onChange={handleChange} className="mt-2 w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-3" />
+                            <p className="mt-1 text-xs text-slate-400">Available after the Manager approves a correction request.</p>
                         </div>
 
                     </div>
@@ -376,7 +385,7 @@ export default function AttendanceModal({
 
                         <div className="rounded-xl border border-cyan-800 bg-cyan-950/40 px-4 py-3 text-sm text-cyan-100">
                             <p className="font-medium">Hours worked</p>
-                            <p className="mt-1 text-cyan-200">Calculated automatically after the later check-out action.</p>
+                            <p className="mt-1 text-cyan-200">For an approved correction, the system recalculates hours and the proportional daily value from these times.</p>
                         </div>
 
                         <div>
@@ -414,6 +423,12 @@ export default function AttendanceModal({
                                 <option value="LEAVE">
 
                                     Leave
+
+                                </option>
+
+                                <option value="LATE">
+
+                                    Late
 
                                 </option>
 

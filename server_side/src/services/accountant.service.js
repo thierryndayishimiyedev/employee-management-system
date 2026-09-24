@@ -3,12 +3,33 @@ const supabase = require("../config/supabase");
 const { isSuperAdmin, requireCompanyIds, resolveAuthorizedCompanyId, scopeByRelatedCompany } = require("../utils/companyScope");
 const { requireManagerUserId, resolveManagerForWrite } = require("../utils/managerScope");
 
+const codePart = (value, fallback) => String(value || fallback)
+    .replace(/[^a-z0-9]/gi, "").slice(0, 3).toUpperCase().padEnd(3, "X");
+
+// Accountants are employees too, but their code must never be typed manually.
+// The code is unique across the company and remains stable after creation.
+const generateAccountantCode = async ({ companyId, managerUserId }) => {
+    const { data: manager, error: managerError } = await supabase
+        .from("users")
+        .select("employees!fk_user_employee!inner(first_name)")
+        .eq("user_id", managerUserId)
+        .single();
+    if (managerError || !manager) throw new Error("Manager was not found for accountant-code generation.");
+    const prefix = `${codePart(manager.employees?.first_name, "MGR")}-ACC-`;
+    const { data: rows, error } = await supabase.from("employees")
+        .select("employee_code")
+        .eq("company_id", companyId)
+        .like("employee_code", `${prefix}%`);
+    if (error) throw error;
+    const next = (rows || []).reduce((highest, row) => Math.max(highest, Number(String(row.employee_code || "").split("-").at(-1)) || 0), 0) + 1;
+    return `${prefix}${String(next).padStart(3, "0")}`;
+};
+
 const createAccountant = async (data, userScope) => {
 
     const {
         company_id,
         position_id,
-        employee_code,
         first_name,
         last_name,
         gender,
@@ -72,13 +93,15 @@ const createAccountant = async (data, userScope) => {
     if (roleError || !role)
         throw new Error("ACCOUNTANT role not found.");
 
+    const generatedEmployeeCode = await generateAccountantCode({ companyId: scopedCompanyId, managerUserId: manager_user_id });
+
     const { data: employee, error: empError } = await supabase
         .from("employees")
         .insert([{
             company_id: scopedCompanyId,
             manager_user_id,
             position_id,
-            employee_code,
+            employee_code: generatedEmployeeCode,
             first_name,
             last_name,
             gender,

@@ -144,6 +144,7 @@
 const supabase = require("../config/supabase");
 const { isSuperAdmin, requireCompanyIds, scopeByCompany } = require("../utils/companyScope");
 const { scopeByManager, assertEmployeeManager } = require("../utils/managerScope");
+const { getForCompany } = require('./workSettings.service');
 
 const calculateHours = (checkIn, checkOut, shiftType = "DAY") => {
     if (!checkIn || !checkOut) return null;
@@ -162,6 +163,19 @@ const calculateHours = (checkIn, checkOut, shiftType = "DAY") => {
 
 const VALID_ATTENDANCE_STATUSES = ["PRESENT", "ABSENT", "LEAVE", "LATE"];
 const isWorkedStatus = (status) => ["PRESENT", "LATE"].includes(status);
+
+const getNightShiftPlan = async (employee) => {
+    const { data, error } = await supabase.from("night_shift_settings")
+        .select("*")
+        .eq("company_id", employee.company_id)
+        .eq("is_active", true)
+        .or(`manager_user_id.eq.${employee.manager_user_id},manager_user_id.is.null`)
+        .order("manager_user_id", { ascending: false });
+    if (error) throw error;
+    const plan = (data || []).find((row) => row.manager_user_id === employee.manager_user_id) || (data || []).find((row) => !row.manager_user_id);
+    if (!plan) throw new Error("Night attendance is not available until the Owner activates a night-shift plan for this manager.");
+    return plan;
+};
 
 const buildAttendanceValues = (attendanceData, { allowOpenCheckIn = false } = {}) => {
     const { check_in, check_out, overtime_hours, attendance_status, shift_type = "DAY" } = attendanceData;
@@ -203,15 +217,14 @@ const recordAttendance = async (attendanceData, user) => {
     if (!attendance_date || Number.isNaN(Date.parse(`${attendance_date}T00:00:00Z`))) {
         throw new Error("A valid attendance date is required.");
     }
-    // Operations run Monday through Saturday. Sunday is a rest day and must
-    // never enter the payroll attendance ledger.
-    if (new Date(`${attendance_date}T00:00:00Z`).getUTCDay() === 0) {
+    const workSettings = await getForCompany(requireCompanyIds(user)[0]);
+    if (new Date(`${attendance_date}T00:00:00Z`).getUTCDay() === 0 && !workSettings.sunday_work_allowed) {
         throw new Error("Attendance cannot be recorded on Sunday. Sunday is a non-working day.");
     }
 
     let employeeQuery = supabase
         .from("employees")
-        .select("company_id, manager_user_id, daily_rate")
+        .select("company_id, manager_user_id, daily_rate, payment_type")
         .eq("employee_id", employee_id);
 
     if (!isSuperAdmin(user)) {
@@ -229,7 +242,8 @@ const recordAttendance = async (attendanceData, user) => {
         .from("attendance")
         .select("attendance_id")
         .eq("employee_id", employee_id)
-        .eq("attendance_date", attendance_date), user);
+        .eq("attendance_date", attendance_date)
+        .eq("shift_type", shift_type), user);
     existingQuery = scopeByManager(existingQuery, user);
     const { data: existing } = await existingQuery.maybeSingle();
 
@@ -241,11 +255,25 @@ const recordAttendance = async (attendanceData, user) => {
     // a genuine early departure or another non-standard time.
     const calculated = buildAttendanceValues({ check_in, check_out, overtime_hours, attendance_status, shift_type }, { allowOpenCheckIn: true });
     const normalRate = Number(employee.daily_rate || 0);
-    const requestedRate = applied_daily_rate === "" || applied_daily_rate === null || applied_daily_rate === undefined ? normalRate : Number(applied_daily_rate);
-    if (isWorkedStatus(attendance_status) && (!Number.isFinite(requestedRate) || requestedRate < 0 || requestedRate > normalRate)) {
-        throw new Error("Daily rate for this attendance must be between 0 and the worker's normal daily rate.");
+    const nightPlan = shift_type === "NIGHT" ? await getNightShiftPlan(employee) : null;
+    const plannedRate = nightPlan
+        ? Math.max(0, normalRate + Number(nightPlan.fixed_worker_rate_adjustment || 0))
+        : normalRate;
+    // Manual attendance pays the exact worked-time share: 6 of a 10-hour
+    // normal day earns 60%; 12 hours earns 120%. Automatic attendance keeps
+    // the planned full daily rate.
+    const manualPayByHours = attendanceData.manual_pay_by_hours === true && shift_type === 'DAY';
+    const proportionalRate = calculated.hours_worked > 0
+        ? Number((plannedRate * (Number(calculated.hours_worked) / Number(workSettings.standard_day_hours))).toFixed(2))
+        : 0;
+    const requestedRate = manualPayByHours ? proportionalRate : (applied_daily_rate === "" || applied_daily_rate === null || applied_daily_rate === undefined ? plannedRate : Number(applied_daily_rate));
+    if (nightPlan && Number(requestedRate) !== plannedRate) {
+        throw new Error("Night-shift pay is set by the Owner’s active night-shift plan and cannot be changed in attendance.");
     }
-    if (isWorkedStatus(attendance_status) && requestedRate < normalRate && !String(rate_adjustment_reason || "").trim()) {
+    if (isWorkedStatus(attendance_status) && (!Number.isFinite(requestedRate) || requestedRate < 0 || (!manualPayByHours && requestedRate > plannedRate))) {
+        throw new Error("Daily rate for this attendance must be valid for the planned shift.");
+    }
+    if (isWorkedStatus(attendance_status) && !manualPayByHours && !nightPlan && requestedRate < normalRate && !String(rate_adjustment_reason || "").trim()) {
         throw new Error("Give a reason when reducing a worker's daily rate for one attendance day.");
     }
 
@@ -258,7 +286,11 @@ const recordAttendance = async (attendanceData, user) => {
             attendance_date,
             shift_type,
             applied_daily_rate: isWorkedStatus(attendance_status) ? requestedRate : 0,
-            rate_adjustment_reason: requestedRate < normalRate ? String(rate_adjustment_reason).trim() : null,
+            rate_adjustment_reason: requestedRate < plannedRate
+                ? (manualPayByHours
+                    ? `Manual proportional pay: ${calculated.hours_worked} of ${workSettings.standard_day_hours} standard hours.`
+                    : String(rate_adjustment_reason).trim())
+                : null,
             check_in,
             check_out,
             ...calculated,
@@ -373,7 +405,7 @@ const updateAttendance = async (id, attendanceData, user) => {
     if (existing.attendance_status === "PRESENT" && existing.check_out && !approvedCorrectionRequest) {
         throw new Error("Completed attendance cannot be edited. Use the approved correction process if a correction is required.");
     }
-    if (attendanceData.check_out) {
+    if (attendanceData.check_out && !approvedCorrectionRequest) {
         throw new Error("Use the dedicated check-out action to complete attendance.");
     }
     const safeData = {
@@ -392,11 +424,17 @@ const updateAttendance = async (id, attendanceData, user) => {
     }
     const calculated = buildAttendanceValues(safeData, { allowOpenCheckIn: true });
     const normalRate = Number(existing.employees?.daily_rate || 0);
-    const requestedRate = isWorkedStatus(safeData.attendance_status) ? Number(safeData.applied_daily_rate ?? normalRate) : 0;
-    if (isWorkedStatus(safeData.attendance_status) && (!Number.isFinite(requestedRate) || requestedRate < 0 || requestedRate > normalRate)) {
+    const workSettings = await getForCompany(existing.company_id);
+    const manualPayByHours = approvedCorrectionRequest && attendanceData.manual_pay_by_hours === true && safeData.shift_type === 'DAY';
+    const requestedRate = !isWorkedStatus(safeData.attendance_status)
+        ? 0
+        : manualPayByHours
+            ? Number((normalRate * (Number(calculated.hours_worked) / Number(workSettings.standard_day_hours))).toFixed(2))
+            : Number(safeData.applied_daily_rate ?? normalRate);
+    if (isWorkedStatus(safeData.attendance_status) && (!Number.isFinite(requestedRate) || requestedRate < 0 || (!manualPayByHours && requestedRate > normalRate))) {
         throw new Error("Daily rate for this attendance must be between 0 and the worker's normal daily rate.");
     }
-    if (isWorkedStatus(safeData.attendance_status) && requestedRate < normalRate && !String(safeData.rate_adjustment_reason || "").trim()) {
+    if (isWorkedStatus(safeData.attendance_status) && !manualPayByHours && requestedRate < normalRate && !String(safeData.rate_adjustment_reason || "").trim()) {
         throw new Error("Give a reason when reducing a worker's daily rate for one attendance day.");
     }
     let query = scopeByCompany(supabase
@@ -408,7 +446,11 @@ const updateAttendance = async (id, attendanceData, user) => {
             attendance_status: safeData.attendance_status,
             shift_type: safeData.shift_type,
             applied_daily_rate: requestedRate,
-            rate_adjustment_reason: requestedRate < normalRate ? String(safeData.rate_adjustment_reason).trim() : null,
+            rate_adjustment_reason: requestedRate < normalRate
+                ? (manualPayByHours
+                    ? `Manual proportional pay: ${calculated.hours_worked} of ${workSettings.standard_day_hours} standard hours.`
+                    : String(safeData.rate_adjustment_reason).trim())
+                : null,
             overtime_hours: calculated.overtime_hours,
             hours_worked: calculated.hours_worked,
             remarks: safeData.remarks ?? existing.remarks

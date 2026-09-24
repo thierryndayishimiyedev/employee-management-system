@@ -38,6 +38,10 @@ const notificationRoutes = require("./routes/notification.routes");
 const settingsRoutes = require("./routes/settings.routes");
 const flexibleWorkRoutes = require("./routes/flexibleWork.routes");
 const ownerDirectWorkerRoutes = require("./routes/ownerDirectWorker.routes");
+const monthlyStaffRoutes = require("./routes/monthlyStaff.routes");
+const nightShiftRoutes = require("./routes/nightShift.routes");
+const operationalSummaryRoutes = require("./routes/operationalSummary.routes");
+const workSettingsRoutes = require("./routes/workSettings.routes");
 const globalSearchRoutes = require("./routes/globalSearch.routes");
 
 const app = express();
@@ -89,6 +93,10 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/flexible-work", flexibleWorkRoutes);
 app.use("/api/owner-direct-workers", paymentLimiter, ownerDirectWorkerRoutes);
+app.use("/api/monthly-staff", paymentLimiter, monthlyStaffRoutes);
+app.use("/api/night-shifts", nightShiftRoutes);
+app.use("/api/operational-summary", operationalSummaryRoutes);
+app.use("/api/work-settings", workSettingsRoutes);
 app.use("/api/search", globalSearchRoutes);
 
 

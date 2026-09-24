@@ -1,4 +1,5 @@
 const supabase = require("../config/supabase");
+const { getForCompany } = require('./workSettings.service');
 const { isSuperAdmin, requireCompanyIds, scopeByRelatedCompany } = require("../utils/companyScope");
 const { applyPayrollAdvanceDeductions } = require("./advanceDeduction.service");
 const { applyPayrollConsumptionDeductions } = require("./workerConsumptionDeduction.service");
@@ -124,10 +125,11 @@ const generatePayroll = async (payload, user) => {
     if (attendanceError)
         throw attendanceError;
 
-    // Sunday records are excluded even if legacy data contains them. Sunday is
-    // a company rest day and cannot increase a worker's paid days.
+    const workSettings = await getForCompany(employee.company_id);
+    const isPaidAttendance = (record) => ["PRESENT", "LATE"].includes(record.attendance_status)
+        && (workSettings.sunday_work_allowed || new Date(`${record.attendance_date}T00:00:00Z`).getUTCDay() !== 0);
     const daysWorked = attendance.filter((record) => (
-        ["PRESENT", "LATE"].includes(record.attendance_status) && new Date(`${record.attendance_date}T00:00:00Z`).getUTCDay() !== 0
+        isPaidAttendance(record)
     )).length;
 
     const overtimeHours = attendance.reduce(
@@ -147,7 +149,7 @@ const generatePayroll = async (payload, user) => {
     // specific shift with a reason without changing the worker's normal rate.
     const basicSalary = employee.payment_type === "FLEXIBLE_DAILY"
         ? flexibleEntries.reduce((sum, row) => sum + Number(row.agreed_daily_rate || 0), 0)
-        : attendance.filter((record) => ["PRESENT", "LATE"].includes(record.attendance_status) && new Date(`${record.attendance_date}T00:00:00Z`).getUTCDay() !== 0)
+        : attendance.filter(isPaidAttendance)
             .reduce((sum, record) => sum + Number(record.applied_daily_rate ?? employee.daily_rate ?? 0), 0);
     if (employee.payment_type !== "FLEXIBLE_DAILY" && paidDays === 0) {
         throw new Error("No recorded worked attendance exists for this payroll period.");

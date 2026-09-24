@@ -126,7 +126,7 @@ export default function LoginPage() {
               <label htmlFor="accountType" className="block text-sm font-medium text-slate-700">Sign in as</label>
               <select id="accountType" value={accountType} onChange={(e) => setAccountType(e.target.value)} className="w-full rounded-3xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200">
                 <option value="SUPER_ADMIN">Super Admin</option>
-                <option value="OWNER">Owner</option>
+                <option value="OWNER">Owner CMK</option>
                 <option value="MANAGER">Manager</option>
                 <option value="ACCOUNTANT">Accountant</option>
                 <option value="FOOD_SUPPLIER">Food Supplier</option>

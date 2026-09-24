@@ -16,6 +16,7 @@ export default function AttendanceTable({
     onDelete,
 
     canManage = true,
+    canDelete = false,
     onCheckOut
 
 }) {
@@ -259,6 +260,8 @@ export default function AttendanceTable({
                                                     onEdit(attendance)
                                                 }
 
+                                                title="Request re-record correction"
+
                                                 className="rounded-md p-2 text-slate-400 transition hover:bg-amber-50 hover:text-amber-700"
 
                                             >
@@ -267,7 +270,7 @@ export default function AttendanceTable({
 
                                             </button>
 
-                                            <button
+                                            {canDelete && <button
 
                                                 onClick={() =>
                                                     onDelete(attendance)
@@ -279,7 +282,7 @@ export default function AttendanceTable({
 
                                                 <Trash2 size={18} />
 
-                                            </button>
+                                            </button>}
                                         </>
                                     )}
 

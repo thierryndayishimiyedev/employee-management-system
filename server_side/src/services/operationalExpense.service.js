@@ -23,7 +23,7 @@ const getExpense = async (id, user) => {
     return expense;
 };
 
-const createExpense = async (payload, user) => {
+const createSingleExpense = async (payload, user) => {
     if (user.role_name !== "ACCOUNTANT" && !isSuperAdmin(user)) throw new Error("Only the assigned accountant can record an expense or material purchase.");
     const company_id = resolveAuthorizedCompanyId(user, payload.company_id);
     const manager_user_id = resolveManagerForWrite(user, payload.manager_user_id);
@@ -53,6 +53,22 @@ const createExpense = async (payload, user) => {
         paid_at: external_paid_at
     }]).select().single();
     if (error) throw error; return data;
+};
+
+// The accountant can save a purchase basket in one submission. Each line is
+// still persisted as its own auditable expense, approval and payment record.
+// This preserves the existing manager/owner workflow and prevents one line
+// from hiding another line's amount or payment recipient.
+const createExpense = async (payload, user) => {
+    const items = Array.isArray(payload?.items) ? payload.items : null;
+    if (!items) return createSingleExpense(payload, user);
+    if (!items.length) throw new Error("Add at least one expense or material line.");
+    if (items.length > 25) throw new Error("A single submission can contain at most 25 expense lines.");
+    const created = [];
+    for (const item of items) {
+        created.push(await createSingleExpense({ ...payload, ...item, items: undefined }, user));
+    }
+    return { items: created, count: created.length, total_amount: created.reduce((sum, item) => sum + number(item.total_amount), 0) };
 };
 
 const reviewExpense = async (id, decision, comments, user) => {
