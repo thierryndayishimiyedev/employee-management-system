@@ -23,6 +23,13 @@ create table if not exists public.monthly_staff (
   unique(company_id, momo_phone)
 );
 
+-- Managers can register their own Accountant/Security monthly staff. Owner
+-- private staff remain Owner-only. Existing rows remain Owner-controlled.
+alter table public.monthly_staff
+  add column if not exists manager_user_id uuid references public.users(user_id);
+create index if not exists idx_monthly_staff_manager_scope
+  on public.monthly_staff(company_id, manager_user_id, is_private, is_active);
+
 create table if not exists public.monthly_staff_payroll (
   monthly_staff_payroll_id uuid primary key default gen_random_uuid(),
   monthly_staff_id uuid not null references public.monthly_staff(monthly_staff_id) on delete restrict,

@@ -319,6 +319,21 @@ const reviewReport = async (id, decision, comments, user) => {
     return data;
 };
 
+const reviewAllReports = async ({ manager_user_id } = {}, user) => {
+    const reports = await getReports(user);
+    const eligible = reports.filter((report) => {
+        if (manager_user_id && report.manager_user_id !== manager_user_id) return false;
+        return (user?.role_name === 'MANAGER' && report.status === 'PENDING_MANAGER')
+            || (user?.role_name === 'OWNER' && report.status === 'PENDING_OWNER');
+    });
+    const failed = []; let approved = 0;
+    for (const report of eligible) {
+        try { await reviewReport(report.report_id, 'approve', null, user); approved += 1; }
+        catch (error) { failed.push({ report_id: report.report_id, message: error.message }); }
+    }
+    return { total: eligible.length, approved, failed };
+};
+
 module.exports = {
     createReport,
     getReports,
@@ -328,6 +343,7 @@ module.exports = {
     approveReportEdit,
     updateReport,
     reviewReport,
+    reviewAllReports,
     requestReportDeletion,
     reviewReportDeletion
 };

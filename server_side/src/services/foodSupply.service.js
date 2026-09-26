@@ -72,6 +72,21 @@ const payFoodSupply = async (id, user) => {
     const { data, error } = await supabase.from("food_supplies").update({ status: "PAID", payment_status: "PAID", payment_reference: transaction.reference_id || reference, payment_provider: "INTERNAL_TEST", paid_by: user.user_id || null, paid_at: now, updated_at: now }).eq("food_supply_id", id).select().single(); if (error) throw error; return data;
 };
 
+const reviewAllFoodSupplies = async ({ manager_user_id } = {}, user) => {
+    const eligible = (await listFoodSupplies(user)).filter((row) => {
+        if (manager_user_id && row.manager_user_id !== manager_user_id) return false;
+        return user.role_name === 'MANAGER'
+            ? ['PENDING_MANAGER', 'CHANGES_REQUESTED'].includes(row.status)
+            : (user.role_name === 'OWNER' || isSuperAdmin(user)) && row.status === 'PENDING_OWNER';
+    });
+    const failed = []; let approved = 0;
+    for (const row of eligible) {
+        try { await reviewFoodSupply(row.food_supply_id, 'approve', null, user); approved += 1; }
+        catch (error) { failed.push({ food_supply_id: row.food_supply_id, message: error.message }); }
+    }
+    return { total: eligible.length, approved, failed };
+};
+
 const payAllFoodSupplies = async ({ manager_user_id } = {}, user) => {
     if (!isSuperAdmin(user) && user.role_name !== "OWNER") throw new Error("Only an owner may pay food supplies.");
     const eligible = (await listFoodSupplies(user)).filter((row) => row.status === "OWNER_APPROVED" && row.payment_status !== "PAID" && (!manager_user_id || row.manager_user_id === manager_user_id));
@@ -99,4 +114,4 @@ const foodSupplyCsv = async (user) => {
     return lines.join("\n");
 };
 
-module.exports = { createFoodSupply, listFoodSupplies, reviewFoodSupply, payFoodSupply, payAllFoodSupplies, foodSupplyCsv };
+module.exports = { createFoodSupply, listFoodSupplies, reviewFoodSupply, payFoodSupply, reviewAllFoodSupplies, payAllFoodSupplies, foodSupplyCsv };

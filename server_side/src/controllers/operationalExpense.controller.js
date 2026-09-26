@@ -4,6 +4,8 @@ module.exports = {
     create: respond((req) => service.createExpense(req.body || {}, req.user), 201),
     list: respond((req) => service.listExpenses(req.user)),
     approve: respond((req) => service.reviewExpense(req.params.id, "approve", req.body?.comments, req.user)),
+    approveAll: respond((req) => service.reviewAllExpenses(req.body || {}, req.user)),
     changes: respond((req) => service.reviewExpense(req.params.id, "changes", req.body?.comments, req.user)),
-    pay: respond((req) => service.payExpense(req.params.id, req.user))
+    pay: respond((req) => service.payExpense(req.params.id, req.user)),
+    payAll: respond((req) => service.payAllExpenses(req.body || {}, req.user))
 };

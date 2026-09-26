@@ -104,4 +104,32 @@ const payExpense = async (id, user) => {
     }
 };
 
-module.exports = { listExpenses, createExpense, reviewExpense, payExpense };
+const reviewAllExpenses = async ({ manager_user_id } = {}, user) => {
+    const eligible = (await listExpenses(user)).filter((row) => {
+        if (manager_user_id && row.manager_user_id !== manager_user_id) return false;
+        return user.role_name === 'MANAGER'
+            ? ['PENDING_MANAGER', 'CHANGES_REQUESTED'].includes(row.approval_status)
+            : (user.role_name === 'OWNER' || isSuperAdmin(user)) && row.approval_status === 'PENDING_OWNER';
+    });
+    const approved = []; const failed = [];
+    for (const row of eligible) {
+        try { await reviewExpense(row.expense_id, 'approve', null, user); approved.push(row.expense_id); }
+        catch (error) { failed.push({ expense_id: row.expense_id, message: error.message }); }
+    }
+    return { total: eligible.length, approved: approved.length, failed };
+};
+
+const payAllExpenses = async ({ manager_user_id } = {}, user) => {
+    if (user.role_name !== 'OWNER' && !isSuperAdmin(user)) throw new Error('Only the owner may pay approved expenses.');
+    const eligible = (await listExpenses(user)).filter((row) => row.approval_status === 'OWNER_APPROVED'
+        && row.payment_status !== 'PAID' && row.payment_method !== 'EXTERNAL_RECORDED'
+        && (!manager_user_id || row.manager_user_id === manager_user_id));
+    const failed = []; let paid = 0;
+    for (const row of eligible) {
+        try { await payExpense(row.expense_id, user); paid += 1; }
+        catch (error) { failed.push({ expense_id: row.expense_id, message: error.message }); }
+    }
+    return { total: eligible.length, paid, failed };
+};
+
+module.exports = { listExpenses, createExpense, reviewExpense, payExpense, reviewAllExpenses, payAllExpenses };

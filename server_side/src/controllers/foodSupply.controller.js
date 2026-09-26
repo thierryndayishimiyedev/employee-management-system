@@ -4,6 +4,7 @@ module.exports = {
     create: respond((req) => service.createFoodSupply(req.body || {}, req.user), 201),
     list: respond((req) => service.listFoodSupplies(req.user)),
     approve: respond((req) => service.reviewFoodSupply(req.params.id, "approve", req.body?.comments, req.user)),
+    approveAll: respond((req) => service.reviewAllFoodSupplies(req.body || {}, req.user)),
     changes: respond((req) => service.reviewFoodSupply(req.params.id, "changes", req.body?.comments, req.user)),
     pay: respond((req) => service.payFoodSupply(req.params.id, req.user)),
     payAll: respond((req) => service.payAllFoodSupplies(req.body || {}, req.user)),

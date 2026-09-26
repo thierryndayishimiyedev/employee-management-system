@@ -1392,17 +1392,17 @@ function ActivityTable({ title, headers, rows }) {
 }
 
 function PaymentBatches({ managerId, onPaid }) {
-  const [summary, setSummary] = useState({ payroll: [], advances: [], food: [], consumptions: [] })
+  const [summary, setSummary] = useState({ payroll: [], advances: [], food: [], expenses: [], consumptions: [] })
   const [readiness, setReadiness] = useState(null)
   const [loading, setLoading] = useState(true)
   const [paying, setPaying] = useState('')
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [payroll, advances, food, consumptions, paymentReadiness] = await Promise.all([
-        api.get('/payroll'), api.get('/advances'), api.get('/food-supplies'), api.get('/worker-consumptions'), api.get('/payments/readiness')
+      const [payroll, advances, food, expenses, consumptions, paymentReadiness] = await Promise.all([
+        api.get('/payroll'), api.get('/advances'), api.get('/food-supplies'), api.get('/operational-expenses'), api.get('/worker-consumptions'), api.get('/payments/readiness')
       ])
-      setSummary({ payroll: asArray(payroll), advances: asArray(advances), food: asArray(food), consumptions: asArray(consumptions) })
+      setSummary({ payroll: asArray(payroll), advances: asArray(advances), food: asArray(food), expenses: asArray(expenses), consumptions: asArray(consumptions) })
       setReadiness(paymentReadiness.data?.data || null)
     } catch (error) { toast.error(error.response?.data?.message || 'Could not calculate the payment queue.') } finally { setLoading(false) }
   }, [])
@@ -1412,6 +1412,7 @@ function PaymentBatches({ managerId, onPaid }) {
     { key: 'payroll', label: 'Approved payroll', rows: scoped(summary.payroll).filter((row) => row.approval_status === 'OWNER_APPROVED' && row.payment_status === 'APPROVED'), endpoint: '/payments/pay-all', amount: (row) => row.net_salary },
     { key: 'advances', label: 'Approved advances', rows: scoped(summary.advances).filter((row) => row.status === 'OWNER_APPROVED' && row.payment_status !== 'PAID'), endpoint: '/advance-approvals/pay-all', amount: (row) => row.remaining_balance ?? row.amount },
     { key: 'food', label: 'Approved food supplies', rows: scoped(summary.food).filter((row) => row.status === 'OWNER_APPROVED' && row.payment_status !== 'PAID'), endpoint: '/food-supplies/pay-all', amount: (row) => row.total_amount },
+    { key: 'expenses', label: 'Approved expenses & materials', rows: scoped(summary.expenses).filter((row) => row.approval_status === 'OWNER_APPROVED' && row.payment_status !== 'PAID' && row.payment_method !== 'EXTERNAL_RECORDED'), endpoint: '/operational-expenses/pay-all', amount: (row) => row.total_amount },
     { key: 'consumptions', label: 'Approved shopkeeper payments', rows: scoped(summary.consumptions).filter((row) => row.approval_status === 'OWNER_APPROVED' && row.shopkeeper_payment_status !== 'PAID'), endpoint: '/worker-consumptions/pay-all', amount: (row) => row.total_amount },
   ]
   const pay = async (queue) => {

@@ -50,6 +50,20 @@ const payAdvance = async (id, user) => {
     if (error) throw error;
     return data;
 };
+const reviewAllAdvances = async ({ manager_user_id } = {}, user) => {
+    let query = scopeByRelatedCompany(supabase.from('salary_advances').select('advance_id,manager_user_id,status,employees!inner(company_id,manager_user_id)'), user);
+    query = scopeByManager(query, user, 'employees.manager_user_id');
+    const { data, error } = await query; if (error) throw error;
+    const eligible = (data || []).filter((row) => {
+        if (manager_user_id && row.manager_user_id !== manager_user_id) return false;
+        return isSuperAdmin(user)
+            || (user.role_name === 'MANAGER' && ['PENDING', 'PENDING_MANAGER', 'CHANGES_REQUESTED'].includes(row.status))
+            || (user.role_name === 'OWNER' && row.status === 'PENDING_OWNER');
+    });
+    const failed = []; let approved = 0;
+    for (const row of eligible) { try { await reviewAdvance(row.advance_id, 'approve', null, user); approved += 1; } catch (err) { failed.push({ advance_id: row.advance_id, message: err.message }); } }
+    return { total: eligible.length, approved, failed };
+};
 const payAllAdvances = async ({ manager_user_id } = {}, user) => {
     let query = scopeByRelatedCompany(supabase.from("salary_advances").select("advance_id, manager_user_id, status, payment_status, employees!inner(company_id)"), user);
     if (manager_user_id) query = query.eq("manager_user_id", manager_user_id);
@@ -58,4 +72,4 @@ const payAllAdvances = async ({ manager_user_id } = {}, user) => {
     for (const row of eligible) { try { await payAdvance(row.advance_id, user); paid += 1; } catch (err) { failed.push({ advance_id: row.advance_id, message: err.message }); } }
     return { total: eligible.length, paid, failed };
 };
-module.exports = { reviewAdvance, payAdvance, payAllAdvances };
+module.exports = { reviewAdvance, reviewAllAdvances, payAdvance, payAllAdvances };

@@ -1,4 +1,4 @@
-const { reviewAdvance, payAdvance, payAllAdvances } = require("../services/advanceApproval.service");
+const { reviewAdvance, reviewAllAdvances, payAdvance, payAllAdvances } = require("../services/advanceApproval.service");
 
 const approve = async (req, res) => {
 
@@ -32,5 +32,6 @@ const pay = async (req, res) => {
     catch (err) { res.status(400).json({ success: false, message: err.message }); }
 };
 const payAll = async (req, res) => { try { res.json({ success: true, data: await payAllAdvances(req.body || {}, req.user) }); } catch (err) { res.status(400).json({ success: false, message: err.message }); } };
+const approveAll = async (req, res) => { try { res.json({ success: true, data: await reviewAllAdvances(req.body || {}, req.user) }); } catch (err) { res.status(400).json({ success: false, message: err.message }); } };
 
-module.exports = { approve, reject, pay, payAll };
+module.exports = { approve, reject, approveAll, pay, payAll };

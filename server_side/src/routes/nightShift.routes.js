@@ -2,4 +2,5 @@ const router = require('express').Router(); const auth = require('../middleware/
 router.get('/', auth, allow('OWNER'), out((req) => service.list(req.user)));
 router.get('/current', auth, allow('OWNER','MANAGER','ACCOUNTANT'), out((req) => service.current(req.user)));
 router.put('/', auth, allow('OWNER'), out((req) => service.save(req.body || {}, req.user)));
+router.post('/:id/close', auth, allow('OWNER'), out((req) => service.close(req.params.id, req.user)));
 module.exports = router;

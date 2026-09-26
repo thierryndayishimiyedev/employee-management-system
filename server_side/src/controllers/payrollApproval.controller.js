@@ -1,5 +1,6 @@
 const {
-    reviewPayroll
+    reviewPayroll,
+    reviewAllPayrolls
 } = require("../services/payrollApproval.service");
 
 const approve = async (req, res) => {
@@ -48,7 +49,13 @@ const reject = async (req, res) => {
 
 };
 
+const approveAll = async (req, res) => {
+    try { res.json({ success: true, data: await reviewAllPayrolls(req.body || {}, req.user) }); }
+    catch (err) { res.status(400).json({ success: false, message: err.message }); }
+};
+
 module.exports = {
     approve,
-    reject
+    reject,
+    approveAll
 };

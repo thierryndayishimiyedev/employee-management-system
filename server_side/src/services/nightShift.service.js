@@ -25,4 +25,16 @@ const save = async (payload, user) => {
   const request = existing ? supabase.from('night_shift_settings').update(values).eq('night_shift_setting_id', existing.night_shift_setting_id) : supabase.from('night_shift_settings').insert([{ company_id, manager_user_id, ...values }]);
   const { data, error } = await request.select().single(); if (error) throw error; return data;
 };
-module.exports = { list, current, save };
+const close = async (id, user) => {
+  ownerOnly(user);
+  let query = supabase.from('night_shift_settings').select('*').eq('night_shift_setting_id', id).in('company_id', requireCompanyIds(user));
+  const { data: plan, error } = await query.maybeSingle();
+  if (error || !plan) throw new Error('Night-shift plan was not found for your company.');
+  if (!plan.is_active) return plan;
+  const { data, error: updateError } = await supabase.from('night_shift_settings')
+    .update({ is_active: false, configured_by: user.user_id, configured_at: new Date().toISOString() })
+    .eq('night_shift_setting_id', id).select().single();
+  if (updateError) throw updateError;
+  return data;
+};
+module.exports = { list, current, save, close };

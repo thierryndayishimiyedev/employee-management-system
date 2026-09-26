@@ -29,4 +29,22 @@ const reviewPayroll = async (id, decision, reason, user) => {
     if (error) throw error;
     return data;
 };
-module.exports = { reviewPayroll };
+const reviewAllPayrolls = async ({ manager_user_id } = {}, user) => {
+    let query = scopeByRelatedCompany(supabase.from('payroll').select('payroll_id,approval_status,employees!inner(company_id,manager_user_id)'), user);
+    query = scopeByManager(query, user, 'employees.manager_user_id');
+    const { data, error } = await query;
+    if (error) throw error;
+    const eligible = (data || []).filter((row) => {
+        if (manager_user_id && row.employees?.manager_user_id !== manager_user_id) return false;
+        return isSuperAdmin(user)
+            || (user.role_name === 'MANAGER' && ['GENERATED', 'CHANGES_REQUESTED'].includes(row.approval_status))
+            || (user.role_name === 'OWNER' && row.approval_status === 'MANAGER_APPROVED');
+    });
+    const failed = []; let approved = 0;
+    for (const row of eligible) {
+        try { await reviewPayroll(row.payroll_id, 'approve', null, user); approved += 1; }
+        catch (error) { failed.push({ payroll_id: row.payroll_id, message: error.message }); }
+    }
+    return { total: eligible.length, approved, failed };
+};
+module.exports = { reviewPayroll, reviewAllPayrolls };

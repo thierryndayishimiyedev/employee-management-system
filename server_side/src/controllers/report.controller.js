@@ -7,6 +7,7 @@ const {
     approveReportEdit,
     updateReport,
     reviewReport,
+    reviewAllReports,
     requestReportDeletion,
     reviewReportDeletion
 } = require("../services/report.service");
@@ -198,6 +199,11 @@ const editReport = async (req, res) => {
 
 };
 
+const approveAll = async (req, res) => {
+    try { res.json({ success: true, data: await reviewAllReports(req.body || {}, req.user) }); }
+    catch (error) { res.status(400).json({ success: false, message: error.message }); }
+};
+
 const requestDeletion = async (req, res) => {
     try {
         const report = await requestReportDeletion(req.params.id, req.body?.reason, req.user);
@@ -221,6 +227,7 @@ module.exports = {
     allowReportEdit,
     editReport,
     review,
+    approveAll,
     requestDeletion,
     reviewDeletion
 };

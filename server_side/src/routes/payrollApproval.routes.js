@@ -7,10 +7,13 @@ const authorize = require("../middleware/authorize.middleware");
 
 const {
     approve,
-    reject
+    reject,
+    approveAll
 } = require("../controllers/payrollApproval.controller");
 
 router.put("/:id/approve", authenticate, authorize("MANAGER", "OWNER", "SUPER_ADMIN"), approve);
+
+router.post("/approve-all", authenticate, authorize("MANAGER", "OWNER", "SUPER_ADMIN"), approveAll);
 
 router.put("/:id/reject", authenticate, authorize("MANAGER", "OWNER", "SUPER_ADMIN"), reject);
 

@@ -117,7 +117,7 @@ function App() {
             <Route path="/settings" element={<ProtectedRoute allowedRoles={["SUPER_ADMIN", "OWNER"]} redirectTo="/login"><SettingsPage /></ProtectedRoute>} />
             <Route path="/flexible-work" element={<ProtectedRoute allowedRoles={["OWNER", "MANAGER", "ACCOUNTANT"]} redirectTo="/login"><FlexibleWorkPage /></ProtectedRoute>} />
             <Route path="/owner-direct-workers" element={<ProtectedRoute allowedRoles={["OWNER"]} redirectTo="/owner/login"><OwnerDirectWorkersPage /></ProtectedRoute>} />
-            <Route path="/monthly-staff" element={<ProtectedRoute allowedRoles={["OWNER"]} redirectTo="/owner/login"><MonthlyStaffPage /></ProtectedRoute>} />
+            <Route path="/monthly-staff" element={<ProtectedRoute allowedRoles={["OWNER", "MANAGER"]} redirectTo="/login"><MonthlyStaffPage /></ProtectedRoute>} />
             <Route path="/night-shifts" element={<ProtectedRoute allowedRoles={["OWNER"]} redirectTo="/owner/login"><NightShiftSettingsPage /></ProtectedRoute>} />
             <Route path="/operational-summary" element={<ProtectedRoute allowedRoles={["OWNER", "MANAGER", "ACCOUNTANT"]} redirectTo="/login"><OperationalSummaryPage /></ProtectedRoute>} />
             <Route path="/search" element={<ProtectedRoute allowedRoles={["OWNER", "MANAGER", "ACCOUNTANT"]} redirectTo="/login"><GlobalSearchPage /></ProtectedRoute>} />

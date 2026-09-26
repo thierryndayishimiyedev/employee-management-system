@@ -4,6 +4,8 @@ const authorize = require("../middleware/authorize.middleware");
 const controller = require("../controllers/operationalExpense.controller");
 router.post("/", authenticate, authorize("ACCOUNTANT"), controller.create);
 router.get("/", authenticate, authorize("OWNER", "MANAGER", "ACCOUNTANT"), controller.list);
+router.post("/approve-all", authenticate, authorize("MANAGER", "OWNER"), controller.approveAll);
+router.post("/pay-all", authenticate, authorize("OWNER"), controller.payAll);
 router.put("/:id/approve", authenticate, authorize("MANAGER", "OWNER"), controller.approve);
 router.put("/:id/request-changes", authenticate, authorize("MANAGER", "OWNER"), controller.changes);
 router.post("/:id/pay", authenticate, authorize("OWNER"), controller.pay);

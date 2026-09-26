@@ -3,6 +3,7 @@ router.post("/",authenticate,authorize("ACCOUNTANT"),c.create);
 router.post("/batch",authenticate,authorize("ACCOUNTANT"),c.createBatch);
 router.get("/",authenticate,authorize("OWNER","MANAGER","ACCOUNTANT"),c.list);
 router.get("/capacity/:employeeId",authenticate,authorize("OWNER","MANAGER","ACCOUNTANT"),c.capacity);
+router.post("/approve-all",authenticate,authorize("MANAGER","OWNER"),c.approveAll);
 router.put("/:id/approve",authenticate,authorize("MANAGER","OWNER"),c.approve);
 router.put("/:id/request-changes",authenticate,authorize("MANAGER","OWNER"),c.changes);
 router.post("/:id/pay",authenticate,authorize("OWNER"),c.pay);
