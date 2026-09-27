@@ -1,0 +1,18 @@
+import { useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import toast from 'react-hot-toast'
+import api from '../api/api'
+
+export function RequestPasswordResetPage() {
+  const [email, setEmail] = useState(''); const [role, setRole] = useState('OWNER'); const [sending, setSending] = useState(false)
+  const submit = async (event) => { event.preventDefault(); setSending(true); try { const response = await api.post('/auth/password-reset/request', { email, role }); toast.success(response.data?.data?.message || 'If your eligible account exists, a reset link has been sent.'); } catch (error) { toast.error(error.response?.data?.message || 'Could not request a password reset.'); } finally { setSending(false); } }
+  return <PublicCard title="Reset Owner or Super Admin password"><p className="text-sm text-slate-600">This email-reset option is only for Owners and Super Admins. Managers, Accountants, Suppliers, and other users must ask their Owner to change their password.</p><form onSubmit={submit} className="mt-5 space-y-4"><label className="block text-sm font-semibold">Account type<select value={role} onChange={(event) => setRole(event.target.value)} className="mt-1 w-full rounded-lg border p-3"><option value="OWNER">Owner</option><option value="SUPER_ADMIN">Super Admin</option></select></label><label className="block text-sm font-semibold">Verified email<input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-1 w-full rounded-lg border p-3" /></label><button disabled={sending} className="w-full rounded-lg bg-blue-700 p-3 font-bold text-white disabled:opacity-60">{sending ? 'Sending…' : 'Send reset link'}</button></form></PublicCard>
+}
+
+export function ConfirmPasswordResetPage() {
+  const [search] = useSearchParams(); const [password, setPassword] = useState(''); const [confirm, setConfirm] = useState(''); const [saving, setSaving] = useState(false)
+  const submit = async (event) => { event.preventDefault(); if (password !== confirm) return toast.error('Passwords do not match.'); setSaving(true); try { const response = await api.post('/auth/password-reset/confirm', { token: search.get('token'), password }); toast.success(response.data?.data?.message || 'Password reset successfully.'); } catch (error) { toast.error(error.response?.data?.message || 'Could not reset password.'); } finally { setSaving(false); } }
+  return <PublicCard title="Choose a new password"><form onSubmit={submit} className="space-y-4"><label className="block text-sm font-semibold">New password<input required minLength="8" type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="mt-1 w-full rounded-lg border p-3" /></label><label className="block text-sm font-semibold">Confirm new password<input required minLength="8" type="password" value={confirm} onChange={(event) => setConfirm(event.target.value)} className="mt-1 w-full rounded-lg border p-3" /></label><button disabled={saving} className="w-full rounded-lg bg-blue-700 p-3 font-bold text-white disabled:opacity-60">{saving ? 'Saving…' : 'Reset password'}</button></form></PublicCard>
+}
+
+function PublicCard({ title, children }) { return <main className="flex min-h-screen items-center justify-center bg-slate-50 p-5"><section className="w-full max-w-md rounded-2xl border bg-white p-7 shadow-sm"><p className="text-xs font-bold uppercase tracking-wider text-blue-700">C.M.K Gatsibo</p><h1 className="mt-2 text-2xl font-bold text-slate-900">{title}</h1>{children}<Link to="/login" className="mt-5 inline-block text-sm font-semibold text-blue-700">Back to sign in</Link></section></main> }

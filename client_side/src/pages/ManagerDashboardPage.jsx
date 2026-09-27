@@ -8,20 +8,13 @@ import {
 } from 'lucide-react'
 import api from '../api/api'
 import { useAuth } from '../context/authStore'
+import { useLanguage } from '../context/LanguageContext'
 import { CombinedOperationsChart, DashboardHeader, DashboardShell, DistributionChart, LiveTrendChart, MetricList, QuickActionGrid, SectionCard, StatGrid } from '../components/DashboardKit'
 import PeriodOperationsCards from '../components/PeriodOperationsCards'
 
-const quickActions = [
-  { to: '/reports', label: 'Review reports', icon: ClipboardList },
-  { to: '/payroll', label: 'Review payroll', icon: ClipboardList },
-  { to: '/advances', label: 'Review advances', icon: ClipboardList },
-  { to: '/attendance', label: 'View attendance', icon: CalendarCheck },
-  { to: '/production', label: 'View production', icon: Mountain },
-  { to: '/workers', label: 'View workers', icon: Users },
-]
-
 export default function ManagerDashboardPage() {
   const { user } = useAuth()
+  const { t } = useLanguage()
   const [dashboard, setDashboard] = useState(null)
   const [attendanceToday, setAttendanceToday] = useState([])
   const [production, setProduction] = useState([])
@@ -55,7 +48,8 @@ export default function ManagerDashboardPage() {
 
   const managerName = user?.employees
     ? `${user.employees.first_name} ${user.employees.last_name}`
-    : user?.username || 'Manager'
+    : user?.username || t('dashboard.manager')
+  const quickActions = [{ to: '/reports', label: t('dashboard.reviewReports'), icon: ClipboardList }, { to: '/payroll', label: t('dashboard.reviewPayroll'), icon: ClipboardList }, { to: '/advances', label: t('dashboard.reviewAdvances'), icon: ClipboardList }, { to: '/attendance', label: t('dashboard.viewAttendance'), icon: CalendarCheck }, { to: '/production', label: t('dashboard.viewProduction'), icon: Mountain }, { to: '/workers', label: t('dashboard.viewWorkers'), icon: Users }]
 
   const totalProduction = useMemo(
     () => production.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
@@ -64,32 +58,32 @@ export default function ManagerDashboardPage() {
 
   const stats = [
     {
-      label: 'Workers managed',
+      label: t('dashboard.workersManaged'),
       value: dashboard?.counts?.workers ?? employees.length,
       icon: Users,
       tone: 'amber',
-      detail: 'Employees available for daily operations',
+      detail: t('dashboard.employeesAvailable'),
     },
     {
-      label: 'Attendance today',
+      label: t('dashboard.attendanceToday'),
       value: dashboard?.counts?.attendance_today ?? attendanceToday.length,
       icon: CalendarCheck,
       tone: 'emerald',
-      detail: 'Attendance records captured today',
+      detail: t('dashboard.attendanceCaptured'),
     },
     {
-      label: 'Production records',
+      label: t('dashboard.productionRecords'),
       value: production.length,
       icon: Mountain,
       tone: 'cyan',
-      detail: `${Number(totalProduction || 0).toLocaleString()} kg recorded`,
+      detail: t('dashboard.kgRecorded', { count: Number(totalProduction || 0).toLocaleString() }),
     },
     {
-      label: 'Open workflows',
+      label: t('dashboard.openWorkflows'),
       value: dashboard?.counts?.pending_approvals ?? 0,
       icon: ClipboardList,
       tone: 'slate',
-      detail: `${dashboard?.counts?.reports_waiting ?? 0} reports awaiting your review`,
+      detail: t('dashboard.reportsAwaiting', { count: dashboard?.counts?.reports_waiting ?? 0 }),
     },
   ]
 
@@ -98,56 +92,56 @@ export default function ManagerDashboardPage() {
   return (
     <DashboardShell>
       <DashboardHeader
-        eyebrow="Manager dashboard"
-        title={`Welcome back, ${managerName.split(' ')[0]}`}
-        description="Review daily reports, attendance, production, and worker operations without changing accountant-owned records."
+        eyebrow={t('dashboard.manager')}
+        title={t('dashboard.welcome', { name: managerName.split(' ')[0] })}
+        description={t('dashboard.managerDescription')}
         loading={loading}
         onRefresh={loadDashboard}
       />
 
       {loading ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
-          Loading manager dashboard...
+          {t('dashboard.loadingManager')}
         </div>
       ) : (
         <>
           <StatGrid stats={stats} />
-          <PeriodOperationsCards periods={dashboard?.periods} title="Manager unit — payroll, costs, and payment readiness" />
+          <PeriodOperationsCards periods={dashboard?.periods} title={t('dashboard.managerUnit')} />
 
           <section className="grid gap-4 xl:grid-cols-3">
-            <CombinedOperationsChart title="Attendance and shift hours" description="Bars show present and absent workers; the line shows recorded hours." data={dashboard?.charts?.attendance} bars={[{ key: 'present', label: 'Present', color: '#2563eb' }, { key: 'absent', label: 'Absent', color: '#ef4444' }]} line={{ key: 'hours', label: 'Hours worked', color: '#f59e0b' }} />
-            <CombinedOperationsChart title="Payroll commitments" description="Bars show gross payroll, advances, and expenses; the line shows net payroll." data={dashboard?.charts?.payroll_commitments} bars={[{ key: 'gross_payroll', label: 'Gross payroll', color: '#2563eb' }, { key: 'advances', label: 'Advances', color: '#f59e0b' }, { key: 'expenses', label: 'Expenses', color: '#ef4444' }]} line={{ key: 'net_payroll', label: 'Net payroll', color: '#16a34a' }} valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
-            <CombinedOperationsChart title="Operational cash movement" description="Bars show food and worker consumptions; the line shows completed payments." data={dashboard?.charts?.payment_cashflow} bars={[{ key: 'food_supplies', label: 'Food supplies', color: '#f59e0b' }, { key: 'worker_consumptions', label: 'Worker consumptions', color: '#7c3aed' }]} line={{ key: 'completed_payments', label: 'Completed payments', color: '#16a34a' }} valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
+            <CombinedOperationsChart title={t('dashboard.attendanceShiftHours')} description={t('dashboard.attendanceShiftHoursDescription')} data={dashboard?.charts?.attendance} bars={[{ key: 'present', label: t('status.present'), color: '#2563eb' }, { key: 'absent', label: t('status.absent'), color: '#ef4444' }]} line={{ key: 'hours', label: t('dashboard.hoursWorked'), color: '#f59e0b' }} />
+            <CombinedOperationsChart title={t('dashboard.payrollCommitments')} description={t('dashboard.payrollCommitmentsDescription')} data={dashboard?.charts?.payroll_commitments} bars={[{ key: 'gross_payroll', label: t('payroll.gross'), color: '#2563eb' }, { key: 'advances', label: t('navigation.advances'), color: '#f59e0b' }, { key: 'expenses', label: t('navigation.expenses'), color: '#ef4444' }]} line={{ key: 'net_payroll', label: t('payroll.net'), color: '#16a34a' }} valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
+            <CombinedOperationsChart title={t('dashboard.cashMovement')} description={t('dashboard.cashMovementDescription')} data={dashboard?.charts?.payment_cashflow} bars={[{ key: 'food_supplies', label: t('dashboard.foodSupplies'), color: '#f59e0b' }, { key: 'worker_consumptions', label: t('dashboard.workerConsumptions'), color: '#7c3aed' }]} line={{ key: 'completed_payments', label: t('dashboard.completedPayments'), color: '#16a34a' }} valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
           </section>
 
           <section className="grid gap-4 xl:grid-cols-2">
-            <LiveTrendChart title="Attendance trend" description="Present workers recorded by date." data={dashboard?.charts?.attendance} dataKey="present" color="#16834a" type="bar" />
-            <LiveTrendChart title="Production trend" description="Extraction quantity recorded by date." data={dashboard?.charts?.production} color="#2563eb" type="line" />
-            <LiveTrendChart title="Payroll trend" description="Net payroll generated for this management unit by date." data={dashboard?.charts?.payroll} color="#2563eb" type="line" valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
-            <LiveTrendChart title="Flexible work trend" description="Actual agreed pay recorded for flexible work by date." data={dashboard?.charts?.flexible_work} color="#7c3aed" type="bar" valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
-            <LiveTrendChart title="Expense trend" description="Materials, equipment, and expenses recorded by date." data={dashboard?.charts?.expenses} color="#f59e0b" type="bar" valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
-            <LiveTrendChart title="Advance trend" description="Advance requests created by date." data={dashboard?.charts?.advances} color="#16a34a" type="line" valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
-            <DistributionChart title="Workflow status" description="Records awaiting approval, ready for payment, paid, and failed." data={dashboard?.charts?.workflow_distribution} />
-            <DistributionChart title="Cost distribution" description="Recorded operational amounts by category for your management unit." data={dashboard?.charts?.cost_distribution} valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
+            <LiveTrendChart title={t('dashboard.attendanceTrend')} description={t('dashboard.attendanceTrendDescription')} data={dashboard?.charts?.attendance} dataKey="present" color="#16834a" type="bar" />
+            <LiveTrendChart title={t('dashboard.productionTrend')} description={t('dashboard.productionTrendDescription')} data={dashboard?.charts?.production} color="#2563eb" type="line" />
+            <LiveTrendChart title={t('dashboard.payrollTrend')} description={t('dashboard.payrollTrendDescription')} data={dashboard?.charts?.payroll} color="#2563eb" type="line" valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
+            <LiveTrendChart title={t('dashboard.flexibleTrend')} description={t('dashboard.flexibleTrendDescription')} data={dashboard?.charts?.flexible_work} color="#7c3aed" type="bar" valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
+            <LiveTrendChart title={t('dashboard.expenseTrend')} description={t('dashboard.expenseTrendDescription')} data={dashboard?.charts?.expenses} color="#f59e0b" type="bar" valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
+            <LiveTrendChart title={t('dashboard.advanceTrend')} description={t('dashboard.advanceTrendDescription')} data={dashboard?.charts?.advances} color="#16a34a" type="line" valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
+            <DistributionChart title={t('dashboard.workflowStatus')} description={t('dashboard.workflowStatusDescription')} data={dashboard?.charts?.workflow_distribution} />
+            <DistributionChart title={t('dashboard.costDistribution')} description={t('dashboard.costDistributionDescription')} data={dashboard?.charts?.cost_distribution} valueFormatter={(value) => `${Number(value || 0).toLocaleString()} RWF`} />
           </section>
 
           <section className="grid gap-4 lg:grid-cols-3">
-            <SectionCard eyebrow="Operational focus" title="Daily review center" className="lg:col-span-2">
+            <SectionCard eyebrow={t('dashboard.operationalFocus')} title={t('dashboard.dailyReview')} className="lg:col-span-2">
               <QuickActionGrid actions={quickActions} />
             </SectionCard>
 
             <SectionCard
-              eyebrow="Today"
-              title="Shift visibility"
+              eyebrow={t('dashboard.today')}
+              title={t('dashboard.shiftVisibility')}
               action={<TrendingUp className="h-5 w-5 text-amber-600" />}
             >
               <MetricList
                 metrics={[
-                  { label: 'Attendance captured', value: attendanceToday.length },
-                  { label: 'Workers present', value: dashboard?.counts?.present_today ?? 0 },
-                  { label: 'Workers absent', value: dashboard?.counts?.absent_today ?? 0 },
-                  { label: 'Hours / overtime', value: `${dashboard?.operations?.attendance_hours ?? 0} / ${dashboard?.operations?.overtime_hours ?? 0}` },
-                  { label: 'Minerals extracted', value: dashboard?.operations?.production_quantity ?? 0 },
+                  { label: t('dashboard.attendanceCaptured'), value: attendanceToday.length },
+                  { label: t('dashboard.workersPresent'), value: dashboard?.counts?.present_today ?? 0 },
+                  { label: t('dashboard.workersAbsent'), value: dashboard?.counts?.absent_today ?? 0 },
+                  { label: t('dashboard.hoursOvertime'), value: `${dashboard?.operations?.attendance_hours ?? 0} / ${dashboard?.operations?.overtime_hours ?? 0}` },
+                  { label: t('dashboard.mineralsExtracted'), value: dashboard?.operations?.production_quantity ?? 0 },
                 ]}
               />
             </SectionCard>

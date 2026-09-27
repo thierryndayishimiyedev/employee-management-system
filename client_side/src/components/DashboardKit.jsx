@@ -2,6 +2,7 @@ import { ArrowDownRight, ArrowUpRight, Minus, RefreshCw } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import AppSidebar from '../pages/Appsidebar'
+import { useLanguage } from '../context/LanguageContext'
 
 const toneStyles = {
   amber: { bg: 'bg-emerald-50', icon: 'text-emerald-600', ring: 'ring-emerald-100', dot: 'bg-emerald-500' },
@@ -32,6 +33,7 @@ export function DashboardHeader({
   action,
   side,
 }) {
+  const { t } = useLanguage()
   return (
     <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -52,7 +54,7 @@ export function DashboardHeader({
               className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-white disabled:opacity-60"
             >
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-              Refresh
+              {t('charts.refresh')}
             </button>
           )}
           {action}
@@ -166,10 +168,11 @@ export function MetricList({ metrics }) {
 }
 
 export function ActivityList({ items }) {
+  const { t } = useLanguage()
   return (
     <div className="mt-5 space-y-3">
       {items.length === 0 ? (
-        <p className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 text-sm text-slate-500">No recent activity yet.</p>
+        <p className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 text-sm text-slate-500">{t('charts.noActivity')}</p>
       ) : (
         items.map((item) => {
           const tone = toneStyles[item.tone || 'amber']
@@ -186,27 +189,28 @@ export function ActivityList({ items }) {
 }
 
 export function LiveTrendChart({ title, description, data = [], dataKey = 'value', labelKey = 'date', color = '#16834a', type = 'area', valueFormatter = (value) => Number(value || 0).toLocaleString(), unavailable }) {
+  const { t } = useLanguage()
   const chartData = Array.isArray(data) ? data : []
-  const trend = compareTrend(chartData, dataKey)
+  const trend = compareTrend(chartData, dataKey, t)
 
   return (
-    <SectionCard eyebrow="Live database trend" title={title} className="overflow-hidden" action={<TrendBadge trend={trend} />}>
+    <SectionCard eyebrow={t('charts.liveTrend')} title={title} className="overflow-hidden" action={<TrendBadge trend={trend} />}>
       <p className="mt-2 text-sm text-slate-500">{description} {trend.label}</p>
       {unavailable ? (
         <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50 p-5 text-sm text-blue-800">{unavailable}</div>
       ) : chartData.length === 0 ? (
         <div className="mt-5 flex min-h-56 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-5 text-center text-sm text-slate-500">
-          No recorded data is available for this trend yet.
+          {t('charts.noTrend')}
         </div>
       ) : (
-        <div className="mt-5 h-60 min-w-0" role="img" aria-label={`${title} chart based on recorded data`}>
+        <div className="mt-5 h-60 min-w-0" role="img" aria-label={t('charts.chartLabel', { title })}>
           <ResponsiveContainer width="100%" height="100%">
             {type === 'bar' ? (
               <BarChart data={chartData} margin={{ top: 8, right: 4, left: -14, bottom: 0 }}>
                 <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" />
                 <XAxis dataKey={labelKey} tickFormatter={labelKey === 'date' ? shortDate : undefined} tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tickFormatter={valueFormatter} tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} width={48} />
-                <Tooltip labelFormatter={(label) => `Date: ${label}`} formatter={(value) => [valueFormatter(value), title]} contentStyle={tooltipStyle} />
+                <Tooltip labelFormatter={(label) => t('charts.date', { date: label })} formatter={(value) => [valueFormatter(value), title]} contentStyle={tooltipStyle} />
                 <Bar dataKey={dataKey} fill={color} radius={[7, 7, 0, 0]} maxBarSize={42} />
               </BarChart>
             ) : type === 'line' ? (
@@ -214,7 +218,7 @@ export function LiveTrendChart({ title, description, data = [], dataKey = 'value
                 <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" />
                 <XAxis dataKey={labelKey} tickFormatter={labelKey === 'date' ? shortDate : undefined} tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tickFormatter={valueFormatter} tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} width={48} />
-                <Tooltip labelFormatter={(label) => `Date: ${label}`} formatter={(value) => [valueFormatter(value), title]} contentStyle={tooltipStyle} />
+                <Tooltip labelFormatter={(label) => t('charts.date', { date: label })} formatter={(value) => [valueFormatter(value), title]} contentStyle={tooltipStyle} />
                 <Line type="monotone" dataKey={dataKey} stroke={color} strokeWidth={3} dot={{ r: 3, fill: color }} activeDot={{ r: 5 }} />
               </LineChart>
             ) : (
@@ -223,7 +227,7 @@ export function LiveTrendChart({ title, description, data = [], dataKey = 'value
                 <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" />
                 <XAxis dataKey={labelKey} tickFormatter={labelKey === 'date' ? shortDate : undefined} tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tickFormatter={valueFormatter} tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} width={48} />
-                <Tooltip labelFormatter={(label) => `Date: ${label}`} formatter={(value) => [valueFormatter(value), title]} contentStyle={tooltipStyle} />
+                <Tooltip labelFormatter={(label) => t('charts.date', { date: label })} formatter={(value) => [valueFormatter(value), title]} contentStyle={tooltipStyle} />
                 <Area type="monotone" dataKey={dataKey} stroke={color} strokeWidth={3} fill={`url(#gradient-${dataKey}-${title.replace(/\s+/g, '')})`} />
               </AreaChart>
             )}
@@ -237,12 +241,13 @@ export function LiveTrendChart({ title, description, data = [], dataKey = 'value
 const chartColors = ['#2563eb', '#16a34a', '#f59e0b', '#ef4444', '#7c3aed', '#0891b2']
 
 export function DistributionChart({ title, description, data = [], valueFormatter = (value) => Number(value || 0).toLocaleString() }) {
+  const { t } = useLanguage()
   const chartData = (Array.isArray(data) ? data : []).filter((item) => Number(item.value || 0) > 0)
   const total = chartData.reduce((sum, item) => sum + Number(item.value || 0), 0)
   return (
-    <SectionCard eyebrow="Live database distribution" title={title} className="overflow-hidden">
-      <p className="mt-2 text-sm text-slate-500">{description} Each slice is calculated from currently visible records only.</p>
-      {chartData.length === 0 ? <div className="mt-5 flex min-h-56 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-5 text-center text-sm text-slate-500">No recorded data is available for this distribution yet.</div> : <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:items-center"><div className="h-56 min-w-0" role="img" aria-label={`${title} pie chart based on recorded data`}><ResponsiveContainer width="100%" height="100%"><PieChart><Tooltip formatter={(value) => [valueFormatter(value), 'Value']} contentStyle={tooltipStyle} /><Pie data={chartData} dataKey="value" nameKey="name" innerRadius="54%" outerRadius="78%" paddingAngle={3}>{chartData.map((item, index) => <Cell key={`${item.name}-${index}`} fill={chartColors[index % chartColors.length]} />)}</Pie></PieChart></ResponsiveContainer></div><div className="space-y-2">{chartData.map((item, index) => <div key={item.name} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2 text-xs"><span className="flex min-w-0 items-center gap-2 font-medium text-slate-700"><i className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: chartColors[index % chartColors.length] }} />{item.name}</span><strong className="shrink-0 text-slate-900">{valueFormatter(item.value)} <em className="not-italic text-slate-400">({total ? Math.round((Number(item.value) / total) * 100) : 0}%)</em></strong></div>)}</div></div>}
+    <SectionCard eyebrow={t('charts.liveDistribution')} title={title} className="overflow-hidden">
+      <p className="mt-2 text-sm text-slate-500">{description} {t('charts.visibleOnly')}</p>
+      {chartData.length === 0 ? <div className="mt-5 flex min-h-56 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-5 text-center text-sm text-slate-500">{t('charts.noDistribution')}</div> : <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:items-center"><div className="h-56 min-w-0" role="img" aria-label={t('charts.chartLabel', { title })}><ResponsiveContainer width="100%" height="100%"><PieChart><Tooltip formatter={(value) => [valueFormatter(value), t('charts.value')]} contentStyle={tooltipStyle} /><Pie data={chartData} dataKey="value" nameKey="name" innerRadius="54%" outerRadius="78%" paddingAngle={3}>{chartData.map((item, index) => <Cell key={`${item.name}-${index}`} fill={chartColors[index % chartColors.length]} />)}</Pie></PieChart></ResponsiveContainer></div><div className="space-y-2">{chartData.map((item, index) => <div key={item.name} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2 text-xs"><span className="flex min-w-0 items-center gap-2 font-medium text-slate-700"><i className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: chartColors[index % chartColors.length] }} />{item.name}</span><strong className="shrink-0 text-slate-900">{valueFormatter(item.value)} <em className="not-italic text-slate-400">({total ? Math.round((Number(item.value) / total) * 100) : 0}%)</em></strong></div>)}</div></div>}
     </SectionCard>
   )
 }
@@ -251,28 +256,30 @@ export function DistributionChart({ title, description, data = [], valueFormatte
 // show individual recorded categories; the line provides the primary outcome
 // or comparison. Nothing is calculated in the browser beyond presentation.
 export function CombinedOperationsChart({ title, description, data = [], bars = [], line, valueFormatter = (value) => Number(value || 0).toLocaleString(), lineFormatter = valueFormatter }) {
+  const { t } = useLanguage()
   const chartData = Array.isArray(data) ? data : []
-  const trend = compareTrend(chartData, line?.key)
+  const trend = compareTrend(chartData, line?.key, t)
   if (!line?.key) return null
-  return <SectionCard eyebrow="Live database comparison" title={title} className="overflow-hidden" action={<TrendBadge trend={trend} />}><p className="mt-2 text-sm text-slate-500">{description} {trend.label}</p>{chartData.length === 0 ? <div className="mt-5 flex min-h-64 items-center justify-center rounded-xl border border-dashed border-blue-200 bg-blue-50/40 p-5 text-center text-sm text-slate-500">No recorded data is available for this comparison yet.</div> : <div className="mt-5 h-72 min-w-0" role="img" aria-label={`${title} live bar and line chart`}><ResponsiveContainer width="100%" height="100%"><ComposedChart data={chartData} margin={{ top: 12, right: 4, left: -14, bottom: 0 }}><CartesianGrid vertical={false} stroke="#dbeafe" strokeDasharray="3 3" /><XAxis dataKey="date" tickFormatter={shortDate} axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} /><YAxis yAxisId="bars" tickFormatter={valueFormatter} axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} width={48} /><YAxis yAxisId="line" orientation="right" tickFormatter={lineFormatter} axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} width={48} /><Tooltip labelFormatter={(label) => `Date: ${label}`} formatter={(value, name) => [name === line.label ? lineFormatter(value) : valueFormatter(value), name]} contentStyle={tooltipStyle} /><Legend wrapperStyle={{ paddingTop: 14, fontSize: 12 }} />{bars.map((bar) => <Bar key={bar.key} yAxisId="bars" dataKey={bar.key} name={bar.label} fill={bar.color} radius={[6, 6, 0, 0]} maxBarSize={28} />)}<Line yAxisId="line" type="monotone" dataKey={line.key} name={line.label} stroke={line.color || '#2563eb'} strokeWidth={3} dot={{ r: 3, fill: line.color || '#2563eb' }} activeDot={{ r: 5 }} /></ComposedChart></ResponsiveContainer></div>}</SectionCard>
+  return <SectionCard eyebrow={t('charts.liveComparison')} title={title} className="overflow-hidden" action={<TrendBadge trend={trend} />}><p className="mt-2 text-sm text-slate-500">{description} {trend.label}</p>{chartData.length === 0 ? <div className="mt-5 flex min-h-64 items-center justify-center rounded-xl border border-dashed border-blue-200 bg-blue-50/40 p-5 text-center text-sm text-slate-500">{t('charts.noComparison')}</div> : <div className="mt-5 h-72 min-w-0" role="img" aria-label={t('charts.comparisonLabel', { title })}><ResponsiveContainer width="100%" height="100%"><ComposedChart data={chartData} margin={{ top: 12, right: 4, left: -14, bottom: 0 }}><CartesianGrid vertical={false} stroke="#dbeafe" strokeDasharray="3 3" /><XAxis dataKey="date" tickFormatter={shortDate} axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} /><YAxis yAxisId="bars" tickFormatter={valueFormatter} axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} width={48} /><YAxis yAxisId="line" orientation="right" tickFormatter={lineFormatter} axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} width={48} /><Tooltip labelFormatter={(label) => t('charts.date', { date: label })} formatter={(value, name) => [name === line.label ? lineFormatter(value) : valueFormatter(value), name]} contentStyle={tooltipStyle} /><Legend wrapperStyle={{ paddingTop: 14, fontSize: 12 }} />{bars.map((bar) => <Bar key={bar.key} yAxisId="bars" dataKey={bar.key} name={bar.label} fill={bar.color} radius={[6, 6, 0, 0]} maxBarSize={28} />)}<Line yAxisId="line" type="monotone" dataKey={line.key} name={line.label} stroke={line.color || '#2563eb'} strokeWidth={3} dot={{ r: 3, fill: line.color || '#2563eb' }} activeDot={{ r: 5 }} /></ComposedChart></ResponsiveContainer></div>}</SectionCard>
 }
 
-function compareTrend(data, key) {
-  if (!data || data.length < 2) return { direction: 'stable', label: 'First recorded point—comparison appears after another recorded day.' }
+function compareTrend(data, key, t) {
+  if (!data || data.length < 2) return { direction: 'stable', label: t('charts.firstPoint') }
   const latest = Number(data[data.length - 1]?.[key] || 0)
   const previous = Number(data[data.length - 2]?.[key] || 0)
-  if (previous === 0 && latest > 0) return { direction: 'up', label: 'Growing from the previous recorded date.' }
-  if (previous === 0 && latest === 0) return { direction: 'stable', label: 'No change from the previous recorded date.' }
+  if (previous === 0 && latest > 0) return { direction: 'up', label: t('charts.growing') }
+  if (previous === 0 && latest === 0) return { direction: 'stable', label: t('charts.stable') }
   const percent = Math.round(Math.abs(((latest - previous) / previous) * 100))
-  if (latest > previous) return { direction: 'up', label: `Up ${percent}% from the previous recorded date.` }
-  if (latest < previous) return { direction: 'down', label: `Down ${percent}% from the previous recorded date.` }
-  return { direction: 'stable', label: 'No change from the previous recorded date.' }
+  if (latest > previous) return { direction: 'up', label: t('charts.up', { percent }) }
+  if (latest < previous) return { direction: 'down', label: t('charts.down', { percent }) }
+  return { direction: 'stable', label: t('charts.stable') }
 }
 
 function TrendBadge({ trend }) {
+  const { t } = useLanguage()
   const styles = trend.direction === 'up' ? 'bg-emerald-50 text-emerald-700 ring-emerald-100' : trend.direction === 'down' ? 'bg-red-50 text-red-700 ring-red-100' : 'bg-blue-50 text-blue-700 ring-blue-100'
   const Icon = trend.direction === 'up' ? ArrowUpRight : trend.direction === 'down' ? ArrowDownRight : Minus
-  return <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${styles}`}><Icon size={14} />{trend.direction === 'up' ? 'Growing' : trend.direction === 'down' ? 'Down' : 'Stable'}</span>
+  return <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${styles}`}><Icon size={14} />{trend.direction === 'up' ? t('charts.growth') : trend.direction === 'down' ? t('charts.decline') : t('charts.unchanged')}</span>
 }
 
 const shortDate = (value) => {

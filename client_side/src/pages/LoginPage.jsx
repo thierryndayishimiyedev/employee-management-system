@@ -166,6 +166,7 @@ export default function LoginPage() {
               <ArrowRight className="h-4 w-4" />
             </button>
           </form>
+          {['OWNER', 'SUPER_ADMIN'].includes(accountType) && <div className="text-right"><a href="/forgot-password" className="text-sm font-semibold text-blue-700 hover:underline">Forgot password?</a></div>}
 
           <div className="border-t pt-6 space-y-3">
             <p className="text-xs font-medium uppercase tracking-widest text-slate-500">Demo accounts</p>

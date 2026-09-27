@@ -18,7 +18,9 @@ const router = express.Router();
 const {
     loginUser
 } = require("../controllers/auth.controller");
+const passwordResetRoutes = require('./passwordReset.routes');
 
 router.post("/login", loginUser);
+router.use('/password-reset', passwordResetRoutes);
 
 module.exports = router;

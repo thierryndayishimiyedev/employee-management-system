@@ -27,6 +27,7 @@ import GlobalSearchPage from "./pages/GlobalSearchPage";
 import MonthlyStaffPage from "./pages/MonthlyStaffPage";
 import NightShiftSettingsPage from "./pages/NightShiftSettingsPage";
 import OperationalSummaryPage from "./pages/OperationalSummaryPage";
+import { ConfirmPasswordResetPage, RequestPasswordResetPage } from './pages/PasswordResetPage';
 
 import "./App.css";
 import { OwnerManagerScopeProvider } from './context/OwnerManagerScope';
@@ -51,6 +52,8 @@ function App() {
                 path="/owner/login"
                 element={<OwnerLoginPage />}
             />
+            <Route path="/forgot-password" element={<RequestPasswordResetPage />} />
+            <Route path="/reset-password" element={<ConfirmPasswordResetPage />} />
 
             <Route
                 path="/dashboard"
