@@ -3,136 +3,17 @@ import { Download, FileText, Search } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
 import { useAuth } from '../context/authStore'
+import { useLanguage } from '../context/LanguageContext'
 import AppSidebar from './Appsidebar'
 
 const reports = [
-  { type: 'attendance', title: 'Attendance', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { type: 'production', title: 'Production', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { type: 'reports', title: 'Automatic Operations Reports', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { type: 'payroll', title: 'Payroll', roles: ['OWNER', 'ACCOUNTANT'] },
-  { type: 'payments', title: 'Payments', roles: ['OWNER'] },
-  { type: 'advances', title: 'Advances', roles: ['OWNER', 'ACCOUNTANT'] },
-  { type: 'expenses', title: 'Expenses & Materials', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { type: 'worker-consumptions', title: 'Worker Items & Shopkeeper Payments', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { type: 'flexible-work', title: 'Flexible Work', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { type: 'owner-direct-workers', title: 'Owner Direct Workers', roles: ['OWNER'] },
-  { type: 'food-supplies', title: 'My Food Supplies & Payments', roles: ['FOOD_SUPPLIER'] },
-  { type: 'employees', title: 'Employees', roles: ['OWNER', 'MANAGER'] },
-  { type: 'departments', title: 'Departments', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
-  { type: 'positions', title: 'Positions', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+  { type: 'attendance', key: 'attendance', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] }, { type: 'production', key: 'production', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] }, { type: 'reports', key: 'operationsReports', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] }, { type: 'payroll', key: 'payroll', roles: ['OWNER', 'ACCOUNTANT'] }, { type: 'payments', key: 'payments', roles: ['OWNER'] }, { type: 'advances', key: 'advances', roles: ['OWNER', 'ACCOUNTANT'] }, { type: 'expenses', key: 'expenses', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] }, { type: 'worker-consumptions', key: 'workerItems', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] }, { type: 'flexible-work', key: 'flexible', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] }, { type: 'owner-direct-workers', key: 'direct', roles: ['OWNER'] }, { type: 'food-supplies', key: 'food', roles: ['FOOD_SUPPLIER'] }, { type: 'employees', key: 'employees', roles: ['OWNER', 'MANAGER'] }, { type: 'departments', key: 'departments', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] }, { type: 'positions', key: 'positions', roles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
 ]
 
 export default function DownloadCenterPage() {
-  const { user } = useAuth()
-  const [search, setSearch] = useState('')
-  const [period, setPeriod] = useState('today')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
-  const [downloading, setDownloading] = useState('')
-
-  const visibleReports = useMemo(() => {
-    const term = search.toLowerCase()
-    return reports
-      .filter((item) => item.roles.includes(user?.role_name))
-      .filter((item) => item.title.toLowerCase().includes(term))
-  }, [search, user?.role_name])
-
-  const downloadReport = async (type) => {
-    setDownloading(type)
-    try {
-      const params = period === 'custom'
-        ? { period, start_date: startDate, end_date: endDate }
-        : { period }
-      const response = await api.get(`/downloads/${type}/pdf`, {
-        params,
-        responseType: 'blob',
-      })
-      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', `${type}-report.pdf`)
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      window.URL.revokeObjectURL(url)
-      toast.success('PDF downloaded')
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Download failed')
-    } finally {
-      setDownloading('')
-    }
-  }
-
-  return (
-    <div className="flex min-h-screen bg-slate-50">
-      <AppSidebar />
-      <main className="flex-1 p-4 md:p-8">
-        <div className="mx-auto max-w-7xl space-y-6">
-          <header className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Reports</p>
-            <h1 className="mt-2 text-2xl font-bold text-slate-900">Download Center</h1>
-            <p className="mt-1 text-sm text-slate-500">Download live, company-scoped PDF reports with structured table rows and columns.</p>
-          </header>
-
-          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="grid gap-3 md:grid-cols-[1fr_180px_160px_160px]">
-              <label className="relative block">
-                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search reports..."
-                  className="w-full rounded-md border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-amber-400"
-                />
-              </label>
-              <select
-                value={period}
-                onChange={(event) => setPeriod(event.target.value)}
-                className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-amber-400"
-              >
-                <option value="today">Daily — Today</option>
-                <option value="yesterday">Daily — Yesterday</option>
-                <option value="week">Weekly — This Week</option>
-                <option value="last_7_days">Previous 7 days</option>
-                <option value="last_14_days">Previous 14 days</option>
-                <option value="last_21_days">Previous 3 weeks</option>
-                <option value="month">Monthly — This Month</option>
-                <option value="year">Yearly — This Year</option>
-                <option value="custom">Custom Range</option>
-              </select>
-              <input
-                type="date"
-                value={startDate}
-                disabled={period !== 'custom'}
-                onChange={(event) => setStartDate(event.target.value)}
-                className="rounded-md border border-slate-200 px-3 py-2 text-sm outline-none disabled:bg-slate-50"
-              />
-              <input
-                type="date"
-                value={endDate}
-                disabled={period !== 'custom'}
-                onChange={(event) => setEndDate(event.target.value)}
-                className="rounded-md border border-slate-200 px-3 py-2 text-sm outline-none disabled:bg-slate-50"
-              />
-            </div>
-          </section>
-
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {visibleReports.map((report) => (
-              <article key={report.type} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-amber-50 text-amber-700 ring-1 ring-amber-100">
-                    <FileText size={20} />
-                  </div>
-                  <button type="button" onClick={() => downloadReport(report.type)} disabled={downloading === report.type} className="rounded-md p-2 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-50" title="Download PDF"><Download size={18} /></button>
-                </div>
-                <h2 className="mt-4 text-lg font-semibold text-slate-900">{report.title}</h2>
-                <p className="mt-1 text-sm text-slate-500">Professional PDF with aligned table cells, row lines, column borders, and totals.</p>
-              </article>
-            ))}
-          </section>
-        </div>
-      </main>
-    </div>
-  )
+  const { user } = useAuth(); const { t } = useLanguage()
+  const [search, setSearch] = useState(''); const [period, setPeriod] = useState('today'); const [startDate, setStartDate] = useState(''); const [endDate, setEndDate] = useState(''); const [downloading, setDownloading] = useState('')
+  const visibleReports = useMemo(() => { const term = search.toLowerCase(); return reports.filter((item) => item.roles.includes(user?.role_name)).filter((item) => t(`downloads.${item.key}`).toLowerCase().includes(term)) }, [search, user?.role_name, t])
+  const downloadReport = async (type) => { setDownloading(type); try { const params = period === 'custom' ? { period, start_date: startDate, end_date: endDate } : { period }; const response = await api.get(`/downloads/${type}/pdf`, { params, responseType: 'blob' }); const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' })); const link = document.createElement('a'); link.href = url; link.setAttribute('download', `${type}-report.pdf`); document.body.appendChild(link); link.click(); link.remove(); window.URL.revokeObjectURL(url); toast.success(t('downloads.pdfDownloaded')) } catch (error) { toast.error(error.response?.data?.message || t('downloads.failed')) } finally { setDownloading('') } }
+  return <div className="flex min-h-screen bg-slate-50"><AppSidebar /><main className="flex-1 p-4 md:p-8"><div className="mx-auto max-w-7xl space-y-6"><header className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"><p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t('downloads.eyebrow')}</p><h1 className="mt-2 text-2xl font-bold text-slate-900">{t('downloads.title')}</h1><p className="mt-1 text-sm text-slate-500">{t('downloads.description')}</p></header><section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"><div className="grid gap-3 md:grid-cols-[1fr_180px_160px_160px]"><label className="relative block"><Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('downloads.search')} className="w-full rounded-md border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-amber-400" /></label><select value={period} onChange={(event) => setPeriod(event.target.value)} className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-amber-400"><option value="today">{t('downloads.today')}</option><option value="yesterday">{t('downloads.yesterday')}</option><option value="week">{t('downloads.week')}</option><option value="last_7_days">{t('downloads.seven')}</option><option value="last_14_days">{t('downloads.fourteen')}</option><option value="last_21_days">{t('downloads.threeWeeks')}</option><option value="month">{t('downloads.month')}</option><option value="year">{t('downloads.year')}</option><option value="custom">{t('downloads.custom')}</option></select><input type="date" value={startDate} disabled={period !== 'custom'} onChange={(event) => setStartDate(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-sm outline-none disabled:bg-slate-50"/><input type="date" value={endDate} disabled={period !== 'custom'} onChange={(event) => setEndDate(event.target.value)} className="rounded-md border border-slate-200 px-3 py-2 text-sm outline-none disabled:bg-slate-50"/></div></section><section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{visibleReports.map((report) => <article key={report.type} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-start justify-between gap-4"><div className="flex h-11 w-11 items-center justify-center rounded-lg bg-amber-50 text-amber-700 ring-1 ring-amber-100"><FileText size={20} /></div><button type="button" onClick={() => downloadReport(report.type)} disabled={downloading === report.type} className="rounded-md p-2 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-50" title={t('downloads.pdf')}><Download size={18} /></button></div><h2 className="mt-4 text-lg font-semibold text-slate-900">{t(`downloads.${report.key}`)}</h2><p className="mt-1 text-sm text-slate-500">{t('downloads.documentHelp')}</p></article>)}</section></div></main></div>
 }

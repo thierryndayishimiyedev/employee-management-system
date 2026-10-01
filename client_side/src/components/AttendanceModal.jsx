@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../api/api";
+import { useLanguage } from '../context/LanguageContext';
 
 export default function AttendanceModal({
 
@@ -12,6 +13,8 @@ export default function AttendanceModal({
     onSuccess
 
 }) {
+
+    const { t } = useLanguage();
 
     const [employees, setEmployees] = useState([]);
 
@@ -185,7 +188,7 @@ export default function AttendanceModal({
 
                 error.response?.data?.message ||
 
-                "Something went wrong"
+                                t('attendanceModal.saveFailed')
 
             );
 
@@ -213,9 +216,9 @@ export default function AttendanceModal({
 
                             attendance
 
-                                ? "Correct attendance"
+                                ? t('attendanceModal.correct')
 
-                                : "Check in worker"
+                                : t('attendanceModal.checkInWorker')
 
                         }
 
@@ -249,7 +252,7 @@ export default function AttendanceModal({
 
                             <label className="text-sm text-slate-300">
 
-                                Employee
+                                {t('attendanceModal.employee')}
 
                             </label>
 
@@ -271,7 +274,7 @@ export default function AttendanceModal({
 
                                 <option value="">
 
-                                    Select Employee
+                                    {t('attendanceModal.selectEmployee')}
 
                                 </option>
 
@@ -323,7 +326,7 @@ export default function AttendanceModal({
 
                             <label className="text-sm text-slate-300">
 
-                                Date
+                                {t('common.date')}
 
                             </label>
 
@@ -353,7 +356,7 @@ export default function AttendanceModal({
 
                             <label className="text-sm text-slate-300">
 
-                                Check In
+                                {t('attendanceModal.checkIn')}
 
                             </label>
 
@@ -374,9 +377,9 @@ export default function AttendanceModal({
                         </div>
 
                         <div>
-                            <label className="text-sm text-slate-300">Check Out</label>
+                            <label className="text-sm text-slate-300">{t('attendanceModal.checkOut')}</label>
                             <input type="time" name="check_out" value={formData.check_out} onChange={handleChange} className="mt-2 w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-3" />
-                            <p className="mt-1 text-xs text-slate-400">Available after the Manager approves a correction request.</p>
+                            <p className="mt-1 text-xs text-slate-400">{t('attendanceModal.checkOutHelp')}</p>
                         </div>
 
                     </div>
@@ -384,15 +387,15 @@ export default function AttendanceModal({
                     <div className="grid md:grid-cols-2 gap-5">
 
                         <div className="rounded-xl border border-cyan-800 bg-cyan-950/40 px-4 py-3 text-sm text-cyan-100">
-                            <p className="font-medium">Hours worked</p>
-                            <p className="mt-1 text-cyan-200">For an approved correction, the system recalculates hours and the proportional daily value from these times.</p>
+                            <p className="font-medium">{t('attendanceModal.hours')}</p>
+                            <p className="mt-1 text-cyan-200">{t('attendanceModal.hoursHelp')}</p>
                         </div>
 
                         <div>
 
                             <label className="text-sm text-slate-300">
 
-                                Status
+                                {t('common.status')}
 
                             </label>
 
@@ -410,25 +413,25 @@ export default function AttendanceModal({
 
                                 <option value="PRESENT">
 
-                                    Present
+                                    {t('status.present')}
 
                                 </option>
 
                                 <option value="ABSENT">
 
-                                    Absent
+                                    {t('status.absent')}
 
                                 </option>
 
                                 <option value="LEAVE">
 
-                                    Leave
+                                    {t('status.leave')}
 
                                 </option>
 
                                 <option value="LATE">
 
-                                    Late
+                                    {t('status.late')}
 
                                 </option>
 
@@ -442,24 +445,24 @@ export default function AttendanceModal({
                     <div className="grid md:grid-cols-2 gap-5">
 
                         <div>
-                            <label className="text-sm text-slate-300">Shift</label>
+                            <label className="text-sm text-slate-300">{t('attendanceModal.shift')}</label>
                             <select name="shift_type" value={formData.shift_type} onChange={handleChange} className="mt-2 w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-3">
-                                <option value="DAY">Day shift</option>
-                                <option value="NIGHT">Night shift (may finish after midnight)</option>
+                                <option value="DAY">{t('attendanceModal.day')}</option>
+                                <option value="NIGHT">{t('attendanceModal.night')}</option>
                             </select>
                         </div>
 
                         <div>
-                            <label className="text-sm text-slate-300">Daily rate for this attendance</label>
-                            <input type="number" min="0" name="applied_daily_rate" value={formData.applied_daily_rate} onChange={handleChange} placeholder="Leave blank for normal rate" className="mt-2 w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-3" />
+                            <label className="text-sm text-slate-300">{t('attendanceModal.rate')}</label>
+                            <input type="number" min="0" name="applied_daily_rate" value={formData.applied_daily_rate} onChange={handleChange} placeholder={t('attendanceModal.normalRate')} className="mt-2 w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-3" />
                         </div>
 
                     </div>
 
                     <div>
 
-                        <label className="text-sm text-slate-300">Reason if daily rate is reduced</label>
-                        <textarea rows="2" name="rate_adjustment_reason" value={formData.rate_adjustment_reason} onChange={handleChange} placeholder="Required when the rate is below the worker's normal daily rate" className="mt-2 w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-3" />
+                        <label className="text-sm text-slate-300">{t('attendanceModal.rateReason')}</label>
+                        <textarea rows="2" name="rate_adjustment_reason" value={formData.rate_adjustment_reason} onChange={handleChange} placeholder={t('attendanceModal.rateReasonHelp')} className="mt-2 w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-3" />
 
                     </div>
 
@@ -467,7 +470,7 @@ export default function AttendanceModal({
 
                         <label className="text-sm text-slate-300">
 
-                            Remarks
+                            {t('attendanceModal.remarks')}
 
                         </label>
 
@@ -499,7 +502,7 @@ export default function AttendanceModal({
 
                         >
 
-                            Cancel
+                            {t('common.cancel')}
 
                         </button>
 
@@ -517,13 +520,13 @@ export default function AttendanceModal({
 
                                 loading
 
-                                    ? "Saving..."
+                                    ? t('attendanceModal.saving')
 
                                     : attendance
 
-                                    ? "Update check-in"
+                                    ? t('attendanceModal.update')
 
-                                    : "Check in worker"
+                                    : t('attendanceModal.checkInWorker')
 
                             }
 

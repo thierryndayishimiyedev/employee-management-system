@@ -4,8 +4,10 @@ import { Plus, Pencil, UserX } from 'lucide-react'
 import { getWorkers, deactivateWorker } from '../api/worker.api'
 import CreateWorkerModal from '../components/CreateWorkerModal'
 import EditWorkerModal from '../components/EditWorkerModal'
+import { useLanguage } from '../context/LanguageContext'
 
 export default function WorkersPage() {
+  const { t } = useLanguage()
   const [workers, setWorkers] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
@@ -17,7 +19,7 @@ export default function WorkersPage() {
       const res = await getWorkers()
       setWorkers(res.data.data)
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to load workers')
+      toast.error(error.response?.data?.message || t('workerPage.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -28,13 +30,13 @@ export default function WorkersPage() {
   }, [])
 
   const handleDeactivate = async (id) => {
-    if (!window.confirm('Deactivate this worker?')) return
+    if (!window.confirm(t('workerPage.deactivateConfirm'))) return
     try {
       await deactivateWorker(id)
-      toast.success('Worker deactivated')
+      toast.success(t('workerPage.deactivated'))
       loadWorkers()
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to deactivate worker')
+      toast.error(error.response?.data?.message || t('workerPage.deactivateFailed'))
     }
   }
 
@@ -43,33 +45,33 @@ export default function WorkersPage() {
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex justify-between items-center flex-wrap gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-white">Workers</h1>
-            <p className="text-slate-400 mt-1">Manage employees and their accounts.</p>
+            <h1 className="text-3xl font-bold text-white">{t('workers.title')}</h1>
+            <p className="text-slate-400 mt-1">{t('workerPage.description')}</p>
           </div>
           <button
             onClick={() => setShowCreate(true)}
             className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-cyan-400 transition"
           >
             <Plus size={16} />
-            Register Worker
+            {t('workerPage.register')}
           </button>
         </div>
 
         <div className="bg-slate-900/80 border border-slate-700/50 rounded-2xl p-6 shadow-xl overflow-x-auto">
           {loading ? (
-            <p className="text-slate-400 text-sm">Loading workers…</p>
+            <p className="text-slate-400 text-sm">{t('workerPage.loading')}</p>
           ) : workers.length === 0 ? (
-            <p className="text-slate-400 text-sm">No workers found.</p>
+            <p className="text-slate-400 text-sm">{t('workerPage.noWorkers')}</p>
           ) : (
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-700/30">
-                  <th className="text-left py-3 px-3 font-semibold text-slate-300">Name</th>
-                  <th className="text-left py-3 px-3 font-semibold text-slate-300">Position</th>
-                  <th className="text-left py-3 px-3 font-semibold text-slate-300">Department</th>
-                  <th className="text-left py-3 px-3 font-semibold text-slate-300">Phone</th>
-                  <th className="text-left py-3 px-3 font-semibold text-slate-300">Status</th>
-                  <th className="text-left py-3 px-3 font-semibold text-slate-300">Actions</th>
+                  <th className="text-left py-3 px-3 font-semibold text-slate-300">{t('workerPage.name')}</th>
+                  <th className="text-left py-3 px-3 font-semibold text-slate-300">{t('workerPage.position')}</th>
+                  <th className="text-left py-3 px-3 font-semibold text-slate-300">{t('workerPage.department')}</th>
+                  <th className="text-left py-3 px-3 font-semibold text-slate-300">{t('workerPage.phone')}</th>
+                  <th className="text-left py-3 px-3 font-semibold text-slate-300">{t('common.status')}</th>
+                  <th className="text-left py-3 px-3 font-semibold text-slate-300">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700/20">
@@ -87,21 +89,21 @@ export default function WorkersPage() {
                           ? 'bg-green-500/20 text-green-300'
                           : 'bg-slate-700/40 text-slate-300'
                       }`}>
-                        {worker.status}
+                        {worker.status === 'ACTIVE' ? t('workerPage.active') : t('workerPage.inactive')}
                       </span>
                     </td>
                     <td className="py-3 px-3 flex items-center gap-3">
                       <button
                         onClick={() => setEditWorker(worker)}
                         className="text-cyan-400 hover:text-cyan-300 transition"
-                        title="Edit"
+                        title={t('common.edit')}
                       >
                         <Pencil size={16} />
                       </button>
                       <button
                         onClick={() => handleDeactivate(worker.employee_id)}
                         className="text-red-400 hover:text-red-300 transition"
-                        title="Deactivate"
+                        title={t('workerPage.deactivate')}
                       >
                         <UserX size={16} />
                       </button>

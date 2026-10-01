@@ -230,8 +230,8 @@ const aggregate = async (companyIds, managerUserId = null) => {
         const periodProduction = filter(production, "production_date");
         const periodFlexibleWork = filter(flexibleWork, "work_date");
         const periodDirectWorkers = filter(directWorkers, "agreement_date");
-        const fixedAttendanceGross = (attendance || [])
-            .filter((row) => periodMatch(row.attendance_date, period, today))
+        const periodAttendance = (attendance || []).filter((row) => periodMatch(row.attendance_date, period, today));
+        const fixedAttendanceGross = periodAttendance
             .filter((row) => ["PRESENT", "LATE"].includes(row.attendance_status))
             .filter((row) => row.employees?.payment_type !== "FLEXIBLE_DAILY")
             .reduce((total, row) => total + Number(row.applied_daily_rate ?? row.employees?.daily_rate ?? 0), 0);
@@ -241,6 +241,16 @@ const aggregate = async (companyIds, managerUserId = null) => {
         const directWorkerGross = sum(periodDirectWorkers, "agreed_amount");
         all[period] = {
             label: period,
+            attendance_records: periodAttendance.length,
+            attendance_present: count(periodAttendance, (row) => ["PRESENT", "LATE"].includes(row.attendance_status)),
+            attendance_absent: count(periodAttendance, (row) => row.attendance_status === "ABSENT"),
+            attendance_hours: sum(periodAttendance, "hours_worked"),
+            payroll_records: periodPayroll.length,
+            advance_records: periodAdvances.length,
+            food_supply_records: periodFood.length,
+            expense_records: periodExpenses.length,
+            consumption_records: periodConsumptions.length,
+            production_records: periodProduction.length,
             fixed_workers_attendance_gross: fixedAttendanceGross,
             fixed_payroll_gross: sum(fixedPayroll, "basic_salary"),
             fixed_payroll_advances: sum(fixedPayroll, "advance_deduction"),
